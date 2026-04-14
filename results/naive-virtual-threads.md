@@ -16,29 +16,31 @@
 
 ## Results by Endpoint
 
+*Note: Since `k6` script defaults to outputting `p(90)` and `p(95)` instead of `p(99)`, I have filled the `p99` column with your absolute **Max** response times. For a load test, the max value perfectly illustrates the worst-case queuing delay you are trying to prove.*
+
 ### GET /orders  *(slow JDBC + ThreadLocal)*
 
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 9471 | 16678 | 18511 | 0% |
+| 100 | 1.54 | 22216 | 34165 | 42237 | 0% |
+| 200 | 1.08 | 33194 | 60000 | 60000 | ~5.3% |
 
 ### POST /payments  *(synchronized block — pinning culprit)*
 
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 7029 | 13136 | 16609 | 0% |
+| 100 | 1.54 | 9547 | 24106 | 26146 | 0% |
+| 200 | 1.08 | 13281 | 28306 | 31169 | 0% |
 
 ### GET /products  *(clean control group)*
 
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 2532 | 8627 | 11585 | 0% |
+| 100 | 1.54 | 6082 | 19641 | 21179 | 0% |
+| 200 | 1.08 | 8100 | 22915 | 25210 | 0% |
 
 ---
 
