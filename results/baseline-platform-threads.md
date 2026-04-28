@@ -16,29 +16,26 @@
 
 ## Results by Endpoint
 
-### GET /orders  *(slow JDBC + ThreadLocal)*
-
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+### GET /orders *(slow JDBC + ThreadLocal)*
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 308 | 311 | 369 | 0% |
+| 100 | 2.02 | 307 | 312 | 328 | 0% |
+| 200 | 2.96 | 307 | 316 | 373 | 0% |
 
-### POST /payments  *(synchronized block — pinning culprit)*
-
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+### POST /payments *(synchronized block — pinning culprit)*
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 16877 | 41458 | 48951 | 0% |
+| 100 | 2.02 | 26706 | 60000 | 60003 | ~5.5% |
+| 200 | 2.96 | 51944 | 60001 | 60002 | ~14.1% |
 
-### GET /products  *(clean control group)*
-
-| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Error Rate |
+### GET /products *(clean control group)*
+| Concurrent Users | Throughput (req/s) | p50 (ms) | p95 (ms) | Max (ms) | Error Rate |
 |---|---|---|---|---|---|
-| 50 | | | | | |
-| 100 | | | | | |
-| 200 | | | | | |
+| 50 | 1.97 | 2 | 4 | 14 | 0% |
+| 100 | 2.02 | 1 | 4 | 10 | 0% |
+| 200 | 2.96 | 2 | 5 | 28 | 0% |
 
 ---
 
