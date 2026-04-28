@@ -1,7 +1,7 @@
 spring:
   threads:
     virtual:
-      enabled: false  # Set to false for platform thread baseline (Milestone 5)
+      enabled: true  # Set to false for platform thread baseline (Milestone 5)
 
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1

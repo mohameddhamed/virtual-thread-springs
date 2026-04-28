@@ -2,6 +2,8 @@ package com.thesis.virtualthreadsdemo.service;
 
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 /**
  * ANTI-PATTERN #3: synchronized block wrapping a blocking call
  *
@@ -27,16 +29,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class PaymentService {
 
-    // ANTI-PATTERN: synchronized method containing a blocking call
-    // Simulates a legacy payment library that uses synchronized internally
-    public synchronized String processPayment(String orderId) {
+    // The modern, Virtual-Thread-safe way to lock
+    private final ReentrantLock lock = new ReentrantLock();
+
+    public String processPayment(String orderId) {
+        lock.lock();
         try {
-            // Simulates calling an external payment gateway (slow network call)
-            // With synchronized: Carrier Thread is pinned for this entire 500ms
-            // JFR will emit a jdk.VirtualThreadPinned event here
+            // Virtual Thread will now cleanly unmount here!
+            // It will NOT pin the OS Carrier Thread.
             Thread.sleep(500);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        } finally {
+            lock.unlock(); // Always unlock in a finally block
         }
 
         return "Payment processed for order: " + orderId;
