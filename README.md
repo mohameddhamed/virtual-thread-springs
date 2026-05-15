@@ -102,12 +102,123 @@ Results are saved to the `results/` folder. See `results/baseline-platform-threa
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Project Setup & Tech Spike | ✅ Done |
-| 2 | Legacy App Design & Build | 🔄 In Progress |
-| 3 | Observability & Benchmarking | ⏳ Upcoming |
-| 4 | Docker Compose | ⏳ Upcoming |
-| 5 | Platform Thread Baseline | ⏳ Upcoming |
-| 6 | VT Migration & Pinning Analysis | ⏳ Upcoming |
-| 7 | Refactor, Fix & Thesis Bootstrap | ⏳ Upcoming |
+| 2 | Legacy App Design & Build | ✅ Done |
+| 3 | Observability & Benchmarking | ✅ Done |
+| 4 | Docker Compose | ✅ Done |
+| 5 | Platform Thread Baseline | ✅ Done |
+| 6 | VT Migration & Pinning Analysis | ✅ Done |
+| 7 | Refactor, Fix & Thesis Bootstrap | ✅ Done |
+
+---
+
+## How to Reproduce the Results
+
+### Prerequisites
+
+- Java 21 (JDK 21+)
+- Docker & Docker Compose
+- Maven 3.9+
+- k6 (for load testing)
+
+### Step 1: Verify Local Maven Build
+
+```bash
+# Build the application locally
+./mvnw clean package -DskipTests
+
+# Expected output: BUILD SUCCESS, JAR created at target/virtual-threads-demo-0.0.1-SNAPSHOT.jar
+```
+
+### Step 2: Run with Docker Compose
+
+```bash
+# Start all services: demo-app, postgres, pgAdmin
+docker compose up
+
+# Expected output:
+# - demo-app listening on http://localhost:8080
+# - postgres listening on localhost:5432
+# - pgAdmin listening on http://localhost:5050
+# - All health checks passing
+```
+
+### Step 3: Verify Application Health
+
+```bash
+# Health check endpoint
+curl http://localhost:8080/health
+
+# Test the three endpoints
+curl http://localhost:8080/orders
+curl -X POST http://localhost:8080/payments -H "Content-Type: application/x-www-form-urlencoded" -d "orderId=test-order-123"
+curl http://localhost:8080/products
+```
+
+### Step 4: Run Load Tests (k6)
+
+```bash
+# Run benchmark against platform threads (current config)
+./run-benchmark.sh
+
+# Results saved to results/run-XXvus-TIMESTAMP.json
+# Compare against baseline-platform-threads.md
+```
+
+### Step 5: Toggle Virtual Threads & Re-test
+
+```bash
+# Edit src/main/resources/application.yml and change:
+# spring.threads.virtual.enabled: true → false (for platform threads)
+# OR
+# spring.threads.virtual.enabled: false → true (for virtual threads)
+
+# Rebuild and restart:
+docker compose down
+docker compose up
+
+# Re-run benchmark and compare results
+./run-benchmark.sh
+```
+
+### Step 6: Analyze JFR Pinning Events
+
+```bash
+# If JFR was enabled, extract pinning events:
+jfr print --events jdk.VirtualThreadPinned results/jfr/recording-TIMESTAMP.jfr
+
+# Look for stack traces showing synchronized blocks or pinning sources
+```
+
+### Expected Results
+
+**Platform Threads (baseline):**
+- Throughput @ 200 VUs: ~2.96 req/s
+- Latency p95 (/orders): ~316 ms
+- Latency p95 (/payments): ~60,001 ms (timeout)
+
+**Naive Virtual Threads (without fixes):**
+- Throughput @ 200 VUs: ~1.08 req/s (63% degradation)
+- Latency p50 (/orders): ~33 seconds (cascading failure)
+- JFR pinning events: ~485 in /payments
+
+**Refactored Virtual Threads (synchronized → ReentrantLock):**
+- Throughput @ 200 VUs: ~2.84 req/s (recovery to baseline)
+- Latency p95 (/orders): ~439 ms (acceptable)
+- JFR pinning events: ~12 (95% reduction)
+
+See `results/comparison.md` for full 3-way comparison table.
+
+---
+
+## Documentation
+
+- **`docs/anti-patterns.md`** — Catalog of thread-pinning sources with code locations, root causes, and fixes
+- **`docs/migration-guidelines.md`** — Pre-migration checklist for safely enabling Virtual Threads (6 major audit steps)
+- **`docs/thesis-outline.md`** — Full thesis structure (9 chapters), methodology, results, and implications
+- **`results/baseline-platform-threads.md`** — Platform threads baseline results + interpretation
+- **`results/naive-virtual-threads.md`** — Naive VT results showing pinning impact + JFR data
+- **`results/refactored-virtual-threads.md`** — Refactored VT results showing recovery + pinning reduction
+- **`results/comparison.md`** — 3-way comparison table and analysis
 
 ---
 

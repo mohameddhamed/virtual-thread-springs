@@ -56,15 +56,17 @@ jfr print --events jdk.VirtualThreadPinned results/jfr/recording-TIMESTAMP.jfr
 
 ## Observations
 
-*(Write 2–3 sentences interpreting the numbers. What stood out? What was expected vs. surprising?)*
+**Orders endpoint (slow JDBC + ThreadLocal):**
+With platform threads, the 200-thread pool handles the 300ms query time reasonably well. Throughput stabilizes at ~2-3 req/s across all load levels, indicating the Tomcat thread pool is the limiting factor. All queries complete within acceptable latency (p95 ≤ 316ms), showing predictable behavior. The thread pool prevents cascade failures even under high concurrency, though it also artificially caps throughput. This baseline establishes the maximum performance achievable without Virtual Threads.
 
-**Orders endpoint:**
+**Payments endpoint (synchronized block — pinning culprit):**
+Despite simpler business logic (500ms sleep), throughput matches the orders endpoint (~2-3 req/s) because the 200-thread pool is saturated. Latency is severe (p50 jumps from 16.8s at 50 VUs to 51.9s at 200 VUs, with p95 timeout at 60s), indicating heavy request queuing. The synchronized block itself is not the bottleneck here; the thread pool saturation masks the pinning effect. At 200 VUs, error rates reach ~14%, showing the system begins to fail under sustained overload.
 
-**Payments endpoint:**
-
-**Products endpoint:**
+**Products endpoint (clean control group):**
+The fast query completes in 1-5ms, showing excellent per-request performance. However, throughput (~2-3 req/s) matches the slower endpoints due to the shared Tomcat thread pool constraint. This confirms the thread pool is the system-wide bottleneck, not business logic. This endpoint serves as the performance target for Virtual Threads—we expect similar sub-millisecond latency when VTs remove the thread pool constraint.
 
 **Pinning events:**
+No Virtual Threads present, so no JFR pinning events. Platform threads use OS-level scheduling; there is no VT unmounting mechanic to pin or unpin. This is the baseline against which both naive and refactored Virtual Thread runs will be compared.
 
 ---
 
