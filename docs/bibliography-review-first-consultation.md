@@ -1,4 +1,6 @@
-# Bibliography Review (First Consultation Milestone)
+# Bibliography Review (Superseded Draft)
+
+> This file is retained as the original consultation draft. Use `docs/bibliography-review-revised.md` for the audit-driven review. The original draft contains incomplete “Current” citations, treats local artifacts as bibliography entries, and does not include the JEP 491/version boundary or recent closest studies.
 
 **Programme:** MSc in Computer Science  
 **Student:** Hamed Mohamed (DG1EWF)  

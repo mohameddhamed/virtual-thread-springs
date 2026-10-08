@@ -1,4 +1,6 @@
-# Benchmark Results: REFACTORED-VIRTUAL-THREADS
+# Benchmark Results: REFACTORED-VIRTUAL-THREADS (Pilot, Requires Revalidation)
+
+The values and interpretations below are historical pilot observations. They are not final thesis evidence until mapped to raw k6/JFR files, commits, exact versions, and run manifests. The refactoring comparison also requires endpoint-contract and mutual-exclusion tests before it can be described as behavior-preserving.
 
 ## Run Configuration
 
@@ -45,9 +47,9 @@
 |---|---|---|---|
 | `jdk.VirtualThreadPinned` | ~12 | 3 | Minimal framework-level pinning (not user code) |
 
-**Analysis:**
+**Analysis (provisional):**
 - Pinning events reduced from ~485 to ~12, a **97.5% reduction**
-- Remaining pinning is framework-internal (not caused by application code)
+- Remaining pinning must be classified from regenerated stack traces before being attributed to framework internals
 - By replacing `synchronized` with `ReentrantLock`, VT unmounting is restored, allowing Carrier Threads to be reused effectively
 - The slight residual pinning is acceptable and inherent to Tomcat/Spring internals
 
@@ -56,16 +58,16 @@
 ## Observations
 
 **Orders endpoint (slow JDBC + ThreadLocal):**
-Throughput stabilized back to near-baseline levels (2.84 req/s at 200 VUs vs. 2.96 baseline), showing 2.6× improvement over naive VTs (1.08 req/s). Latency remained at 309ms (same as baseline), which is expected—the 300ms query time is still blocking, and the connection pool is still the bottleneck. However, critically, Virtual Threads now unmount safely during the blocking call, allowing other VTs to run on freed Carrier Threads. The system no longer exhibits cascading failures. This demonstrates that VT performance degrades gracefully to I/O limits, not thread pool limits.
+The historical values suggest recovery relative to the naive condition, but they do not identify whether synchronization, JDBC-pool capacity, mixed-workload interference, or run selection produced the change. The final analysis must separate context lifecycle, JDBC wait, and pinning mechanisms.
 
 **Payments endpoint (ReentrantLock — fixed):**
-Throughput recovered to baseline levels (2.84 req/s at 200 VUs vs. 2.96 baseline). By replacing `synchronized` with `ReentrantLock`, the thread pinning was virtually eliminated (~12 pinning events vs. ~485 in naive VT). Latency shows the cost of the 500ms sleep (p50 = 53.4s at 200 VUs), which is higher than the naive case (p50 = 13.3s), indicating the system is now **honestly queuing** by I/O delay rather than being throttled by pinning. At 200 VUs with 500ms per request, ~2.8 req/s is near-optimal throughput. Error rates remain ~13.6% due to timeouts during periods of heavy load, but the system behaves predictably.
+The historical table reports recovery in throughput but also a p50 near 53 seconds. A 500 ms service delay does not by itself predict that latency, and mixed closed-loop throughput cannot determine endpoint queueing. Recompute with isolated offered/achieved rates, timeout censoring, and queue/resource telemetry before interpreting the result.
 
 **Products endpoint (clean control group):**
-Throughput and latency returned to baseline (2.84 req/s at 200 VUs, p50 = 3ms). Fast requests are no longer starved by cascading failures from pinned endpoints. Latency variance dropped dramatically (p95 from 22,915ms at 200 VUs in naive VT to 14ms here), confirming Virtual Threads now schedule efficiently. This confirms the hypothesis: once anti-patterns are fixed, Virtual Threads scale gracefully for I/O-bound workloads.
+The historical mixed-workload values are consistent with reduced interference, but isolated `/products` runs and scheduler/resource evidence are required before attributing the change to carrier reuse.
 
 **Pinning events:**
-~12 pinning events detected at 200 VUs (vs. ~485 in naive VT), a **97.5% reduction**. Remaining events are framework internals (Spring/Tomcat), not application code. This dramatic reduction directly correlates with the throughput recovery, proving the refactoring eliminated the root cause. The system can now safely handle millions of Virtual Threads without catastrophic performance loss.
+The historical extraction reports approximately 12 events versus approximately 485 in the naive condition. The percentage and stack attribution must be regenerated with the same JFR configuration. Correlation with throughput recovery is not proof that refactoring eliminated the sole root cause, and this pilot does not support a claim about handling millions of Virtual Threads.
 
 ---
 

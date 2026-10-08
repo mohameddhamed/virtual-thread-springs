@@ -53,12 +53,7 @@ export default function () {
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
 export function handleSummary(data) {
-    const vus = TARGET_VUS;
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `results/run-${vus}vus-${timestamp}.json`;
-
     return {
-        [filename]: JSON.stringify(data, null, 2),
         stdout: textSummary(data, { indent: ' ', enableColors: false }),
     };
 }

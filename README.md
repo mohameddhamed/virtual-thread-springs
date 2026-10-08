@@ -71,6 +71,26 @@ virtual-threads-demo/
 ./mvnw spring-boot:run
 ```
 
+### Research evidence explorer
+
+After starting the local application, open:
+
+```text
+http://localhost:8080/research-dashboard.html
+```
+
+The explorer reads the canonical trial-level dataset at
+`src/main/resources/static/data/normalized-evidence.json`. Refresh it after
+adding benchmark artifacts with:
+
+```bash
+python3 scripts/normalize_evidence.py
+python3 scripts/validate_normalized_evidence.py
+```
+
+It distinguishes measured values, derived summaries, and conceptual
+explanations. It does not run benchmarks or invent projected results.
+
 ### With Docker Compose
 ```bash
 docker compose up
@@ -84,6 +104,57 @@ spring:
     virtual:
       enabled: true   # set to false for platform thread baseline
 ```
+
+### JNI blocking experiment
+
+This repository includes a deliberately small JNI control at `GET /native`,
+which is also the `ENDPOINT=native` target supported by
+`k6/isolated-load-test.js`. It calls a C function that blocks for a configurable
+duration, defaulting to 500 ms:
+
+```yaml
+demo:
+  native:
+    enabled: true
+    sleep-millis: 500
+```
+
+On macOS or Linux, the test lifecycle compiles the library with the system C
+compiler and configures Surefire with `java.library.path`. Run:
+
+```bash
+./mvnw test
+```
+
+To run the enabled endpoint locally, compile the native library first and then
+start Spring Boot:
+
+```bash
+./mvnw generate-test-resources
+./mvnw spring-boot:run -Dspring-boot.run.arguments="--demo.native.enabled=true"
+```
+
+The exact macOS/Linux native build command used by Maven is:
+
+```bash
+set -eu; mkdir -p target/native; case "$(uname -s)" in Darwin) cc -dynamiclib -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" native/native_blocking.c -o target/native/libnativeblocking.dylib ;; Linux) cc -shared -fPIC -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" native/native_blocking.c -o target/native/libnativeblocking.so ;; esac
+```
+
+When using `./mvnw`, Maven substitutes the active JDK's `java.home` for
+`$JAVA_HOME`. To exercise a shorter local call, pass
+`--demo.native.sleep-millis=20`; the default remains 500 ms.
+`GET /native-short` is an independent JNI no-op control and is available as
+`ENDPOINT=native-short` in the isolated k6 script.
+
+`run-benchmark.sh` also writes `results/telemetry-<timestamp>.csv` while the
+load test runs, with one-second snapshots of the application PID, process
+thread count, and CPU percentage. This is lightweight context telemetry, not a
+replacement for JFR or a benchmark result.
+
+This JNI path is a bounded extension for a reproducible native blocking
+experiment. It is not a general claim that all native calls pin virtual
+threads; native-library behavior, JVM version, and call-site details must be
+evaluated separately.
 
 ---
 

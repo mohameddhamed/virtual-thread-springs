@@ -1,17 +1,17 @@
 # 3-Way Comparison: Platform Threads vs. Naive Virtual Threads vs. Refactored Virtual Threads
 
-This document synthesizes the findings from all three benchmark runs, revealing the impact of thread pinning and the effectiveness of refactoring.
+This document is a **preliminary pilot narrative**, not a verified final result set. The figures below must be mapped to raw k6/JFR files, commits, and run manifests before they are used as thesis findings. In particular, endpoint throughput in the current mixed closed-loop workload is not automatically comparable to an isolated endpoint arrival rate, and latency includes queueing and timeout selection effects.
 
 ---
 
-## Executive Summary
+## Executive Summary (provisional)
 
 | Finding | Impact | Implication |
 |---------|--------|-------------|
-| Naive VT adoption worsened performance | 63% throughput loss on pinning endpoint | VTs require careful migration, not drop-in replacement |
-| Thread pinning reduced by 97.5% after refactoring | Throughput recovered to baseline | ReentrantLock fixes are critical and effective |
+| Naive VT adoption worsened performance | A historical pilot reported a 63% loss in one condition | This is a hypothesis to revalidate, not a target or confirmed effect |
+| Thread pinning reduced by 97.5% after refactoring | A historical pilot reported fewer recorded events | The JFR threshold and stack attribution must be verified |
 | Cascading failures affected all endpoints | Even fast endpoints degraded with naive VTs | Single pinning source can bring down entire system |
-| JFR pinning visibility is essential | ~485 events identified root cause | Monitoring and JFR are prerequisites for safe adoption |
+| JFR pinning visibility is essential | JFR can provide mechanism evidence | An event count alone does not establish causality |
 
 ---
 
@@ -79,11 +79,11 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 | **Naive VT** | 13,281 | -74% | — |
 | **Refactored VT** | 53,406 | +3% (higher) | +302% (worse) |
 
-**Analysis (Note: This endpoint is unusual):**
+**Analysis (Note: This endpoint is unusual and unresolved):**
 - Naive VT p50 is actually lower (13s vs 51s baseline), which is counterintuitive
 - However, naive VT throughput is much lower (1.08 req/s), meaning fewer requests complete successfully—the ones that do are lucky
 - Refactored VT shows honest queueing: p50 ≈ 50s = 500ms payload + queuing time at 2.84 req/s
-- The refactored result is mathematically sound: at 2.84 req/s with 500ms per request, expect ~1.76 requests queued = 880ms latency (matches p50 ≈ 53s = 500ms + overhead)
+- The current narrative's explanation is not mathematically established. A 500 ms service delay does not by itself predict a 53 s p50, and 2.84 requests/s in a mixed closed-loop test is not sufficient to infer the endpoint's queueing regime. Recompute endpoint-isolated offered/achieved rates, timeout censoring, and queue/resource telemetry before interpreting this value.
 
 #### Error Rate @ 200 VUs
 
@@ -105,7 +105,7 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 | **Naive VT** | 1.08 | -63% (cascading failure!) |
 | **Refactored VT** | 2.84 | -4% |
 
-**Key Finding:** This endpoint has ZERO anti-patterns, yet still degraded 63% in naive VT mode. This proves cascading failure: requests for the fast endpoint queue behind pinned requests from /payments.
+**Provisional observation:** This endpoint has no intentionally introduced application anti-pattern, yet the historical mixed run reports degradation in naive VT mode. This is consistent with cross-endpoint interference, but does not prove a cascading carrier-starvation mechanism.
 
 #### Latency p50 @ 200 VUs
 
@@ -118,7 +118,7 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 **Analysis:**
 - Naive VT: p50 jumps from 2ms to 8.1 seconds! This is purely cascading failure
 - Refactored VT: p50 rises to 3ms (1ms due to VT context switching overhead, expected)
-- This endpoint proves the existence and severity of cascading failures
+- This endpoint motivates an isolated control run and scheduler/resource telemetry; it does not by itself prove cascading failure.
 
 #### Latency p95 @ 200 VUs
 
@@ -152,7 +152,7 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 - ~12 events (97.5% reduction) from framework-level operations
 - These are acceptable and inherent to Spring/Tomcat internals
 - No pinning from application code
-- System can now support millions of VTs without performance degradation
+- No single-machine pilot supports a claim about millions of Virtual Threads or production-scale behavior.
 
 ---
 
@@ -178,25 +178,25 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 
 **Interpretation:**
 - /products shows the most dramatic latency improvement (2,700×), revealing how severe cascading failure was
-- /orders improves 107×, showing recovery from both pinning and connection pool contention
+- The historical `/orders` value changes substantially, but the relative improvement cannot be attributed jointly to pinning and connection-pool recovery until raw runs and pool telemetry are mapped.
 - /payments latency appears to increase, but this is actually correct: more requests complete, so more see full queuing
 
 ---
 
 ## Research Question Resolution
 
-### RQ1: How do legacy synchronization mechanisms impact Virtual Thread performance due to thread pinning?
+### RQ1 (provisional pilot interpretation): How do legacy synchronization mechanisms impact Virtual Thread performance due to thread pinning?
 
-**Answer:** Catastrophically. A single `synchronized` block caused a 63% throughput collapse across the entire system:
+**Current hypothesis, not a confirmed answer:** A single `synchronized` block may cause a large system-wide throughput change in Java 21:
 - Naive VT throughput: 1.08 req/s (vs. 2.96 baseline)
 - Pinning events: ~485 at 200 VUs (97.5% from PaymentService)
 - Cascading failure: even endpoints with zero anti-patterns degraded 63%
 
 **Implication:** Thread pinning is not a localized problem; it cascades system-wide.
 
-### RQ2: What architectural anti-patterns must be refactored before enabling Virtual Threads to prevent degradation?
+### RQ2 (bounded): In the demonstration application, how do synchronization, ThreadLocal context, and JDBC-pool saturation affect the measured mechanisms?
 
-**Answer:** Three primary anti-patterns were identified:
+**Pilot observations suggest three candidate risks, but only the synchronization claim is eligible for a pinning label after JFR stack re-extraction and controlled reproduction:**
 
 1. **Synchronized blocks** (CRITICAL)
    - Cause: OS-level monitor locks incompatible with VT unmounting
@@ -243,7 +243,7 @@ This document synthesizes the findings from all three benchmark runs, revealing 
 ### 2. Cascading Failure is Real
 
 - The /products endpoint (zero anti-patterns) still degraded 63% when /payments pinned
-- This proves a single pinning hotspot can bring down an entire application
+- This is a hypothesis that a pinning hotspot can affect unrelated endpoints; it requires isolated and mixed-workload confirmation.
 - Modern multi-tenant systems must be especially careful
 
 ### 3. ReentrantLock is a Complete Fix for Synchronized Blocks
@@ -321,7 +321,7 @@ Virtual Threads are a significant advancement for I/O-bound Java applications, b
 3. **Monitoring setup** (JFR, pinning event alerts)
 4. **Load testing validation** (before and after)
 
-This demo proves that:
+This demo is intended to test whether:
 - Naive adoption can worsen performance (63% loss)
 - Systematic refactoring fully recovers benefits (163% gain)
 - A single pinning source cascades system-wide

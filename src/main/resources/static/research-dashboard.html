@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Evidence Explorer</title>
+  <link rel="stylesheet" href="/research-dashboard.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><span class="orb"></span><div><strong>Evidence Lab</strong><small>Virtual threads thesis</small></div></div>
+    <nav>
+      <a href="#overview">Overview</a><a href="#explorer">Experiment Explorer</a>
+      <a href="#synchronization">Java 21 Synchronization</a><a href="#jni">JNI Boundary</a>
+      <a href="#controls">Controls</a><a href="#mechanisms">Mechanism Explorer</a>
+      <a href="#conclusions">Conclusions</a><a href="#provenance">Provenance</a>
+    </nav>
+    <div class="side-note">Local, reproducible view<br><code id="generated"></code></div>
+  </aside>
+  <main>
+    <header class="hero" id="overview"><div><p class="eyebrow">Interactive Experimental Evidence Explorer</p><h1>What the experiments<br><em>actually establish</em></h1><p class="lede">A trial-level view of the current Java 21 synchronization and native-boundary evidence. Measured facts stay separate from interpretation.</p></div><div class="status"><span class="dot"></span><span id="record-count">Loading evidence…</span></div></header>
+    <section class="finding-grid" id="headline-findings"></section>
+    <section class="section" id="explorer"><div class="section-head"><div><p class="eyebrow">Browse the evidence</p><h2>Experiment Explorer</h2></div><p class="muted">Filter the canonical dataset, then select a trial for its raw-artifact lineage.</p></div>
+      <div class="filters"><label>Family<select id="family-filter"><option value="">All families</option></select></label><label>JDK<select id="jdk-filter"><option value="">All JDKs</option></select></label><label>Condition<select id="condition-filter"><option value="">All conditions</option></select></label><label>Thread model<select id="thread-filter"><option value="">All models</option></select></label></div>
+      <div class="table-wrap"><table><thead><tr><th>Trial</th><th>Family / condition</th><th>JDK</th><th>Requests</th><th>Median</th><th>P95</th><th>JFR pinned</th></tr></thead><tbody id="trial-body"></tbody></table></div>
+      <div class="detail" id="trial-detail"><span class="muted">Select a trial to inspect details.</span></div>
+    </section>
+    <section class="section split" id="synchronization"><div><p class="eyebrow">Primary Java 21 study</p><h2>Synchronization</h2><p>Three repeated trials compare monitor serialization, <code>ReentrantLock</code>, a no-lock diagnostic upper bound, and a platform-thread control under a one-carrier stress condition.</p><div id="sync-summary" class="summary-cards"></div></div><div class="callout amber"><strong>Established</strong><p>Java 21 synchronized trials produced measured <code>jdk.VirtualThreadPinned</code> events. ReentrantLock and no-lock trials reported zero events.</p><strong>Not established</strong><p>Replacing synchronized with ReentrantLock did not remove the application-level serialization or prove a throughput advantage.</p></div></section>
+    <section class="section split" id="jni"><div><p class="eyebrow">Boundary extension</p><h2>JNI Boundary</h2><p>Repeated process-level runs keep the Java-21-targeted artifact and one-carrier scheduler fixed while varying runtime and native condition.</p><div id="jni-summary" class="summary-cards"></div></div><div class="callout blue"><strong>Measured</strong><p>Blocking JNI completed roughly one sixth as many requests as pure Java sleep across Java 21, 24 and 25.</p><strong>Explicit zero</strong><p>All 27 JFR recordings report zero <code>jdk.VirtualThreadPinned</code> events for the JNI matrix.</p></div></section>
+    <section class="section" id="controls"><p class="eyebrow">Reference points</p><h2>Controls</h2><div class="control-list"><div><b>No-lock diagnostic</b><span>Separates lock-induced queueing from the monitor mechanism. Conceptual validity: upper bound only.</span></div><div><b>Platform synchronized</b><span>Shows the same serialized work on platform threads; pinning events are not expected.</span></div><div><b>CPU-only</b><span id="cpu-control">Loaded from the standalone control artifact.</span></div></div></section>
+    <section class="section mechanism" id="mechanisms"><p class="eyebrow">Interpretation layer</p><h2>Mechanism Explorer <span class="tag">conceptual</span></h2><div class="mechanism-grid"><article><span>01</span><h3>Monitor pinning</h3><p>In the Java 21 treatment, blocking while holding a monitor can keep the virtual thread mounted to its carrier.</p></article><article><span>02</span><h3>Queueing versus pinning</h3><p>ReentrantLock removes the observed monitor event, but a single critical section still bounds completed work.</p></article><article><span>03</span><h3>Native residency</h3><p>The JNI result is consistent with carrier occupation under stress, but its zero JFR count is not a direct pinning confirmation.</p></article></div></section>
+    <section class="section" id="conclusions"><p class="eyebrow">Thesis-ready wording</p><h2>Conclusions</h2><div class="conclusion"><b>Supported:</b> Under the tested Java 21 one-carrier condition, synchronized blocking generated monitor-pinning events; ReentrantLock avoided those observed events.</div><div class="conclusion"><b>Supported:</b> Long blocking JNI behaved differently from ordinary Java sleep across the repeated runtime matrix.</div><div class="conclusion caution"><b>Not established:</b> that Virtual Threads are faster in general, that Java 21 outperforms Java 24/25, or that zero JNI JFR events prove no carrier capture.</div></section>
+    <section class="section" id="provenance"><p class="eyebrow">Reproducibility</p><h2>Provenance & classifications</h2><p>Measured values are parsed from the repository's run manifests, k6 JSONL and JFR recordings. Derived labels and percentiles are computed by the normalization script. Mechanism explanations are conceptual and must not be read as additional observations.</p><div id="limitations" class="limitations"></div><p class="muted">Refresh data with <code>python3 scripts/normalize_evidence.py</code>. The app serves this page as a static Spring Boot resource.</p></section>
+  </main>
+  <script src="/research-dashboard.js"></script>
+</body>
+</html>

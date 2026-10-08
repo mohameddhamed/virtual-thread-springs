@@ -33,3 +33,17 @@ build/
 .vscode/
 .bloop/
 .metals/
+
+# Supervisor-provided MSc audit skills and local consultation material
+ELTE_IK_MSc_Consultation_Checkpoint_Skills_Suite/
+elte-msc-thesis-30-point-audit/
+MSc Thesis consultations - deadlines - PTI-ARI-ADAT.pdf
+
+# macOS metadata
+.DS_Store
+.local/
+
+# Regenerated benchmark recordings and raw load-test streams
+results/jfr/*.jfr
+results/run-[0-9]*.json
+results/telemetry-*.csv

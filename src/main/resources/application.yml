@@ -3,6 +3,13 @@ spring:
     virtual:
       enabled: true  # Set to false for platform thread baseline (Milestone 5)
 
+demo:
+  native:
+    enabled: false # Enable only when the JNI library has been built
+    sleep-millis: 500
+  payment:
+    lock-mode: reentrant-lock
+
   datasource:
     url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver

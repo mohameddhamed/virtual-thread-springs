@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<native.output.dir>${project.build.directory}/native</native.output.dir>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -54,8 +55,37 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>exec-maven-plugin</artifactId>
+				<version>3.5.0</version>
+				<executions>
+					<execution>
+						<id>compile-native</id>
+						<phase>generate-test-resources</phase>
+						<goals><goal>exec</goal></goals>
+						<configuration>
+							<executable>sh</executable>
+							<arguments>
+								<argument>-c</argument>
+								<argument>set -eu; mkdir -p "${native.output.dir}"; case "$(uname -s)" in Darwin) cc -dynamiclib -I"${java.home}/include" -I"${java.home}/include/darwin" native/native_blocking.c -o "${native.output.dir}/libnativeblocking.dylib" ;; Linux) cc -shared -fPIC -I"${java.home}/include" -I"${java.home}/include/linux" native/native_blocking.c -o "${native.output.dir}/libnativeblocking.so" ;; *) echo "JNI experiment supports macOS and Linux only" &gt;&amp;2; exit 1 ;; esac</argument>
+							</arguments>
+						</configuration>
+					</execution>
+				</executions>
+				<configuration>
+					<skip>false</skip>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Djava.library.path=${native.output.dir}</argLine>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

@@ -1,6 +1,7 @@
 package com.thesis.virtualthreadsdemo.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -29,21 +30,46 @@ import java.util.concurrent.locks.ReentrantLock;
 @Service
 public class PaymentService {
 
-    // The modern, Virtual-Thread-safe way to lock
+    private final String lockMode;
     private final ReentrantLock lock = new ReentrantLock();
+    private final Object monitor = new Object();
+
+    public PaymentService(@Value("${demo.payment.lock-mode:reentrant-lock}") String lockMode) {
+        if (!lockMode.equals("synchronized")
+                && !lockMode.equals("reentrant-lock")
+                && !lockMode.equals("none")) {
+            throw new IllegalArgumentException(
+                    "demo.payment.lock-mode must be synchronized, reentrant-lock, or none");
+        }
+        this.lockMode = lockMode;
+    }
 
     public String processPayment(String orderId) {
-        lock.lock();
-        try {
-            // Virtual Thread will now cleanly unmount here!
-            // It will NOT pin the OS Carrier Thread.
-            Thread.sleep(500);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            lock.unlock(); // Always unlock in a finally block
+        switch (lockMode) {
+            case "synchronized" -> {
+                synchronized (monitor) {
+                    simulatePaymentCall();
+                }
+            }
+            case "reentrant-lock" -> {
+                lock.lock();
+                try {
+                    simulatePaymentCall();
+                } finally {
+                    lock.unlock();
+                }
+            }
+            case "none" -> simulatePaymentCall();
         }
 
         return "Payment processed for order: " + orderId;
+    }
+
+    private void simulatePaymentCall() {
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

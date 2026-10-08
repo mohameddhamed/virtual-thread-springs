@@ -1,4 +1,6 @@
-# Benchmark Results: NAIVE-VIRTUAL-THREADS
+# Benchmark Results: NAIVE-VIRTUAL-THREADS (Pilot, Requires Revalidation)
+
+The values and interpretations below are historical pilot observations. They are not final thesis evidence until mapped to raw k6/JFR files, commits, exact runtime configuration, and run manifests. The mixed closed-loop workload also prevents treating displayed throughput as an isolated endpoint arrival rate.
 
 ## Run Configuration
 
@@ -50,27 +52,27 @@
 |---|---|---|---|
 | `jdk.VirtualThreadPinned` | ~485 | 512 | `PaymentService.processPayment()` — synchronized block |
 
-**Analysis:**
+**Analysis (provisional):**
 - The vast majority of pinning occurs in the /payments endpoint due to the `synchronized` method wrapping a 500ms blocking call (`Thread.sleep()`)
 - Each pinned VT holds its Carrier Thread for the full 500ms duration, preventing other VTs from executing
 - At 200 concurrent VUs, the pinning creates a cascade: incoming requests cannot be scheduled because all Carrier Threads are blocked holding pinned VTs
-- This is the smoking gun: enabling VTs with unsanitized code can **worsen** performance
+- This supports a hypothesis that the Java 21 synchronized path can worsen performance, but isolated runs and a frozen protocol are required before treating it as a causal finding.
 
 ---
 
 ## Observations
 
 **Orders endpoint (slow JDBC + ThreadLocal):**
-Throughput degraded severely compared to baseline (1.08 req/s at 200 VUs vs. 2.96 baseline). Latency exploded (p50 = 33.2s at 200 VUs, a 108× increase). The combination of ThreadLocal overhead and JDBC connection pool exhaustion creates cascading delays. Virtual Threads could not provide relief because each slow query (300ms) ties up a limited connection slot. Without proper connection pool tuning for VT concurrency, the pool becomes exhausted rapidly, forcing subsequent requests to queue indefinitely. This demonstrates that naive VT adoption without infrastructure changes can worsen performance for I/O-bound workloads.
+The historical table reports severe degradation at 200 VUs. It does not establish that `ThreadLocal` caused the effect, nor does it distinguish JDBC-pool wait, mixed-workload interference, carrier pinning, and closed-loop self-throttling. Those mechanisms require separate telemetry and endpoint-isolated runs.
 
 **Payments endpoint (synchronized block — pinning culprit):**
-Performance collapsed dramatically compared to baseline. Throughput dropped to 1.08 req/s at 200 VUs (63% of baseline's 2.96 req/s). The `synchronized` block pins Virtual Threads to Carrier Threads; even with millions of VTs available, the system bottlenecks on a handful of Carrier Threads (typically 8 per core) that are blocked holding pinned VTs. At 200 VUs, p50 latency is 13.3s—still severe compared to baseline's 51.9s, showing that without pinning events there would be some relief. This endpoint demonstrates the **smoking gun**: thread pinning causes observable performance degradation that cascades throughout the system.
+The historical table reports a large throughput change at 200 VUs. The `synchronized` path is a candidate pinning mechanism in Java 21, but the event threshold, stack output, carrier behavior, and alternative queue/resource explanations must be rechecked before calling this a system-wide causal collapse.
 
 **Products endpoint (clean control group):**
 Despite having zero anti-patterns, throughput degraded to 1.08 req/s at 200 VUs (vs. 2.96 baseline). Latency surged from 2ms to 8.1ms at 200 VUs. This is the **cascading failure effect**: fast endpoint requests queue behind slow requests that are pinning Carrier Threads in the /payments endpoint. With all 8 Carrier Threads pinned, no requests can make progress. This demonstrates a critical Virtual Thread danger: a single pinning hotspot can degrade the entire application, even endpoints with no anti-patterns.
 
 **Pinning events:**
-~485 pinning events detected at 200 VUs (a massive 97.5% of all events come from /payments), each representing a synchronized method holding a Virtual Thread hostage on its Carrier Thread. This provides the smoking gun: PaymentService.processPayment() is the single point of failure. The dramatic performance collapse across all endpoints correlates directly with these pinning events. Without JFR visibility, this root cause would be impossible to diagnose; developers would observe "VTs perform worse than platform threads" and abandon the technology without understanding why.
+The historical extraction reports approximately 485 events at 200 VUs, mostly attributed to `/payments`. This is mechanism evidence only after the raw recording, threshold, and stack classification are regenerated; correlation with endpoint degradation is not by itself proof of a single point of failure.
 
 ---
 
