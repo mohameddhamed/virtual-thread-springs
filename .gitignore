@@ -46,4 +46,17 @@ MSc Thesis consultations - deadlines - PTI-ARI-ADAT.pdf
 # Regenerated benchmark recordings and raw load-test streams
 results/jfr/*.jfr
 results/run-[0-9]*.json
+results/run-manifest-*.json
+!results/run-manifest-template.json
 results/telemetry-*.csv
+results/cpu-control-*.json
+
+# Locally generated research exports and personal working documents
+docs/detailed-research-plan-prism.pdf
+docs/detailed-research-plan.pdf
+Hamed_Mohamed_Detailed_Research_Plan_Prism.zip
+Hamed_Mohamed_MSc_Checkpoints_2_3_Audit.md
+Hamed_Mohamed_MSc_Checkpoints_2_3_Audit.md alias
+software-plan-virtual-threads-fall-2026.docx
+software-plan-virtual-threads.docx
+~$ftware-plan-virtual-threads-fall-2026.docx
