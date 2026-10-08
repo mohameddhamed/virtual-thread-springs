@@ -51,11 +51,8 @@ results/run-manifest-*.json
 results/telemetry-*.csv
 results/cpu-control-*.json
 
-# Locally generated research exports and personal working documents
-docs/detailed-research-plan-prism.pdf
-docs/detailed-research-plan.pdf
+# Local personal working documents
 Hamed_Mohamed_Detailed_Research_Plan_Prism.zip
-Hamed_Mohamed_MSc_Checkpoints_2_3_Audit.md
 Hamed_Mohamed_MSc_Checkpoints_2_3_Audit.md alias
 software-plan-virtual-threads-fall-2026.docx
 software-plan-virtual-threads.docx
