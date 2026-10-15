@@ -283,6 +283,7 @@ See `results/comparison.md` for full 3-way comparison table.
 
 ## Documentation
 
+- **`docs/ultimate-research-program-plan-2026-10-15.md`** — Staged plan for the primary Java 21 study and bounded synchronization, JDK, OS, energy, and scheduler extensions
 - **`docs/anti-patterns.md`** — Catalog of thread-pinning sources with code locations, root causes, and fixes
 - **`docs/migration-guidelines.md`** — Pre-migration checklist for safely enabling Virtual Threads (6 major audit steps)
 - **`docs/thesis-outline.md`** — Full thesis structure (9 chapters), methodology, results, and implications
