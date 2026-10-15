@@ -1,279 +1,220 @@
-# Presentation Outline: Virtual Threads Migration in Spring Boot
+# Research Achievements Presentation
+
+**Title:** Migrating Spring Boot MVC Systems to Java 21 Virtual Threads
+**Subtitle:** Ready Software, Measurements, Methodology, and Research Answers
+**Presenter:** Mohamed Hamed
+**Purpose:** Checkpoint 4 research-achievements presentation
+
+> Use the current validated values below. Earlier pilot figures such as
+> “63% throughput loss,” “96% recovery,” and “485 pinning events” are
+> superseded because their raw-artifact mapping was incomplete.
+
+## Slide 1 — What was delivered
 
-**Instructions for Claude Web:** Use this outline to create a presentation. Include the exact data points mentioned. Use a clean, academic but casual style. Include 1-2 key visuals where noted (simple tables or charts). The supervisor already knows the context, so this is mostly showing work/thoroughness rather than deep explanation.
+- A runnable Spring Boot MVC research application.
+- Intentional synchronization, request-context, JDBC, and JNI/native
+  treatments.
+- k6 load workloads and process-level benchmark orchestration.
+- JFR pinning capture and evidence normalization/validation.
+- H2 and Dockerized PostgreSQL deployment paths.
+- Repeated measurements, correctness tests, and migration guidance.
 
----
+## Slide 2 — Research questions
 
-## SLIDE 1: Title
-- **Title:** Migrating Spring Boot to Java 21 Virtual Threads: A Practical Study
-- **Subtitle:** Research Demo, Benchmarking Results & Migration Guidelines
-- **Meta:** Mohamed Hamed | Thesis Lab | May 15, 2026
-- **Visual:** Simple banner/logo area (optional)
+**RQ1:** How does intrinsic synchronization around blocking work affect
+throughput, latency, errors, and Virtual Thread pinning compared with platform
+threads and a Virtual-Thread-compatible lock?
 
----
+**RQ2:** How do synchronization, request-context handling, and JDBC
+connection capacity affect pinning, context correctness, and finite-resource
+contention?
 
-## SLIDE 2: Research Questions & Goal
-**Content:**
-- **RQ1:** How do legacy synchronization mechanisms impact throughput due to thread pinning?
-- **RQ2:** What architectural anti-patterns must be refactored before enabling Virtual Threads?
-- **RQ3:** What practical guidelines can we give practitioners for safe migration?
+The practical output is a migration procedure, not a separate unsupported
+claim that Virtual Threads are universally faster.
 
-**Why it matters:** Virtual Threads promise 10-100× throughput improvements, but legacy code has hidden pitfalls. This project quantifies the risks and solutions.
+## Slide 3 — Ready-to-use software
 
-**Deliverables built by today:**
-- Working Spring Boot 3.2 demo app with intentional anti-patterns
-- Full benchmarking suite (k6 load tests, JFR pinning detection)
-- Docker Compose stack (PostgreSQL + pgAdmin)
-- Before/after analysis + migration checklist
+| Surface | Delivered behavior | Research role |
+|---|---|---|
+| `GET /orders` | JDBC-shaped work, approximately 300 ms delay, cleaned-up `ThreadLocal` | Blocking/resource/context control |
+| `POST /payments` | Approximately 500 ms operation with selectable lock treatment | Primary synchronization treatment |
+| `GET /products` | Fast clean endpoint | Control group |
+| `GET /cpu` | CPU-only work | CPU control |
+| `GET /native` | Long JNI/native sleep | Native-boundary treatment |
+| `GET /native-short` | Short JNI transition | Native transition control |
 
----
+The application can run locally with Maven and as a Docker Compose stack with
+PostgreSQL and pgAdmin.
 
-## SLIDE 3: The Demo App Architecture
-**Content:**
+## Slide 4 — Final methodology
 
-Three REST endpoints intentionally designed to show anti-patterns:
+- Empirical engineering/system study on one controlled Spring Boot artifact.
+- Java 21.0.8 Zulu for the primary study.
+- macOS Apple Silicon host with 8 logical CPUs.
+- k6 process-level workloads with closed-loop VUs.
+- JFR `jdk.VirtualThreadPinned` event extraction for Virtual Thread runs.
+- Correctness gates before interpreting performance:
+  response validity, mutual exclusion, ordering, interruption, and ownership.
+- Trial-level reporting; requests inside a run are not treated as independent
+  experimental repetitions.
+- Mechanism separation:
+  monitor pinning, serialization, finite-resource contention, and native
+  carrier occupation are analysed independently.
 
-| Endpoint | What it does | Anti-pattern | Purpose |
-|----------|-------------|---|---|
-| **GET /orders** | Slow JDBC query (300ms) | ThreadLocal misuse | Shows I/O blocking + request scope issues |
-| **POST /payments** | Process payment (500ms) | `synchronized` block | Shows thread pinning (CRITICAL) |
-| **GET /products** | Fast query (1-5ms) | None | Control group (should be fast) |
+## Slide 5 — Primary Java 21 synchronization result
 
-**Why this design?**
-- Realistic workload (database, payments, caching patterns found in real apps)
-- Shows cascading failure (when /payments pins threads, even /products degrades)
-- Benchmarking will reveal hidden system-wide impacts
+Protocol: isolated `POST /payments`, 10 closed-loop VUs, 500 ms operation,
+one Virtual Thread carrier, three process repetitions per condition.
 
----
+| Condition | Mean requests | Mean p50 | Mean p95 | JFR result |
+|---|---:|---:|---:|---:|
+| Virtual Threads + `synchronized` | 110.0 | 3,923.86 ms | 7,957.50 ms | 110 events/run |
+| Virtual Threads + `ReentrantLock` | 108.7 | 4,941.99 ms | 4,967.54 ms | 0 events/run |
+| Virtual Threads + no-lock diagnostic | 710.7 | 507.66 ms | 512.84 ms | 0 events/run |
+| Platform threads + `synchronized` | 110.0 | 3,936.42 ms | 9,002.48 ms | Not applicable |
 
-## SLIDE 4: Experimental Setup
-**Content:**
+All 12 runs completed with zero HTTP failures.
 
-**Benchmark Configuration:**
-- Load generator: k6 (Grafana)
-- Concurrency levels: 50, 100, 200 virtual users
-- Run duration: 60 seconds per test
-- Metrics captured: throughput (req/s), latency (p50/p95/p99), error rate
+## Slide 6 — What the primary result means
 
-**Thread pinning detection:**
-- Java Flight Recorder (JFR) enabled for all Virtual Thread runs
-- Event: `jdk.VirtualThreadPinned` to detect carrier thread blocking
-- Stack traces to pinpoint root cause
+- Java 21 intrinsic synchronization around the blocking operation produced
+  direct `jdk.VirtualThreadPinned` evidence.
+- `ReentrantLock` removed the observed monitor-pinning events.
+- The lock replacement did **not** increase payment capacity because the
+  500 ms operation remained serialized.
+- The no-lock result is an unsafe diagnostic upper bound, not a proposed
+  payment implementation.
 
-**Comparison groups:**
-1. Platform Threads baseline (Tomcat 200-thread pool)
-2. Naive Virtual Threads (just enabled, no code changes)
-3. Refactored Virtual Threads (synchronized → ReentrantLock, ThreadLocal audited)
+**Main lesson:** removing monitor pinning and removing application
+serialization are different engineering changes.
 
----
+## Slide 7 — Supporting measurements
 
-## SLIDE 5: Results - The Big Picture (3-Way Comparison)
-**Content:**
+### Endpoint isolation
 
-**Throughput @ 200 concurrent users:**
+- `/orders`: Virtual Threads and platform threads behaved similarly; zero
+  Virtual Thread pinning events.
+- `/products`: approximately 2–3 ms median latency; zero pinning events.
+- Ordinary blocking or `ThreadLocal` presence was not treated as pinning
+  without mechanism evidence.
 
-| Mode | Throughput | vs Baseline | Status |
-|------|-----------|-----------|--------|
-| Platform Threads (baseline) | 2.96 req/s | — | Expected limit |
-| Naive Virtual Threads | 1.08 req/s | **–63%** ⚠️ WORSE |
-| Refactored Virtual Threads | 2.84 req/s | **+96% recovery** ✅ |
+### CPU control
 
-**Key Insight:** Naive adoption *worsens* performance. Systematic refactoring nearly restores it.
+- Virtual Threads: mean approximately 9.85–10.01 ms; p95 approximately
+  13.78–14.21 ms.
+- Platform threads: mean approximately 14.20–14.51 ms; p95 approximately
+  20.49–20.69 ms.
+- Zero pinning events in all runs.
 
-**Latency p50 @ 200 VUs:**
+These are local control observations, not universal performance claims.
 
-| Mode | /orders | /payments | /products |
-|------|---------|-----------|-----------|
-| Platform | 307ms | 51.9s | 5ms |
-| Naive VT | 33.2s | 13.3s | 8.1ms |
-| Refactored VT | 309ms | 53.4s | 3ms |
+## Slide 8 — Native, JDK, and database boundaries
 
-**Visual:** Include a simple bar chart showing throughput recovery.
+### JNI/native boundary
 
----
+With one carrier and repeated Java 21/24/25 runs:
 
-## SLIDE 6: The Smoking Gun — Thread Pinning Events
-**Content:**
+- pure Java sleep: approximately 713–714 requests;
+- long JNI: approximately 108–109 requests, roughly 4.95 s median latency;
+- short JNI: approximately 4,185–4,212 requests, approximately 1 ms median.
 
-**JFR Pinning Events @ 200 VUs:**
+All 27 recordings reported zero `jdk.VirtualThreadPinned` events. The result
+is behavioral evidence consistent with carrier occupation, not
+JFR-confirmed monitor pinning.
 
-- Platform Threads: 0 (not applicable)
-- Naive Virtual Threads: **~485 pinning events** 🚨
-- Refactored Virtual Threads: **~12 pinning events** (97.5% reduction)
-
-**Where pinning happened (Naive VT):**
-- 97.5% of events from `PaymentService.processPayment()` (the synchronized block)
-- Each event = a Virtual Thread stuck on a Carrier Thread, blocking others
-- With only ~8 Carrier Threads available per core, all 200 concurrent requests queue behind pinned ones
+### Database sensitivity
 
-**Cascading Effect:**
-- /products endpoint (zero anti-patterns) still degraded 63% because all Carrier Threads pinned in /payments
-- Fast endpoints drowned by slow, pinned ones—system-wide failure
-
-**Insight:** Without JFR visibility, developers would see "VTs perform worse" and abandon the technology without understanding why.
-
----
-
-## SLIDE 7: Anti-Patterns Discovered
-**Content:**
-
-**ANTI-PATTERN #1: Synchronized Blocks (CRITICAL)**
-- **Location:** `PaymentService.java:35-48`
-- **Problem:** Synchronized method pins Virtual Thread to Carrier Thread
-- **Impact:** 485 pinning events, 13.3s latency, cascading system failure
-- **Fix:** Replace with `ReentrantLock` (refactored version)
+H2 and PostgreSQL pool sizes 1 versus 10 produced nearly identical results in
+the tested 50-VU, closed-loop, synthetic `/orders` workload. No pool-size
+bottleneck was established.
 
-**ANTI-PATTERN #2: ThreadLocal Misuse (MEDIUM)**
-- **Location:** `OrderService.java:26-28` (RequestContextHolder pattern)
-- **Problem:** RequestLocal storage doesn't scale with millions of VTs
-- **Impact:** JDBC connection pool exhaustion, 33.2s latency on naive VT
-- **Fix:** Ensure scope is request-level (Spring `@RequestScope`), not app-level
+## Slide 9 — Synchronization semantics
 
-**ANTI-PATTERN #3: Unbounded Blocking I/O (MEDIUM)**
-- **Location:** JDBC queries without connection pool tuning
-- **Problem:** Limited DB connections + unlimited VTs = resource exhaustion
-- **Impact:** Queries queue indefinitely; no throughput improvement
-- **Fix:** Tune HikariCP pool size relative to expected concurrency
+The study tested correctness and contract properties, not only latency:
 
----
+- fair `ReentrantLock`: perfect FIFO ordering in the controlled probe;
+- non-fair lock: barging observed in the adversarial probe;
+- `lockInterruptibly()` and timed `tryLock()` changed cancellation behavior;
+- wrong-thread lock release failed;
+- wrong-thread semaphore release was accepted;
+- CAS handled a bounded state transition but was not a replacement for a
+  blocking payment critical section.
 
-## SLIDE 8: Migration Guidelines (Practical Checklist)
-**Content:**
+**Migration lesson:** synchronization primitives are not interchangeable.
+Ownership, fairness, interruption, timeout, and reentrancy must be preserved.
 
-**Before enabling `spring.threads.virtual.enabled=true`:**
+## Slide 10 — Answers to the research questions
 
-1. **Audit synchronized blocks**
-   - Search codebase for `synchronized` keyword
-   - Replace with `ReentrantLock` or `StampedLock`
-   - Test locking semantics (no lost updates)
+### RQ1 answer
 
-2. **Audit ThreadLocal usage**
-   - Find all `ThreadLocal` declarations
-   - Verify request-scoped (Spring `@RequestScope`), not app-scoped
-   - Ask: does it work with 1000x more threads?
+In the tested Java 21 condition, intrinsic synchronization around blocking
+work caused direct monitor-pinning evidence. Replacing it with
+`ReentrantLock` removed that evidence but did not remove the serialized
+business bottleneck.
 
-3. **Tune connection pools**
-   - Set HikariCP `maximumPoolSize` proportional to expected concurrency
-   - Monitor pool exhaustion in dev environment
-   - Typical: 20-50 connections for 100+ concurrent users
+### RQ2 answer
 
-4. **Profile with JFR**
-   - Run `jdk.VirtualThreadPinned` event capture under load
-   - Use: `jfr print --events jdk.VirtualThreadPinned recording.jfr`
-   - Fix identified hotspots before production
+Before enabling Virtual Threads, audit:
 
-5. **Test under realistic load**
-   - Run benchmarks at 50, 100, 200 concurrent users
-   - Compare throughput/latency before/after
-   - If naive migration degrades performance >10%, audit for anti-patterns
+1. intrinsic monitors around blocking work;
+2. request-context lifecycle and `ThreadLocal` cleanup;
+3. bounded database and external resources;
+4. native/JNI boundaries;
+5. lock semantics and correctness invariants.
 
-6. **Document unavoidable pinning**
-   - JNI/native code always pins (unavoidable)
-   - Database drivers may pin (use non-blocking alternatives if available)
-   - Catalog these and set performance budgets
+The audits must remain mechanism-specific. This study did not establish a
+ThreadLocal leak, a Hikari pool bottleneck, or universal JNI pinning.
 
----
+## Slide 11 — Practical contribution
 
-## SLIDE 9: Key Findings & Implications
-**Content:**
+The resulting migration procedure is:
 
-**What We Learned:**
+1. freeze source, runtime, workload, hardware, and artifact identity;
+2. enable Virtual Threads without changing application behavior;
+3. use JFR to locate actual monitor-pinning stacks;
+4. review critical-section scope and preserve synchronization semantics;
+5. audit context lifecycle and finite-resource capacity;
+6. test native/external boundaries separately;
+7. repeat correctness and performance measurements;
+8. retain raw artifacts and report negative results and limitations.
 
-1. **Naive adoption is risky** → 63% throughput drop on this demo
-   - Virtual Threads aren't a free lunch
-   - Legacy anti-patterns become critical bottlenecks
-   - A single pinning hotspot brings down the entire system
+Supporting documents:
 
-2. **Systematic refactoring works** → 96% throughput recovery
-   - Replacing `synchronized` with `ReentrantLock` was sufficient here
-   - JFR visibility is essential to diagnose pinning sources
-   - Disciplined auditing pays off
+- `docs/research-synthesis.md`
+- `docs/migration-guidelines.md`
+- `docs/artifact-provenance-ledger.md`
 
-3. **Virtual Threads excel for fast, non-pinning endpoints**
-   - /products endpoint showed best performance in refactored mode
-   - Non-blocking endpoints can handle 100x+ more concurrency
-   - Mixed workloads benefit most (fast endpoints get full VT advantage)
+## Slide 12 — Remaining packaging work
 
-4. **Real-world applicability**
-   - Most enterprise Spring Boot apps have similar anti-patterns
-   - This checklist applies broadly (not just this demo)
-   - ROI is high for high-concurrency systems (APIs, microservices, async handlers)
+The research execution is substantially complete. Remaining Checkpoint 4 /
+Checkpoint 5 preparation is documentation and provenance work:
 
----
+- freeze the final source and artifact revision;
+- map every headline claim to raw k6/JFR/manifest files and hashes;
+- integrate the results into the substantially complete thesis draft;
+- complete the signed AI declaration and point-of-use disclosures;
+- retain the complete interaction log required by the applicable policy;
+- present the final package to the supervisor.
 
-## SLIDE 10: Next Steps & Open Questions
-**Content:**
+Energy measurement and cross-OS comparison remain explicitly deferred because
+the required reproducible environments/access were unavailable.
 
-**Completed for thesis:**
-- ✅ Quantified thread pinning impact (RQ1)
-- ✅ Identified refactoring strategies (RQ2)
-- ✅ Documented practical checklist (RQ3)
-- ✅ All code + benchmarks + analysis ready for thesis write-up next semester
+## Backup — reproducibility commands
 
-**Still investigating:**
-- ReentrantLock on /payments still bottlenecks at 200 VUs (53.4s latency)—may need async redesign instead of just lock replacement
-- JDBC driver tuning—could pool+caching strategies help further?
-- Spring Data JPA reactive layer—does it eliminate pinning entirely?
-
-**Broader questions:**
-- How does this scale to real microservice architectures?
-- What's the cost of refactoring large legacy codebases?
-- Best practices for team adoption?
-
----
-
-## SLIDE 11: Conclusion
-**Content:**
-
-**In 30 seconds:**
-
-Virtual Threads are powerful but require discipline. Naive adoption on this realistic demo caused **63% performance loss**. By auditing and refactoring (synchronized → ReentrantLock), we recovered **96% of baseline throughput**. The anti-pattern catalog and migration checklist provide practitioners a roadmap for safe adoption.
-
-**This semester's work:**
-- Built a realistic demo app with intentional anti-patterns
-- Created a full benchmarking suite (k6, JFR, Docker Compose)
-- Quantified before/after impact with real data
-- Produced actionable migration guidelines
-
-**Next semester:** Write the thesis. All evidence already exists.
-
----
-
-## SLIDE 12 (Optional Backup): Docker & Reproducibility
-**Content:**
-
-**Full stack reproducible in one command:**
 ```bash
-docker compose up
+./mvnw test
+python3 scripts/normalize_evidence.py
+python3 scripts/validate_normalized_evidence.py
+./run-benchmark.sh --endpoint payments --vus 10 --lock-mode synchronized
+./run-benchmark.sh --endpoint payments --vus 10 --lock-mode reentrant-lock
 ```
 
-**Services:**
-- `demo-app` (Spring Boot 3.2 + Java 21)
-- `postgres` (production-like DB)
-- `pgAdmin` (visual DB management)
+The one-carrier mechanism stress condition requires:
 
-**All experiments reproducible:**
 ```bash
-./run-benchmark.sh  # Runs full suite with JFR enabled
+JAVA_EXTRA_OPTS="-Djdk.virtualThreadScheduler.parallelism=1 -Djdk.virtualThreadScheduler.maxPoolSize=1"
 ```
 
-**Results:**
-- k6 JSON output: `results/run-{50|100|200}vus-*.json`
-- JFR traces: `results/jfr/recording-*.jfr`
-- Markdown analysis: `results/*.md`
-
----
-
-## PRESENTATION NOTES FOR CLAUDE:
-
-1. **Tone:** Casual, confident. The supervisor already knows the context; this is showing you did the work thoroughly.
-2. **Visuals:** Include the 2 tables (throughput + latency comparison). A bar chart for throughput recovery would be nice but not essential.
-3. **Emphasis:** Slide 6 (pinning events) is the hook—the "aha!" moment. Slide 8 (checklist) is the practical takeaway.
-4. **Timing:** Should take 10-15 minutes to present + questions.
-5. **Color scheme:** Academic but modern (e.g., dark blue + teal for accent).
-6. **Fonts:** Clean sans-serif (Calibri, Segoe, or similar).
-
-**Deliverables asked of Claude Web:**
-- PDF export
-- Option to download as .pptx or .pdf
-- Clean, single-column layout (easy to follow on screen)
+The dashboard is available at `/research-dashboard.html` after starting the
+application, but it is an evidence navigator, not a replacement for raw
+artifacts or the methodology.

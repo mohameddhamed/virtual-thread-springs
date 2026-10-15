@@ -105,11 +105,15 @@ Before flipping the `spring.threads.virtual.enabled` flag, complete all items be
    ```
 
 3. **Tune the pool** based on your workload:
-   - **Formula:** `pool_size = (avg_query_latency_ms / 1000) * max_concurrent_requests + buffer`
-   - **Example:** 300ms queries × 100 concurrent VTs ÷ 1000 = 30 connections minimum
-   - **Set:** `maximum-pool-size: 50-100` for typical VT workloads
+   - Do not size the pool from Virtual Thread count alone. Measure database
+     capacity, query latency, active/pending connections, acquisition latency,
+     and timeouts under the intended workload.
+   - The local H2 and Dockerized PostgreSQL sensitivity runs did not expose a
+     material pool-size effect when changing the maximum from 1 to 10, but the
+     synthetic closed-loop workload does not establish a production sizing
+     rule.
 
-   Recommended tuning:
+   Example configuration to test, not a universal recommendation:
    ```yaml
    spring:
      datasource:
@@ -196,7 +200,16 @@ Before flipping the `spring.threads.virtual.enabled` flag, complete all items be
    - **Option B:** Migrate away from native code if possible
 
 3. **Example from this repo:**
-   - **Status:** ✅ No JNI usage detected
+   - `GET /native` calls a deliberately small C/JNI function that blocks for
+     approximately 500 ms.
+   - `GET /native-short` is a short JNI transition control.
+   - The repeated experiment showed approximately 108–109 requests under a
+     one-carrier stress condition for long JNI, versus approximately 713–714
+     for ordinary Java sleep. JFR reported zero
+     `jdk.VirtualThreadPinned` events, so the result is behavioral evidence
+     consistent with carrier occupation, not JFR-confirmed monitor pinning.
+   - Do not assume that a zero JFR pinning count makes long native execution
+     harmless; test the boundary separately.
 
 ---
 
@@ -280,8 +293,10 @@ Look for:
 
 ### Metrics to Monitor
 
-- **Throughput (req/s):** Should improve 2-10x with VTs vs platform threads
-- **Latency p99:** Should remain stable or improve
+- **Throughput (req/s):** Compare matched trial-level results; improvement is
+  workload- and bottleneck-dependent
+- **Latency p99:** Compare distributions and queueing effects; do not assume
+  stability or improvement
 - **GC pause time:** May increase if ThreadLocal usage is high (more objects to collect)
 - **Memory usage:** Monitor for unbounded thread creation (should be millions, but capped by heap)
 
@@ -300,13 +315,14 @@ Look for:
 
 ## Summary: Pre-Migration Checklist
 
-- [ ] No `synchronized` blocks (except framework internals)
+- [ ] Every `synchronized` block has been reviewed, especially when it
+      surrounds blocking work
 - [ ] All ThreadLocal is request-scoped and cleaned up
-- [ ] JDBC connection pool tuned for VT concurrency
+- [ ] JDBC connection pool measured and tuned for database capacity
 - [ ] Blocking I/O has timeouts
-- [ ] No native code (or isolated in dedicated thread pool)
+- [ ] Native code identified and tested or isolated in a bounded strategy
 - [ ] Frameworks are VT-compatible versions
-- [ ] Load tests confirm throughput improvement
+- [ ] Matched load tests characterize throughput and latency changes
 - [ ] JFR monitoring enabled in production
 - [ ] Alerting configured for pinning events
 

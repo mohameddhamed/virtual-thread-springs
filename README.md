@@ -19,6 +19,18 @@ The app intentionally contains common anti-patterns — synchronized blocks, Thr
 
 **RQ2:** What architectural anti-patterns must be refactored before enabling Virtual Threads to prevent performance degradation?
 
+## Research map
+
+For the complete explanation of the application, experiment families, evidence
+pipeline, results, terminology, and migration implications, start with
+[`docs/research-synthesis.md`](docs/research-synthesis.md).
+
+The synthesis is a map, not a replacement for the iteration records. The
+trial-level notes under `docs/research-iteration-*.md`, raw artifacts under
+`results/`, and provenance rules in
+[`docs/artifact-provenance-ledger.md`](docs/artifact-provenance-ledger.md)
+remain the source trail for individual claims.
+
 ---
 
 ## Project Structure
@@ -260,24 +272,24 @@ jfr print --events jdk.VirtualThreadPinned results/jfr/recording-TIMESTAMP.jfr
 # Look for stack traces showing synchronized blocks or pinning sources
 ```
 
-### Expected Results
+### Current validated results
 
-**Platform Threads (baseline):**
-- Throughput @ 200 VUs: ~2.96 req/s
-- Latency p95 (/orders): ~316 ms
-- Latency p95 (/payments): ~60,001 ms (timeout)
+Do not use the older mixed-workload pilot numbers as final results. The
+current evidence is organized by mechanism and endpoint isolation in
+[`docs/research-synthesis.md`](docs/research-synthesis.md). The central Java
+21 `/payments` matrix used three process repetitions per condition and found:
 
-**Naive Virtual Threads (without fixes):**
-- Throughput @ 200 VUs: ~1.08 req/s (63% degradation)
-- Latency p50 (/orders): ~33 seconds (cascading failure)
-- JFR pinning events: ~485 in /payments
+- Virtual Threads + `synchronized`: 110.0 mean requests and 110
+  `jdk.VirtualThreadPinned` events per run;
+- Virtual Threads + `ReentrantLock`: 108.7 mean requests and zero pinning
+  events;
+- Virtual Threads + no-lock diagnostic: 710.7 mean requests, not a valid
+  payment design;
+- platform threads + `synchronized`: 110.0 mean requests, with pinning
+  marked not applicable.
 
-**Refactored Virtual Threads (synchronized → ReentrantLock):**
-- Throughput @ 200 VUs: ~2.84 req/s (recovery to baseline)
-- Latency p95 (/orders): ~439 ms (acceptable)
-- JFR pinning events: ~12 (95% reduction)
-
-See `results/comparison.md` for full 3-way comparison table.
+All four conditions had zero HTTP failures. See the synthesis and the
+iteration-level records for the complete trial values and limitations.
 
 ---
 
@@ -287,10 +299,11 @@ See `results/comparison.md` for full 3-way comparison table.
 - **`docs/anti-patterns.md`** — Catalog of thread-pinning sources with code locations, root causes, and fixes
 - **`docs/migration-guidelines.md`** — Pre-migration checklist for safely enabling Virtual Threads (6 major audit steps)
 - **`docs/thesis-outline.md`** — Full thesis structure (9 chapters), methodology, results, and implications
-- **`results/baseline-platform-threads.md`** — Platform threads baseline results + interpretation
-- **`results/naive-virtual-threads.md`** — Naive VT results showing pinning impact + JFR data
-- **`results/refactored-virtual-threads.md`** — Refactored VT results showing recovery + pinning reduction
-- **`results/comparison.md`** — 3-way comparison table and analysis
+- **`docs/research-synthesis.md`** — Current evidence map and qualified conclusions
+- **`docs/checkpoint-4-achievements.md`** — Supervisor-skill self-assessment package
+- **`docs/current-artifact-freeze.md`** — Runtime, revision, hash, and remaining freeze record
+- **`docs/artifact-provenance-ledger.md`** — Claim admission and reproducibility rules
+- **`docs/research-iteration-*.md`** — Trial-level iteration records
 
 ---
 

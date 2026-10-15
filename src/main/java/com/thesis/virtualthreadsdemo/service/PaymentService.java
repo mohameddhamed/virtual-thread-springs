@@ -3,6 +3,7 @@ package com.thesis.virtualthreadsdemo.service;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -32,14 +33,21 @@ public class PaymentService {
 
     private final String lockMode;
     private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantLock fairLock = new ReentrantLock(true);
+    private final Semaphore semaphore = new Semaphore(1);
+    private final Semaphore fairSemaphore = new Semaphore(1, true);
     private final Object monitor = new Object();
 
     public PaymentService(@Value("${demo.payment.lock-mode:reentrant-lock}") String lockMode) {
         if (!lockMode.equals("synchronized")
                 && !lockMode.equals("reentrant-lock")
+                && !lockMode.equals("fair-reentrant-lock")
+                && !lockMode.equals("semaphore")
+                && !lockMode.equals("fair-semaphore")
                 && !lockMode.equals("none")) {
             throw new IllegalArgumentException(
-                    "demo.payment.lock-mode must be synchronized, reentrant-lock, or none");
+                    "demo.payment.lock-mode must be synchronized, reentrant-lock, fair-reentrant-lock, "
+                            + "semaphore, fair-semaphore, or none");
         }
         this.lockMode = lockMode;
     }
@@ -57,6 +65,30 @@ public class PaymentService {
                     simulatePaymentCall();
                 } finally {
                     lock.unlock();
+                }
+            }
+            case "fair-reentrant-lock" -> {
+                fairLock.lock();
+                try {
+                    simulatePaymentCall();
+                } finally {
+                    fairLock.unlock();
+                }
+            }
+            case "semaphore" -> {
+                semaphore.acquireUninterruptibly();
+                try {
+                    simulatePaymentCall();
+                } finally {
+                    semaphore.release();
+                }
+            }
+            case "fair-semaphore" -> {
+                fairSemaphore.acquireUninterruptibly();
+                try {
+                    simulatePaymentCall();
+                } finally {
+                    fairSemaphore.release();
                 }
             }
             case "none" -> simulatePaymentCall();

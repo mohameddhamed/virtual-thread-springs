@@ -41,17 +41,28 @@ public synchronized String processPayment(String orderId) {
 - No other Virtual Thread can run on that Carrier Thread until the blocking call completes
 - Result: the performance benefit of Virtual Threads is negated; you pay the "many threads" cost with none of the throughput gains
 
-### Impact: Benchmark Evidence
+### Impact: Current benchmark evidence
 
-| Metric | Platform Threads | Naive VT + sync | Refactored VT + RLock |
-|--------|------------------|-----------------|----------------------|
-| Throughput @ 200 VUs | 2.96 req/s | 1.08 req/s | 1.08 req/s |
-| Latency p95 @ 200 VUs | 60,001 ms | 28,306 ms | 60,001 ms |
-| JFR Pinning Events | 0 | ~450 | 0 |
+The validated Java 21 endpoint-isolated matrix used 10 closed-loop VUs, a
+500 ms operation, one Virtual Thread carrier, and three repetitions:
+
+| Condition | Mean requests | Mean p50 | Mean p95 | JFR evidence |
+|---|---:|---:|---:|---:|
+| Virtual Threads + `synchronized` | 110.0 | 3,923.86 ms | 7,957.50 ms | 110 events/run |
+| Virtual Threads + `ReentrantLock` | 108.7 | 4,941.99 ms | 4,967.54 ms | 0 events/run |
+| Virtual Threads + no-lock diagnostic | 710.7 | 507.66 ms | 512.84 ms | 0 events/run |
+| Platform threads + `synchronized` | 110.0 | 3,936.42 ms | 9,002.48 ms | Not applicable |
+
+All runs had zero HTTP failures. The newer result does **not** establish that
+`ReentrantLock` is faster; it establishes that the replacement removed the
+observed Java 21 monitor-pinning events while serialization remained.
 
 ### Root Cause
 
-Java's `synchronized` keyword is tied to OS-level monitor locks, which are fundamentally incompatible with Virtual Thread unmounting. The JVM cannot guarantee safety when unmounting a thread that holds an OS monitor.
+In the tested Java 21 condition, the intrinsic monitor prevented the blocked
+Virtual Thread from unmounting, producing direct
+`jdk.VirtualThreadPinned` evidence. JDK 24+ behavior is treated separately
+because monitor handling changed across runtime generations.
 
 ### Migration Strategy (COMPLETED in M7)
 
@@ -95,19 +106,18 @@ public List<Map<String, Object>> getOrders() {
 }
 ```
 
-### Why This Is Problematic
+### Why This Requires an Audit
 
 With **platform threads**, ThreadLocal is fine:
 - 200 thread pool → 200 ThreadLocal instances
 - Memory overhead is negligible
 - Each request maps cleanly to one thread for its lifetime
 
-With **Virtual Threads** (naive approach):
-- Millions of VTs create millions of ThreadLocal instances
-- Each VT carries its own ThreadLocal context
-- Memory overhead: 1-2 KB per VT × millions = gigabytes
-- GC pressure and potential OutOfMemoryError
-- Cleanup is critical; a forgotten `remove()` causes a memory leak per VT
+With **Virtual Threads**, many more thread instances may exist, so lifecycle,
+allocation, and cleanup deserve review. This repository's implementation
+removes the value in `finally`, and the experiments did not measure a leak,
+memory exhaustion, or pinning effect. Those risks must not be presented as
+measured results here.
 
 ### Root Cause
 

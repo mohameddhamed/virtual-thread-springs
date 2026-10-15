@@ -107,6 +107,18 @@ def label_condition(manifest: dict) -> tuple[str, str]:
         return "native-short", "Short JNI control"
     if condition == "pure-java-sleep":
         return "pure-java-sleep", "Pure Java sleep control"
+    if condition == "orders-virtual":
+        return "orders-virtual", "Orders + Virtual Threads"
+    if condition == "orders-platform":
+        return "orders-platform", "Orders + platform threads"
+    if condition == "products-virtual":
+        return "products-virtual", "Products + Virtual Threads"
+    if condition == "products-platform":
+        return "products-platform", "Products + platform threads"
+    if condition == "cpu-virtual":
+        return "cpu-virtual", "CPU + Virtual Threads"
+    if condition == "cpu-platform":
+        return "cpu-platform", "CPU + platform threads"
     return condition, condition.replace("-", " ").title()
 
 
@@ -118,6 +130,12 @@ def main() -> int:
         if not manifest or manifest.get("run_set") not in {
             "java21-synchronization-20261008-repeated",
             "native-boundary-20261008-repeated",
+            "java21-primary-repeat",
+            "java21-primary-matrix",
+            "java21-endpoint-isolation",
+            "java21-cpu-control",
+            "java24-sync-repeat",
+            "java24-lock-repeat",
         }:
             continue
         condition_id, condition_label = label_condition(manifest)
@@ -130,7 +148,11 @@ def main() -> int:
             "trial_id": manifest.get("trial_id"),
             "run_id": manifest.get("run_id"),
             "run_set": manifest.get("run_set"),
-            "family": "synchronization" if "synchronization" in manifest.get("run_set", "") else "jni-boundary",
+            "family": (
+                "jni-boundary"
+                if manifest.get("run_set") == "native-boundary-20261008-repeated"
+                else "synchronization"
+            ),
             "condition_id": condition_id,
             "condition_label": condition_label,
             "jdk": manifest.get("java_vendor_and_version"),

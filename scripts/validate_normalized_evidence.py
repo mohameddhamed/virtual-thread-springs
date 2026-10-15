@@ -17,8 +17,15 @@ def main() -> int:
         for key in ("run_id", "run_set", "condition_id", "metrics", "classification", "provenance"):
             assert key in record, f"missing {key} in {record.get('run_id')}"
         assert record["jfr"]["count"] is None or record["jfr"]["count"] >= 0
-    sync = [r for r in records if r["family"] == "synchronization"]
-    assert all(r["jfr"]["count"] == 110 for r in sync if r["condition_id"] == "synchronized")
+    historical_sync = [
+        r for r in records
+        if r["run_set"] == "java21-synchronization-20261008-repeated"
+    ]
+    assert all(
+        r["jfr"]["count"] == 110
+        for r in historical_sync
+        if r["condition_id"] == "synchronized"
+    )
     jni = [r for r in records if r["family"] == "jni-boundary"]
     assert len(jni) == 27 and all(r["jfr"]["count"] == 0 for r in jni)
     print(f"validated {len(records)} records")

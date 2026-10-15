@@ -15,6 +15,21 @@ This ledger keeps unpublished project artifacts separate from the bibliography. 
 
 The existing result summaries are pilot narratives, not yet a verified final dataset. In particular, the reported pinning counts, throughput percentages, and endpoint interpretations must be regenerated from mapped raw files. A latency value of roughly 53 seconds cannot be described as the expected consequence of a 500 ms critical section without checking the actual request/timeout distribution; service time, queueing time, and achieved throughput must be analysed separately.
 
+## Current package status
+
+The current research synthesis and Checkpoint 4 package use the validated
+Java 21 synchronization matrix, endpoint-isolation controls, native/JNI
+boundary runs, H2/PostgreSQL sensitivity runs, and scheduler probe. The
+headline conclusions are qualified and no longer rely on the superseded
+mixed-workload figures.
+
+The provenance freeze is still incomplete for a final thesis submission:
+historical raw files need a final source-revision/configuration mapping, and
+the thesis tables and figures must be checked against that frozen mapping.
+Until that is complete, unmapped artifacts remain retained raw material but
+are not admitted as definitive evidence solely because they exist in
+`results/`.
+
 ## Run manifest minimum schema
 
 ```text

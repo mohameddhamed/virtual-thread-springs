@@ -92,7 +92,12 @@ Each run will record:
 - count, duration, and stack-trace classification of `jdk.VirtualThreadPinned` events;
 - application logs and k6 raw JSON output.
 
-The current repository contains JFR files and k6 JSON files from earlier runs. Before final analysis, the selected files will be mapped to commits and configurations, and all headline event counts will be regenerated from the recordings. Narrative values such as approximately 485 or 12 pinning events are provisional until this mapping is complete.
+The repository contains historical and current JFR/k6 artifacts. The current
+validated evidence package uses the normalized 76-record dataset and the
+traceable iteration notes. Superseded mixed-workload figures such as
+approximately 485 or 12 pinning events are not used as final claims. Before
+thesis submission, every retained headline result must still be mapped to its
+source revision, configuration, raw files, hashes, and extraction output.
 
 ## 5. Analysis and decision rules
 

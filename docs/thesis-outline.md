@@ -6,17 +6,22 @@
 
 ## 1. Introduction
 
-This thesis investigates the practical challenges of adopting Java 21 Virtual Threads (Project Loom) in existing Spring Boot MVC applications. Virtual Threads promise significant throughput improvements by allowing millions of lightweight threads to execute concurrently. However, legacy applications contain subtle anti-patterns—synchronized blocks, ThreadLocal misuse, and unbounded blocking I/O—that cause *thread pinning*, negating the performance benefits.
+This thesis investigates the practical challenges of adopting Java 21 Virtual
+Threads (Project Loom) in existing Spring Boot MVC applications. The study
+does not assume that every blocking or legacy pattern causes pinning; it
+separates monitor pinning, application serialization, finite-resource
+contention, and native-boundary carrier occupation.
 
 **Research Questions:**
 - RQ1: How do legacy synchronization mechanisms impact Virtual Thread performance due to thread pinning?
 - RQ2: What architectural anti-patterns must be refactored before enabling Virtual Threads to prevent degradation?
-- RQ3: What practical guidelines can practitioners use to safely migrate existing Spring Boot systems?
 
 **Contributions:**
-- A catalog of real-world anti-patterns causing thread pinning, with quantified performance impact
-- Refactoring strategies and trade-offs
-- A practical migration checklist for production Spring Boot systems
+- A mechanism-focused catalog of migration risks, with measured and unestablished
+  claims clearly separated
+- Correctness-preserving synchronization alternatives and their semantic trade-offs
+- A practical migration checklist tied to JFR, endpoint isolation, resource
+  auditing, and explicit limitations
 
 ---
 
@@ -31,16 +36,20 @@ Virtual Threads are lightweight threads managed by the JVM, not the OS. A single
 - Automatic blocking point handling (no explicit async/await)
 - Seamless Spring Boot integration (drop-in replacement for platform threads)
 
-**Limitation:** Performance gains are only realized when blocking operations cause unmounting. If a Virtual Thread cannot unmount (thread pinning), the Carrier Thread is blocked, negating concurrency.
+**Limitation:** Performance gains depend on the blocking operation and the
+runtime boundary. In Java 21, the tested intrinsic-monitor treatment produced
+pinning evidence; ordinary Java blocking can unmount, while long native
+execution requires separate investigation.
 
 ### 2.2 Thread Pinning Definition
 
 **Thread pinning** occurs when a Virtual Thread cannot safely unmount from its Carrier Thread during a blocking operation. The Carrier Thread remains blocked, preventing other Virtual Threads from executing.
 
-**Causes:**
-1. **Intrinsic locks (synchronized)**: OS-level monitor locks cannot be safely released while holding a Virtual Thread
-2. **Native code (JNI)**: Virtual Thread boundaries don't cross into native methods
-3. **Blocking on Carrier Thread-specific operations**: e.g., `Unsafe` operations, framework internals
+**Mechanisms studied:**
+1. **Intrinsic locks (`synchronized`)** in the Java 21 primary treatment
+2. **Long native/JNI execution** as a separate carrier-occupation boundary
+3. **Ordinary blocking and JDBC** as controls that must not be labelled pinning
+   without direct mechanism evidence
 
 **Impact:**
 - Throughput collapses to levels worse than platform threads
@@ -84,13 +93,14 @@ A deliberately realistic Spring Boot MVC application simulating a payment proces
 2. **POST /payments**: External API call (500ms) with synchronization
 3. **GET /products**: Fast query with no anti-patterns (control group)
 
-### 4.2 Intentional Anti-Patterns
+### 4.2 Intentional Treatments and Risks
 
 | Endpoint | Anti-pattern | Severity | Cause |
 |----------|---|---|---|
-| /orders | ThreadLocal + blocking JDBC | Medium | RequestContextHolder misuse |
-| /orders | Connection pool contention | Medium | Unbounded concurrent DB queries |
-| /payments | synchronized block | **CRITICAL** | Legacy payment processor integration |
+| /orders | ThreadLocal + blocking JDBC-shaped work | Context/resource risk | Lifecycle and finite-resource audit |
+| /orders | Hikari pool size sensitivity | Secondary treatment | Resource contention, not assumed pinning |
+| /payments | `synchronized` around blocking work | Primary mechanism treatment | Java 21 monitor pinning |
+| /native | Long JNI/native call | Boundary risk | Carrier occupation assessed separately |
 
 ### 4.3 Experimental Setup
 
@@ -105,46 +115,37 @@ A deliberately realistic Spring Boot MVC application simulating a payment proces
 - Error rate
 - JFR pinning events
 
-**Platform:** MacBook Pro M3 (8-core), 16GB RAM; PostgreSQL 15 in Docker
+**Platform:** macOS on Apple Silicon, 8 logical CPUs; Java 21.0.8 Zulu for the
+primary study. H2 and Dockerized PostgreSQL are analysed as separate
+environments.
 
 ---
 
 ## 5. Results & Analysis
 
+The current result tables and interpretations are maintained in
+`docs/research-synthesis.md`. Earlier mixed-workload pilot tables in this file
+were superseded because their raw-artifact mapping was incomplete.
+
 ### 5.1 Baseline: Platform Threads
 
-| Endpoint | 50 VUs | 100 VUs | 200 VUs |
-|----------|--------|---------|---------|
-| /orders | 1.97 req/s | 2.02 req/s | 2.96 req/s |
-| /payments | 1.97 req/s | 2.02 req/s | 2.96 req/s |
-| /products | 1.97 req/s | 2.02 req/s | 2.96 req/s |
+The earlier mixed-workload platform table is not retained as a final result
+because its artifact-to-configuration mapping was incomplete. The retained
+platform control is the matched Java 21 `/payments` condition shown in the
+primary matrix below. Platform-thread runs are interpreted as a control for
+that isolated protocol, not as a universal Tomcat capacity estimate.
 
-**Interpretation:** Thread pool limits throughput to ~3 req/s; all endpoints behave consistently (thread pool is the bottleneck, not business logic).
+### 5.2 Java 21 primary synchronization matrix
 
-### 5.2 Naive Virtual Threads (with anti-patterns)
+| Condition | Mean requests | Mean p50 | Mean p95 | Pinning evidence |
+|---|---:|---:|---:|---:|
+| Virtual Threads + `synchronized` | 110.0 | 3,923.86 ms | 7,957.50 ms | 110/run |
+| Virtual Threads + `ReentrantLock` | 108.7 | 4,941.99 ms | 4,967.54 ms | 0/run |
+| Virtual Threads + no-lock diagnostic | 710.7 | 507.66 ms | 512.84 ms | 0/run |
+| Platform threads + `synchronized` | 110.0 | 3,936.42 ms | 9,002.48 ms | N/A |
 
-| Endpoint | 50 VUs | 100 VUs | 200 VUs |
-|----------|--------|---------|---------|
-| /orders | 1.97 req/s | 1.54 req/s | 1.08 req/s |
-| /payments | 1.97 req/s | 1.54 req/s | 1.08 req/s |
-| /products | 1.97 req/s | 1.54 req/s | 1.08 req/s |
-
-**Interpretation:** VT performance DEGRADED compared to platform threads. Thread pinning in /payments endpoint cascades, causing connection pool exhaustion and latency explosion.
-
-**JFR Evidence:**
-- /payments: ~450 pinning events at 200 VUs
-- /orders: ~100 pinning events (ThreadLocal cleanup overhead)
-- /products: 0 pinning events
-
-### 5.3 Refactored Virtual Threads (synchronized → ReentrantLock)
-
-| Endpoint | 50 VUs | 100 VUs | 200 VUs |
-|----------|--------|---------|---------|
-| /orders | 1.97 req/s | 1.87 req/s | 2.84 req/s |
-| /payments | 1.97 req/s | 1.87 req/s | 2.84 req/s |
-| /products | 1.97 req/s | 1.87 req/s | 2.84 req/s |
-
-**Interpretation:** Refactoring restored baseline performance. Latency variance reduced (p99 improved). System scales sub-linearly (throughput ≈ 2.84 req/s at 200 VUs), indicating DB connection pool or query time is now the bottleneck, not synchronization.
+All runs had zero HTTP failures. The lock replacement removed the observed
+monitor-pinning evidence but did not remove serialization.
 
 ---
 
@@ -153,19 +154,22 @@ A deliberately realistic Spring Boot MVC application simulating a payment proces
 See `docs/anti-patterns.md` for detailed catalog:
 
 1. **synchronized block in PaymentService** (CRITICAL)
-   - Cause: OS-level monitor lock incompatible with VT unmounting
-   - Impact: ~95% throughput reduction at 200 VUs
-   - Fix: Replace with ReentrantLock
+   - Cause: intrinsic monitor around blocking work
+   - Impact: direct `jdk.VirtualThreadPinned` evidence in the tested Java 21
+     condition
+   - Fix: Replace or redesign only after preserving the synchronization
+     contract
 
 2. **ThreadLocal in OrderService** (MEDIUM)
-   - Cause: Memory overhead when scaled to millions of VTs
-   - Impact: Measurable GC pressure; cleanup failures cause memory leaks
-   - Fix: Use Spring Request Scope or scoped values
+   - Cause: request-context lifecycle and allocation risk
+   - Impact: no leak, GC, or pinning effect was measured in this study
+   - Fix: guarantee cleanup; consider request scope or explicit context passing
 
 3. **Unbounded JDBC blocking** (MEDIUM)
-   - Cause: Connection pool exhaustion under VT concurrency
-   - Impact: Cascading failures; high latency variance
-   - Fix: Tune connection pool, add query timeouts
+   - Cause: finite database capacity can become a queueing bottleneck
+   - Impact: no material pool-size effect was exposed in the tested H2 and
+     PostgreSQL closed-loop sensitivity runs
+   - Fix: measure active/pending connections and tune for the real workload
 
 ---
 
@@ -214,13 +218,19 @@ See `docs/migration-guidelines.md` for practical checklist:
 
 ## 9. Conclusion
 
-Virtual Threads offer significant throughput improvements for I/O-bound Spring Boot applications, but only when anti-patterns are eliminated. This thesis demonstrated that:
+The current evidence supports a narrower and more defensible conclusion:
 
-1. **Legacy anti-patterns cause thread pinning**, reducing performance below platform threads
-2. **Systematic refactoring** (synchronized → ReentrantLock, ThreadLocal audit, pool tuning) restores benefits
-3. **Practical migration guidelines** enable safe adoption in production systems
+1. In the tested Java 21 condition, `synchronized` around blocking work
+   produced direct Virtual Thread monitor-pinning evidence.
+2. `ReentrantLock` removed that monitor-pinning evidence but did not remove the
+   serialized payment bottleneck.
+3. ThreadLocal, JDBC pool size, native execution, and newer JDK behavior must
+   be analysed as separate mechanisms rather than folded into one pinning
+   claim.
+4. A safe migration procedure therefore begins with mechanism evidence,
+   semantic correctness, resource-capacity checks, and repeatable comparison.
 
-The provided checklist and anti-pattern catalog serve as a foundation for practitioners migrating existing Spring Boot systems to Virtual Threads.
+The complete current result map is `docs/research-synthesis.md`.
 
 ---
 
