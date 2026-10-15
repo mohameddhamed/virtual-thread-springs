@@ -5,7 +5,7 @@
   fetch('/data/normalized-evidence.json').then(r => r.json()).then(d => {
     data = d; records = d.records; filtered = records;
     $('generated').textContent = `dataset generated ${new Date(d.generated_at).toLocaleString()}`;
-    $('record-count').textContent = `${records.length} measured records`;
+    $('record-count').textContent = `${records.length} validated trial records`;
     const options = (key) => [...new Set(records.map(r => r[key]).filter(Boolean))].sort();
     [['family-filter','family'],['jdk-filter','jdk_major'],['condition-filter','condition_label'],['thread-filter','execution_mode']].forEach(([id,key]) => options(key).forEach(v => $(id).insertAdjacentHTML('beforeend', `<option value="${v}">${v}</option>`)));
     ['family-filter','jdk-filter','condition-filter','thread-filter'].forEach(id => $(id).addEventListener('change', render));
@@ -27,7 +27,7 @@
     const sync = records.filter(r => r.family === 'synchronization');
     const pinned = sync.filter(r => r.jfr.count > 0).length;
     const jni = records.filter(r => r.family === 'jni-boundary' && r.condition_id === 'blocking-jni');
-    $('headline-findings').innerHTML = `<div class="finding"><b>${sync.length}</b><span>Java 21 synchronization trials preserved</span></div><div class="finding"><b>${pinned ? `${pinned}/${sync.length}` : '0'}</b><span>sync trials with observed JFR pinning</span></div><div class="finding"><b>${jni.filter(r => r.jfr.count === 0).length}/${jni.length}</b><span>blocking-JNI trials with explicit zero JFR events</span></div>`;
+    $('headline-findings').innerHTML = `<div class="finding"><b>${records.length}</b><span>validated trial records in the canonical dataset</span></div><div class="finding"><b>${pinned}/${sync.length}</b><span>Java 21 synchronization trials with observed JFR pinning</span></div><div class="finding"><b>${jni.filter(r => r.jfr.count === 0).length}/${jni.length}</b><span>blocking-JNI trials with explicit zero JFR events</span></div>`;
   }
   function cards(selector, groups) { $(selector).innerHTML = groups.map(g => `<div class="summary-card"><b>${g.value}</b><span>${g.label}</span></div>`).join(''); }
   function renderSections() {

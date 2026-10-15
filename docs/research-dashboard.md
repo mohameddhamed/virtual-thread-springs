@@ -1,9 +1,18 @@
-# Local Research Evidence Explorer
+# Research Achievements & Evidence Portal
 
-The Spring Boot app serves the static dashboard at
+The Spring Boot app serves the single-page achievements and evidence portal at
 `http://localhost:8080/research-dashboard.html`. It has no frontend build
-toolchain and loads the canonical dataset from
+toolchain and loads the canonical trial-level dataset from
 `src/main/resources/static/data/normalized-evidence.json`.
+
+The page now documents, in one place:
+
+* ready-to-use software and completed research infrastructure;
+* RQ1/RQ2 and their qualified answers;
+* the final methodology and correctness gates;
+* the validated Java 21 synchronization matrix;
+* endpoint, CPU, JNI, JDK, Hikari, semantic, and scheduler extensions;
+* evidence classifications, limitations, and remaining closure actions.
 
 ## Refreshing the dataset
 
