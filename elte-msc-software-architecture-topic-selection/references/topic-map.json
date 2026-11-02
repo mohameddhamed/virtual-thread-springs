@@ -1,0 +1,383 @@
+{
+  "schema_version": "2.0",
+  "map_version": "software-architecture-2026-10-08",
+  "as_of": "2026-10-08",
+  "specialization": "ELTE Computer Science MSc Software Architecture",
+  "catalog_basis": "19 exact names from the supplied study guide's student-specific Neptun dropdown; appendix retained separately as entry 20",
+  "decomposition": "Advisory equal-weight atomic decomposition of official syllabus content; not an official numbered question bank. Deduplicate repeated concepts and omit explanatory study-guide expansions.",
+  "index_url": "https://www.inf.elte.hu/th-tematikak-programtervezo-informatikus-msc-2022-szoftvertechnologia-softvare-architecture-specializacio",
+  "guidelines_url": "https://www.inf.elte.hu/en/guidelines-thesis-final-examination-msc",
+  "topics": [
+    {
+      "number": 1, "title": "Design and analysis of algorithms", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227897/Design%20and%20Analysis%20of%20Algorithms%20L.pdf", "https://www.inf.elte.hu/dstore/document/227898/Design%20and%20Analysis%20of%20Algorithms%20Pr.pdf"],
+      "anchors": ["t01.03", "t01.06", "t01.10", "t01.15", "t01.18", "t01.22"],
+      "atoms": [
+        {"id":"t01.01","label":"Stability of a matching"}, {"id":"t01.02","label":"Gale–Shapley procedure"},
+        {"id":"t01.03","label":"Divide-and-conquer design"}, {"id":"t01.04","label":"Merge-based sorting"},
+        {"id":"t01.05","label":"Counting sequence inversions"}, {"id":"t01.06","label":"Master-theorem recurrence analysis"},
+        {"id":"t01.07","label":"Accelerated matrix products"}, {"id":"t01.08","label":"Accelerated polynomial products"},
+        {"id":"t01.09","label":"Nearest-pair geometry"}, {"id":"t01.10","label":"Dynamic-programming design"},
+        {"id":"t01.11","label":"Matrix-chain optimization"}, {"id":"t01.12","label":"Alignment of sequences"},
+        {"id":"t01.13","label":"Knapsack optimization"}, {"id":"t01.14","label":"Subset-sum computation"},
+        {"id":"t01.15","label":"Greedy design and justification"}, {"id":"t01.16","label":"Making change"},
+        {"id":"t01.17","label":"Scheduling algorithms"}, {"id":"t01.18","label":"Approximation design and bounds"},
+        {"id":"t01.19","label":"Algorithmic clustering"}, {"id":"t01.20","label":"Balancing computational loads"},
+        {"id":"t01.21","label":"Selecting centers"}, {"id":"t01.22","label":"Randomized computation and guarantees"},
+        {"id":"t01.23","label":"Quicksort analysis"}, {"id":"t01.24","label":"Quickselect analysis"},
+        {"id":"t01.25","label":"Freivalds-style product verification"}
+      ]
+    },
+    {
+      "number": 2, "title": "Theory of programming", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227920/Theory_of_Programming%20L.pdf", "https://www.inf.elte.hu/dstore/document/227921/Theory_of_Programming%20Pr.pdf"],
+      "anchors": ["t02.01", "t02.08", "t02.09", "t02.10", "t02.11", "t02.14", "t02.17"],
+      "atoms": [
+        {"id":"t02.01","label":"Relational account of programming"}, {"id":"t02.02","label":"State-space formalization"},
+        {"id":"t02.03","label":"Problem relations"}, {"id":"t02.04","label":"Program-function model"},
+        {"id":"t02.05","label":"Formal solution relation"}, {"id":"t02.06","label":"Nondeterministic syntax"},
+        {"id":"t02.07","label":"Meaning of nondeterministic execution"}, {"id":"t02.08","label":"Partial-correctness reasoning"},
+        {"id":"t02.09","label":"Total-correctness reasoning"}, {"id":"t02.10","label":"Deriving weakest preconditions"},
+        {"id":"t02.11","label":"Loop-invariant reasoning"}, {"id":"t02.12","label":"Formal problem specifications"},
+        {"id":"t02.13","label":"Proof rules for programming constructs"}, {"id":"t02.14","label":"Owicki–Gries verification"},
+        {"id":"t02.15","label":"Establishing deadlock freedom"}, {"id":"t02.16","label":"Establishing interference freedom"},
+        {"id":"t02.17","label":"Deriving correct sequential programs"}
+      ]
+    },
+    {
+      "number": 3, "title": "Project Management", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, page 3, Major topics; page 1 goals clarify planning and leadership depth",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227912/Project_Management.pdf"],
+      "anchors": ["t03.03", "t03.07", "t03.09", "t03.13", "t03.16", "t03.20", "t03.22"],
+      "atoms": [
+        {"id":"t03.01","label":"Fundamentals of managing a project"}, {"id":"t03.02","label":"Project-management vocabulary"},
+        {"id":"t03.03","label":"PMBOK seventh-edition framework"}, {"id":"t03.04","label":"Project-management principles and processes"},
+        {"id":"t03.05","label":"Waterfall lifecycle selection"}, {"id":"t03.06","label":"Iterative lifecycle selection"},
+        {"id":"t03.07","label":"Spiral lifecycle and risk reasoning"}, {"id":"t03.08","label":"Lean project practices"},
+        {"id":"t03.09","label":"Six Sigma project practices"}, {"id":"t03.10","label":"Agile mindset and framework selection"},
+        {"id":"t03.11","label":"Scrum practices"}, {"id":"t03.12","label":"Extreme Programming practices"},
+        {"id":"t03.13","label":"Test-driven development practice"}, {"id":"t03.14","label":"Behavior-driven development practice"},
+        {"id":"t03.15","label":"DevOps delivery practice"}, {"id":"t03.16","label":"DevSecOps delivery practice"},
+        {"id":"t03.17","label":"Precedence-network planning (PND)"}, {"id":"t03.18","label":"Activity-on-arrow planning"},
+        {"id":"t03.19","label":"Activity-on-node planning"}, {"id":"t03.20","label":"Critical-path planning"},
+        {"id":"t03.21","label":"Project testing strategy"}, {"id":"t03.22","label":"Automated test delivery"},
+        {"id":"t03.23","label":"Project organization and roles"}, {"id":"t03.24","label":"Project events and artifacts"}
+      ]
+    },
+    {
+      "number": 4, "title": "Formal semantics", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 1, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227900/Formal%20semantics%20L.pdf", "https://www.inf.elte.hu/dstore/document/227901/Formal%20semantics%20Pr.pdf"],
+      "anchors": ["t04.02", "t04.03", "t04.04", "t04.06", "t04.08", "t04.10"],
+      "atoms": [
+        {"id":"t04.01","label":"Formally defining an imperative language"}, {"id":"t04.02","label":"Small-step execution semantics"},
+        {"id":"t04.03","label":"Big-step execution semantics"}, {"id":"t04.04","label":"Denotational meaning"},
+        {"id":"t04.05","label":"Fixed-point foundations"}, {"id":"t04.06","label":"Inductive reasoning about behavior"},
+        {"id":"t04.07","label":"Equivalence of programs"}, {"id":"t04.08","label":"Agreement of operational and denotational accounts"},
+        {"id":"t04.09","label":"Encoding semantics in dedicated frameworks"}, {"id":"t04.10","label":"Mechanizing semantics in proof assistants"}
+      ]
+    },
+    {
+      "number": 5, "title": "Software quality and testing", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227917/Software%20Quality%20and%20testing.pdf", "https://www.inf.elte.hu/dstore/document/227918/Software%20Quality%20and%20testing.pdf"],
+      "anchors": ["t05.15", "t05.21", "t05.22", "t05.23", "t05.24", "t05.26", "t05.27", "t05.29", "t05.33", "t05.34"],
+      "atoms": [
+        {"id":"t05.01","label":"Error, defect and failure distinctions"}, {"id":"t05.02","label":"Test basis and conditions"},
+        {"id":"t05.03","label":"Test-case specification"}, {"id":"t05.04","label":"Testing principles and limitations"},
+        {"id":"t05.05","label":"Testing in sequential lifecycles"}, {"id":"t05.06","label":"Testing in evolutionary lifecycles"},
+        {"id":"t05.07","label":"V-model alignment"}, {"id":"t05.08","label":"Distinguishing test levels"},
+        {"id":"t05.09","label":"Testing in iterative lifecycles"}, {"id":"t05.10","label":"Rapid application development"},
+        {"id":"t05.11","label":"Unified Process"}, {"id":"t05.12","label":"Agile development and testing"},
+        {"id":"t05.13","label":"Extreme Programming in testing context"}, {"id":"t05.14","label":"Testing lifecycle activities"},
+        {"id":"t05.15","label":"Planning and controlling testing"}, {"id":"t05.16","label":"Risk-based prioritization"},
+        {"id":"t05.17","label":"Test effort estimation"}, {"id":"t05.18","label":"Design-to-execution traceability"},
+        {"id":"t05.19","label":"Test entry and exit criteria"}, {"id":"t05.20","label":"Human aspects of test management"},
+        {"id":"t05.21","label":"Equivalence-class test design"}, {"id":"t05.22","label":"Boundary-value test design"},
+        {"id":"t05.23","label":"Decision-table test design"}, {"id":"t05.24","label":"State-transition test design"},
+        {"id":"t05.25","label":"Use-case test design"}, {"id":"t05.26","label":"Combinatorial test design"},
+        {"id":"t05.27","label":"Structure-based coverage reasoning"}, {"id":"t05.28","label":"Cyclomatic-complexity measurement"},
+        {"id":"t05.29","label":"Static review techniques"}, {"id":"t05.30","label":"Static-analysis techniques"},
+        {"id":"t05.31","label":"Configuration management for quality"}, {"id":"t05.32","label":"Incident management"},
+        {"id":"t05.33","label":"Test-tool selection and use"}, {"id":"t05.34","label":"Software-quality assessment"},
+        {"id":"t05.35","label":"ISO 9000 quality framework"}, {"id":"t05.36","label":"SPICE process assessment"},
+        {"id":"t05.37","label":"CMMI process improvement"}, {"id":"t05.38","label":"Integrative testing case study"},
+        {"id":"t05.39","label":"Scrum in testing context"}, {"id":"t05.40","label":"Kanban in testing context"},
+        {"id":"t05.41","label":"Independence of testing"}, {"id":"t05.42","label":"Test-team construction"},
+        {"id":"t05.43","label":"Software maintenance"}
+      ]
+    },
+    {
+      "number": 6, "title": "Design of Distributed System", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, pages 1–2, Major topics; syllabus title uses plural Systems",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227899/design_of_distributed_systems.pdf"],
+      "anchors": ["t06.03", "t06.04", "t06.05", "t06.06", "t06.07"],
+      "atoms": [
+        {"id":"t06.01","label":"Dining-philosopher resource sharing"}, {"id":"t06.02","label":"Drinking-philosopher resource sharing"},
+        {"id":"t06.03","label":"Formal specification of a distributed problem"}, {"id":"t06.04","label":"Distributed safety properties"},
+        {"id":"t06.05","label":"Distributed progress properties"}, {"id":"t06.06","label":"Verification of safety-critical properties"},
+        {"id":"t06.07","label":"Composition using proven component properties"}, {"id":"t06.08","label":"Formal message-channel reasoning"},
+        {"id":"t06.09","label":"Pipeline-network design"}, {"id":"t06.10","label":"Programming exercises applying formal distributed methods"}
+      ]
+    },
+    {
+      "number": 7, "title": "Advanced Java programming", "catalog_status": "regular",
+      "source_status": "older_description_current_revision_unconfirmed", "scope_locator": "Older one-page description, topic list; absent from public 2022 specialization syllabus index",
+      "sources": ["https://www.inf.elte.hu/dstore/document/226045/Advanced_Java_Programming.pdf", "https://www.inf.elte.hu/dstore/document/226809/Elosztott%20szoftverrendszerek%202022%20keresztf%C3%A9l%C3%A9v%20%282026%20m%C3%A1rcius%29.pdf"],
+      "anchors": ["t07.01", "t07.03", "t07.04", "t07.05", "t07.09", "t07.10", "t07.14"],
+      "atoms": [
+        {"id":"t07.01","label":"Generic type definitions"}, {"id":"t07.02","label":"Annotation mechanisms"},
+        {"id":"t07.03","label":"Reflective program mechanisms"}, {"id":"t07.04","label":"Threaded execution and coordination"},
+        {"id":"t07.05","label":"Memory-lifetime management"}, {"id":"t07.06","label":"Garbage-collector behavior"},
+        {"id":"t07.07","label":"Input/output mechanisms"}, {"id":"t07.08","label":"Object serialization"},
+        {"id":"t07.09","label":"JDBC database interaction"}, {"id":"t07.10","label":"JPA persistence fundamentals"},
+        {"id":"t07.11","label":"TCP programming"}, {"id":"t07.12","label":"UDP programming"},
+        {"id":"t07.13","label":"HTTP programming"}, {"id":"t07.14","label":"Java design principles and best practices"},
+        {"id":"t07.15","label":"Exception mechanisms"}, {"id":"t07.16","label":"Assertion mechanisms"},
+        {"id":"t07.17","label":"Logging strategy"}, {"id":"t07.18","label":"Java testing practice"}
+      ]
+    },
+    {
+      "number": 8, "title": "Introduction to Data Science", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227905/Introduction%20to%20Data%20Science.pdf"],
+      "anchors": ["t08.04", "t08.07", "t08.13", "t08.15", "t08.22", "t08.23"],
+      "atoms": [
+        {"id":"t08.01","label":"k-means clustering"}, {"id":"t08.02","label":"Agglomerative grouping"},
+        {"id":"t08.03","label":"DBSCAN grouping"}, {"id":"t08.04","label":"Validation of cluster results"},
+        {"id":"t08.05","label":"Mining frequent itemsets"}, {"id":"t08.06","label":"Mining association rules"},
+        {"id":"t08.07","label":"Pattern-quality measures"}, {"id":"t08.08","label":"Linear classification"},
+        {"id":"t08.09","label":"Linear regression"}, {"id":"t08.10","label":"Predictive-model concepts"},
+        {"id":"t08.11","label":"Model parameters"}, {"id":"t08.12","label":"Model hyperparameters"},
+        {"id":"t08.13","label":"Validation of predictive models"}, {"id":"t08.14","label":"Underfitting and overfitting"},
+        {"id":"t08.15","label":"Bias–variance reasoning"}, {"id":"t08.16","label":"Traditional predictors as black boxes"},
+        {"id":"t08.17","label":"Data-quality diagnosis"}, {"id":"t08.18","label":"Noise handling"},
+        {"id":"t08.19","label":"Missing-data handling"}, {"id":"t08.20","label":"Data transformations"},
+        {"id":"t08.21","label":"Normalization of data"}, {"id":"t08.22","label":"CRISP-DM workflow"},
+        {"id":"t08.23","label":"Recommendation methods"}
+      ]
+    },
+    {
+      "number": 9, "title": "Models of Computation", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227908/Models%20of%20computation%20L..pdf", "https://www.inf.elte.hu/dstore/document/227909/Models%20of%20computation%20Pr..pdf"],
+      "anchors": ["t09.03", "t09.05", "t09.09", "t09.10", "t09.14", "t09.15", "t09.16"],
+      "atoms": [
+        {"id":"t09.01","label":"Finite-state computing devices"}, {"id":"t09.02","label":"Pushdown computing devices"},
+        {"id":"t09.03","label":"Turing-machine computation"}, {"id":"t09.04","label":"Variants of classical computing devices"},
+        {"id":"t09.05","label":"Partial-recursive computation"}, {"id":"t09.06","label":"Random-access-machine computation"},
+        {"id":"t09.07","label":"Circuit computation"}, {"id":"t09.08","label":"Cellular-automaton computation"},
+        {"id":"t09.09","label":"Petri-net computing model"}, {"id":"t09.10","label":"Parallel computing models"},
+        {"id":"t09.11","label":"Distributed computing models and networks"}, {"id":"t09.12","label":"Neural computation models"},
+        {"id":"t09.13","label":"Natural and unconventional computation"}, {"id":"t09.14","label":"Computational expressiveness"},
+        {"id":"t09.15","label":"Model efficiency and computational complexity"}, {"id":"t09.16","label":"Complexity of model descriptions"},
+        {"id":"t09.17","label":"Applying models to theoretical or practical problems"}
+      ]
+    },
+    {
+      "number": 10, "title": "Principles of artificial intelligence", "catalog_status": "regular",
+      "source_status": "public_index_syllabus_effective_2025_09", "scope_locator": "PDF, page 2, content; revision effective September 2025",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227911/Principles_of_artificial_intelligence%202025%20szept%201.-t%C5%91l.pdf"],
+      "anchors": ["t10.01", "t10.03", "t10.09", "t10.14", "t10.17", "t10.20", "t10.21"],
+      "atoms": [
+        {"id":"t10.01","label":"State-space problem encoding"}, {"id":"t10.02","label":"Problem decomposition for search"},
+        {"id":"t10.03","label":"Constraint-satisfaction encoding"}, {"id":"t10.04","label":"Logical problem encoding"},
+        {"id":"t10.05","label":"Graph representation of path finding"}, {"id":"t10.06","label":"AND/OR search graphs"},
+        {"id":"t10.07","label":"General search-system architecture"}, {"id":"t10.08","label":"Controlling a search"},
+        {"id":"t10.09","label":"Heuristic design and use"}, {"id":"t10.10","label":"Hill-climbing strategy"},
+        {"id":"t10.11","label":"Tabu-search strategy"}, {"id":"t10.12","label":"Annealing-based search"},
+        {"id":"t10.13","label":"Backtracking strategy"}, {"id":"t10.14","label":"A-star graph search"},
+        {"id":"t10.15","label":"B graph-search variant"}, {"id":"t10.16","label":"Evolutionary search"},
+        {"id":"t10.17","label":"Representing two-player games"}, {"id":"t10.18","label":"Winning strategies"},
+        {"id":"t10.19","label":"Minimax subtree evaluation"}, {"id":"t10.20","label":"Alpha–beta pruning"},
+        {"id":"t10.21","label":"Supervised-learning principles"}, {"id":"t10.22","label":"Nearest-neighbor prediction"},
+        {"id":"t10.23","label":"Decision-tree prediction"}, {"id":"t10.24","label":"Random-forest prediction"},
+        {"id":"t10.25","label":"Deep-learning introduction"}, {"id":"t10.26","label":"Unsupervised-learning principles"},
+        {"id":"t10.27","label":"k-means introduction"}, {"id":"t10.28","label":"Principal-component analysis introduction"},
+        {"id":"t10.29","label":"EMA-star graph-search variant"}
+      ]
+    },
+    {
+      "number": 11, "title": "Advanced Algorithms", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, page 2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227887/Advanced%20Algorithms%20L.pdf", "https://www.inf.elte.hu/dstore/document/227888/Advanced%20Algorithms%20Pr.pdf"],
+      "anchors": ["t11.02", "t11.04", "t11.07", "t11.10", "t11.13", "t11.15", "t11.18", "t11.19"],
+      "atoms": [
+        {"id":"t11.01","label":"Network-flow modeling"}, {"id":"t11.02","label":"Maximizing network flow"},
+        {"id":"t11.03","label":"Ford–Fulkerson augmentation"}, {"id":"t11.04","label":"Flow–cut duality theorem"},
+        {"id":"t11.05","label":"Integral-flow properties"}, {"id":"t11.06","label":"Edmonds–Karp augmentation"},
+        {"id":"t11.07","label":"Bipartite-matching computation"}, {"id":"t11.08","label":"Perfect-matching conditions"},
+        {"id":"t11.09","label":"König–Hall relationships"}, {"id":"t11.10","label":"Edge-disjoint-path computation"},
+        {"id":"t11.11","label":"Finding densest subgraphs"}, {"id":"t11.12","label":"Lower-bounded network flows"},
+        {"id":"t11.13","label":"Minimum-cut computation"}, {"id":"t11.14","label":"Karger randomized cutting"},
+        {"id":"t11.15","label":"Maximum-cut local search"}, {"id":"t11.16","label":"Approximation guarantees"},
+        {"id":"t11.17","label":"Weighted vertex-cover approximation"}, {"id":"t11.18","label":"Fixed-endpoint disjoint paths"},
+        {"id":"t11.19","label":"Impossibility results for network problems"}
+      ]
+    },
+    {
+      "number": 12, "title": "Complex information systems", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, page 2, Major topics and primary areas; repeated warehousing deduplicated",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227891/Complex_Information_Systems_en_2022.pdf", "https://www.inf.elte.hu/dstore/document/227892/Complex_Information_Systems_en_2022.pdf"],
+      "anchors": ["t12.01", "t12.02", "t12.03", "t12.04", "t12.06", "t12.16", "t12.20", "t12.23"],
+      "atoms": [
+        {"id":"t12.01","label":"Structured information-system analysis and design"}, {"id":"t12.02","label":"Object-oriented information-system analysis and design"},
+        {"id":"t12.03","label":"UML visual modeling"}, {"id":"t12.04","label":"Information-system requirements engineering"},
+        {"id":"t12.05","label":"ERP as a complex information system"}, {"id":"t12.06","label":"Enterprise business-process modeling"},
+        {"id":"t12.07","label":"Enterprise workflows"}, {"id":"t12.08","label":"Enterprise functional areas"},
+        {"id":"t12.09","label":"Organizational hierarchies"}, {"id":"t12.10","label":"Production and major enterprise processes"},
+        {"id":"t12.11","label":"Enterprise logistics"}, {"id":"t12.12","label":"Production logistics"},
+        {"id":"t12.13","label":"Demand management"}, {"id":"t12.14","label":"Material-requirements planning"},
+        {"id":"t12.15","label":"Warehousing"}, {"id":"t12.16","label":"Workflow-management systems"},
+        {"id":"t12.17","label":"Production orders"}, {"id":"t12.18","label":"Supply-chain management"},
+        {"id":"t12.19","label":"Human-resource information management"}, {"id":"t12.20","label":"Integration approaches and trends"},
+        {"id":"t12.21","label":"Maintenance-management systems"}, {"id":"t12.22","label":"Enterprise data/process reference models"},
+        {"id":"t12.23","label":"Access-rights management in enterprise processes"}, {"id":"t12.24","label":"Information security and protection in enterprise processes"},
+        {"id":"t12.25","label":"Privacy in enterprise processes"}, {"id":"t12.26","label":"Internal and external auditing"},
+        {"id":"t12.27","label":"Controlling and management accounting"},
+        {"id":"t12.28","label":"Inventory management"}, {"id":"t12.29","label":"Demand forecasting"}
+      ]
+    },
+    {
+      "number": 13, "title": "Functional Languages", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, pages 1–2, Major topics (Haskell-specific)",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227902/Functional_languages.pdf"],
+      "anchors": ["t13.05", "t13.06", "t13.08", "t13.12", "t13.16", "t13.18", "t13.20", "t13.22", "t13.23"],
+      "atoms": [
+        {"id":"t13.01","label":"Haskell basic types"}, {"id":"t13.02","label":"Haskell list types"},
+        {"id":"t13.03","label":"Haskell tuple types"}, {"id":"t13.04","label":"Haskell function types"},
+        {"id":"t13.05","label":"Polymorphic functions"}, {"id":"t13.06","label":"Overloaded functions"},
+        {"id":"t13.07","label":"Curried functions"}, {"id":"t13.08","label":"Partial function application"},
+        {"id":"t13.09","label":"Conditional function definitions"}, {"id":"t13.10","label":"Guarded equations"},
+        {"id":"t13.11","label":"Pattern-matching definitions"}, {"id":"t13.12","label":"Lambda expressions in Haskell"},
+        {"id":"t13.13","label":"Operator sections"}, {"id":"t13.14","label":"Comprehensions with multiple generators"},
+        {"id":"t13.15","label":"Dependent comprehension generators"}, {"id":"t13.16","label":"Recursion over lists"},
+        {"id":"t13.17","label":"Multi-argument recursive functions"}, {"id":"t13.18","label":"Higher-order function construction"},
+        {"id":"t13.19","label":"Type synonyms"}, {"id":"t13.20","label":"Algebraic data-type definitions"},
+        {"id":"t13.21","label":"Functions over newly defined types"}, {"id":"t13.22","label":"Parametric data types"},
+        {"id":"t13.23","label":"Declaring Haskell type classes"}, {"id":"t13.24","label":"Constructing type-class instances"},
+        {"id":"t13.25","label":"List-comprehension guards"}
+      ]
+    },
+    {
+      "number": 14, "title": "Machine Learning", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, pages 2–3, Major topics; page 1 aim specifies mechanism and hyperparameter depth",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227906/Machine%20Learning.pdf"],
+      "anchors": ["t14.01", "t14.02", "t14.05", "t14.06", "t14.07", "t14.10", "t14.14"],
+      "atoms": [
+        {"id":"t14.01","label":"Decision-tree mechanisms"}, {"id":"t14.02","label":"Support-vector learning"},
+        {"id":"t14.03","label":"Kernel-based learning"}, {"id":"t14.04","label":"Graphical-model mechanisms"},
+        {"id":"t14.05","label":"Probabilistic learning models"}, {"id":"t14.06","label":"Neural-network mechanisms"},
+        {"id":"t14.07","label":"Factorization-based learning"}, {"id":"t14.08","label":"Semi-supervised learning"},
+        {"id":"t14.09","label":"Combining learners into ensembles"}, {"id":"t14.10","label":"Bagging mechanisms"},
+        {"id":"t14.11","label":"Boosting mechanisms"}, {"id":"t14.12","label":"Mining time-series data"},
+        {"id":"t14.13","label":"Mining text data"}, {"id":"t14.14","label":"Hyperparameter meaning and tuning"},
+        {"id":"t14.15","label":"Model tradeoffs for domains and prediction tasks"}
+      ]
+    },
+    {
+      "number": 15, "title": "Service Science", "catalog_status": "regular",
+      "source_status": "public_index_syllabus_effective_2025_09", "scope_locator": "PDF, page 2, lectures 1–11; revision effective September 2025",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227915/Service%20Sciences_2025%20szept%201.-t%C5%91l.pdf", "https://www.inf.elte.hu/dstore/document/227916/Service%20Sciences_2025%20szept%201.-t%C5%91l.pdf"],
+      "anchors": ["t15.02", "t15.06", "t15.07", "t15.08", "t15.09", "t15.10", "t15.11", "t15.15", "t15.18"],
+      "atoms": [
+        {"id":"t15.01","label":"Services versus goods"}, {"id":"t15.02","label":"Structure of a service system"},
+        {"id":"t15.03","label":"Evolution of electronic services"}, {"id":"t15.04","label":"Electronic-service types"},
+        {"id":"t15.05","label":"Technologies for electronic delivery"}, {"id":"t15.06","label":"Service-innovation methods"},
+        {"id":"t15.07","label":"Service-design methods"}, {"id":"t15.08","label":"Semantic enrichment of service descriptions"},
+        {"id":"t15.09","label":"Service-data analytics"}, {"id":"t15.10","label":"Mathematical service-planning optimization"},
+        {"id":"t15.11","label":"Co-creation of service value"}, {"id":"t15.12","label":"Service encounters"},
+        {"id":"t15.13","label":"Service-quality management"}, {"id":"t15.14","label":"Service-productivity management"},
+        {"id":"t15.15","label":"Commercialization and competitive service markets"}, {"id":"t15.16","label":"Market-modeling frameworks"},
+        {"id":"t15.17","label":"Service-network research and analysis"}, {"id":"t15.18","label":"Service-level engineering"},
+        {"id":"t15.19","label":"AI and ML concepts in services"}, {"id":"t15.20","label":"AI/ML service opportunities and purposes"},
+        {"id":"t15.21","label":"AI-assisted gathering and investigation of facts"}, {"id":"t15.22","label":"Public-service AI deployment"},
+        {"id":"t15.23","label":"Privacy and data-protection risks of service AI"}, {"id":"t15.24","label":"Safety and security risks of service AI"},
+        {"id":"t15.25","label":"Accountability and liability for service AI"}, {"id":"t15.26","label":"Over-enforcement and other AI service risks"},
+        {"id":"t15.27","label":"Worldwide applications of service AI"}, {"id":"t15.28","label":"AI-assisted pattern finding"},
+        {"id":"t15.29","label":"AI-assisted prediction"}, {"id":"t15.30","label":"AI-assisted service decisions"},
+        {"id":"t15.31","label":"Social importance of services"}
+      ]
+    },
+    {
+      "number": 16, "title": "Analysis of distributed systems", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, pages 1–2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227890/Analysis%20of%20distributed%20systems.pdf"],
+      "anchors": ["t16.05", "t16.07", "t16.08", "t16.10", "t16.13", "t16.14", "t16.16", "t16.20"],
+      "atoms": [
+        {"id":"t16.01","label":"Processes and computational processes"}, {"id":"t16.02","label":"Parallel process behavior"},
+        {"id":"t16.03","label":"Operations on processes"}, {"id":"t16.04","label":"Process composition"},
+        {"id":"t16.05","label":"Process liveness"}, {"id":"t16.06","label":"Process deadlock freedom"},
+        {"id":"t16.07","label":"Modeling with Petri nets"}, {"id":"t16.08","label":"Behavioral properties of nets"},
+        {"id":"t16.09","label":"Structural properties of nets"}, {"id":"t16.10","label":"Petri-net analysis methods"},
+        {"id":"t16.11","label":"Net subclasses and their relationships"}, {"id":"t16.12","label":"Net safety and liveness theorems"},
+        {"id":"t16.13","label":"Reachability theorems and reasoning"}, {"id":"t16.14","label":"Property-preserving model transformations"},
+        {"id":"t16.15","label":"Petri boxes for sequence, branch and loop structures"}, {"id":"t16.16","label":"Net simulation and analysis tools"},
+        {"id":"t16.17","label":"Algebraic models of processes"}, {"id":"t16.18","label":"Descriptions and compositions in process algebra"},
+        {"id":"t16.19","label":"Denotational account of process models"}, {"id":"t16.20","label":"Operational account of process models"},
+        {"id":"t16.21","label":"Axiomatic account of process models"}, {"id":"t16.22","label":"Relationships among process-model semantics"}
+      ]
+    },
+    {
+      "number": 17, "title": "Introduction to Computer Security", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "Lecture PDF, pages 2–3, Major topics; attacks listed as usual examples, not an exhaustive attack catalog",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227903/Introduction%20to%20Computer%20Security%20L.pdf", "https://www.inf.elte.hu/dstore/document/227904/Introduction%20to%20Computer%20Security%20Pr.pdf"],
+      "anchors": ["t17.04", "t17.05", "t17.06", "t17.09", "t17.11", "t17.12", "t17.15"],
+      "atoms": [
+        {"id":"t17.01","label":"Confidentiality objective"}, {"id":"t17.02","label":"Integrity objective"},
+        {"id":"t17.03","label":"Availability objective"}, {"id":"t17.04","label":"Security asset identification"},
+        {"id":"t17.05","label":"Vulnerability identification"}, {"id":"t17.06","label":"Threat identification"},
+        {"id":"t17.07","label":"Security-risk analysis"}, {"id":"t17.08","label":"Likelihood and impact assessment"},
+        {"id":"t17.09","label":"Security-control selection and justification"}, {"id":"t17.10","label":"Man-in-the-middle attacks"},
+        {"id":"t17.11","label":"SQL-injection attacks"}, {"id":"t17.12","label":"Cross-site-scripting attacks"},
+        {"id":"t17.13","label":"ARP-poisoning attacks"}, {"id":"t17.14","label":"DNS-poisoning attacks"},
+        {"id":"t17.15","label":"Countermeasures and security best practices"}, {"id":"t17.16","label":"Practical security analysis grounded in the risk framework"}
+      ]
+    },
+    {
+      "number": 18, "title": "Methods and tools for AI applications", "catalog_status": "regular",
+      "source_status": "public_index_syllabus", "scope_locator": "PDF, pages 1–2, Major topics",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227907/Methods%20and%20Tools%20for%20AI%20applications.pdf"],
+      "anchors": ["t18.01", "t18.08", "t18.09", "t18.10", "t18.12", "t18.14", "t18.17"],
+      "atoms": [
+        {"id":"t18.01","label":"Mathematical AI data models"}, {"id":"t18.02","label":"Linear-algebra foundations for AI"},
+        {"id":"t18.03","label":"Generalized linear models"}, {"id":"t18.04","label":"Mathematical data representations"},
+        {"id":"t18.05","label":"Probability foundations for AI"}, {"id":"t18.06","label":"Gaussian distribution models"},
+        {"id":"t18.07","label":"Mahalanobis-distance reasoning"}, {"id":"t18.08","label":"Maximum-likelihood estimation"},
+        {"id":"t18.09","label":"Maximum-a-posteriori estimation"}, {"id":"t18.10","label":"Bayesian estimation"},
+        {"id":"t18.11","label":"Estimation in model optimization"}, {"id":"t18.12","label":"Gradient-based likelihood approximation"},
+        {"id":"t18.13","label":"Conjugate-model approximation"}, {"id":"t18.14","label":"Expectation-maximization learning"},
+        {"id":"t18.15","label":"Unsupervised clustering methods"}, {"id":"t18.16","label":"Ensemble-model methods"},
+        {"id":"t18.17","label":"Autoencoder modeling"}
+      ]
+    },
+    {
+      "number": 19, "title": "Scalable enterprise applications", "catalog_status": "regular",
+      "source_status": "public_index_syllabus_historical_technology_examples", "scope_locator": "One-page description, addressed domains; parenthesized technologies illustrate concepts rather than create extra atoms",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227914/Scalable_Enterprise_Applications.pdf"],
+      "anchors": ["t19.01", "t19.03", "t19.05", "t19.06", "t19.07", "t19.09", "t19.13"],
+      "atoms": [
+        {"id":"t19.01","label":"Multi-tier application structure"}, {"id":"t19.02","label":"Modularizing large software systems"},
+        {"id":"t19.03","label":"Efficient component placement in distributed architectures"}, {"id":"t19.04","label":"High-availability distributed component design"},
+        {"id":"t19.05","label":"Information-system-backed transactional applications"}, {"id":"t19.06","label":"Remote-procedure invocation"},
+        {"id":"t19.07","label":"Message-oriented communication"}, {"id":"t19.08","label":"Web-application programming"},
+        {"id":"t19.09","label":"Web-service programming"}, {"id":"t19.10","label":"Component naming and lookup"},
+        {"id":"t19.11","label":"Mobile executable code"}, {"id":"t19.12","label":"Grid computation for demanding workloads"},
+        {"id":"t19.13","label":"Aspect-oriented cross-cutting behavior"}
+      ]
+    },
+    {
+      "number": 20, "title": "Advanced Software Technology", "catalog_status": "supplemental",
+      "source_status": "public_index_syllabus_selection_unconfirmed", "scope_locator": "PDF, page 1, Major topics; retained guide Appendix A, absent from supplied 19-entry dropdown",
+      "sources": ["https://www.inf.elte.hu/dstore/document/227889/Advanced%20software%20technology.pdf"],
+      "anchors": ["t20.02", "t20.03", "t20.05", "t20.06"],
+      "atoms": [
+        {"id":"t20.01","label":"Forming a product idea"}, {"id":"t20.02","label":"Drafting a minimum viable product"},
+        {"id":"t20.03","label":"Project execution and methodology selection"}, {"id":"t20.04","label":"Tools and techniques for sustainable development processes"},
+        {"id":"t20.05","label":"Designing maintainable architecture"}, {"id":"t20.06","label":"Achieving and assessing innovation potential"}
+      ]
+    }
+  ]
+}

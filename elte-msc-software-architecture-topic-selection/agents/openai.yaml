@@ -1,0 +1,15 @@
+interface:
+  display_name: ELTE MSc Software Architecture Topic Selection
+  short_description: Choose thesis-linked Software Architecture exam topics
+  default_prompt: Use $elte-msc-software-architecture-topic-selection to audit my
+    MSc thesis against every Software Architecture exam subject and recommend the
+    safest three.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
