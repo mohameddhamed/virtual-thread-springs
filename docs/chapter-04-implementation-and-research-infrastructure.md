@@ -6,7 +6,7 @@ To investigate the runtime interactions between Java 21 Virtual Threads, monitor
 
 ### 4.1.1 Package Structure and Architectural Decomposition
 
-The application source tree is organized under the root package `com.thesis.virtualthreadsdemo` in [`src/main/java/com/thesis/virtualthreadsdemo/`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/), adhering to a strict separation of concerns across four primary architectural layers: HTTP controllers, service implementations, data persistence abstractions, and low-level native shared libraries.
+The application source tree is organized under the root package `com.thesis.virtualthreadsdemo` in [`src/main/java/com/thesis/virtualthreadsdemo/`](../src/main/java/com/thesis/virtualthreadsdemo/), adhering to a strict separation of concerns across four primary architectural layers: HTTP controllers, service implementations, data persistence abstractions, and low-level native shared libraries.
 
 ```
 virtual-thread-springs/
@@ -57,24 +57,24 @@ virtual-thread-springs/
 
 | Endpoint Path | HTTP Method | Service Implementation | Primary Concurrency Mechanism | Experimental Classification | Addressed Question |
 | :--- | :---: | :--- | :--- | :--- | :---: |
-| `/payments` | `POST` | [`PaymentService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java) | Configurable mutex (`synchronized`, `ReentrantLock`, `Semaphore`) + 500 ms delay | Primary Mutex Treatment | **RQ1** |
-| `/orders` | `GET` | [`OrderService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java) | `ThreadLocal` context + 300 ms delay + `JdbcTemplate.queryForList()` | Persistence & Context Treatment | **RQ2** |
-| `/products` | `GET` | [`ProductService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/ProductService.java) | Unconstrained fast-path `JdbcTemplate.queryForList()` (no delay) | Fast-Path Persistence Baseline | **RQ1, RQ2** |
-| `/native` | `GET` | [`NativeBlockingService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java) | JNI binding to C `nanosleep(500ms)` system call | Foreign Syscall Treatment | **RQ2** |
-| `/native-short`| `GET` | [`NativeBlockingService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java) | JNI binding to C `nativeNoop()` (sub-microsecond return) | Native Transit Baseline | **RQ2** |
-| `/cpu` | `GET` | [`CpuService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/CpuService.java) | $5 \times 10^6$ iterations of `Math.fma` and `Math.sqrt` | Compute-Bound Negative Control | **RQ1, RQ2** |
-| `/hello` | `GET` | [`HelloController.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/controller/HelloController.java) | Static string allocation (`"Virtual Threads are working"`) | Zero-I/O Harness Health Probe | **Diagnostics** |
+| `/payments` | `POST` | [`PaymentService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java) | Configurable mutex (`synchronized`, `ReentrantLock`, `Semaphore`) + 500 ms delay | Primary Mutex Treatment | **RQ1** |
+| `/orders` | `GET` | [`OrderService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java) | `ThreadLocal` context + 300 ms delay + `JdbcTemplate.queryForList()` | Persistence & Context Treatment | **RQ2** |
+| `/products` | `GET` | [`ProductService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/ProductService.java) | Unconstrained fast-path `JdbcTemplate.queryForList()` (no delay) | Fast-Path Persistence Baseline | **RQ1, RQ2** |
+| `/native` | `GET` | [`NativeBlockingService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java) | JNI binding to C `nanosleep(500ms)` system call | Foreign Syscall Treatment | **RQ2** |
+| `/native-short`| `GET` | [`NativeBlockingService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java) | JNI binding to C `nativeNoop()` (sub-microsecond return) | Native Transit Baseline | **RQ2** |
+| `/cpu` | `GET` | [`CpuService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/CpuService.java) | $5 \times 10^6$ iterations of `Math.fma` and `Math.sqrt` | Compute-Bound Negative Control | **RQ1, RQ2** |
+| `/hello` | `GET` | [`HelloController.java`](../src/main/java/com/thesis/virtualthreadsdemo/controller/HelloController.java) | Static string allocation (`"Virtual Threads are working"`) | Zero-I/O Harness Health Probe | **Diagnostics** |
 
 ### 4.1.2 Framework Bill of Materials (BOM) and Runtime Versions
 
 To eliminate version ambiguity and ensure strict experimental reproducibility across repeated trial runs, all runtime dependencies were statically pinned via Maven and audited. The resolved component inventory comprises:
-*   **Java Runtime Environment:** OpenJDK 64-Bit Server VM (Azul Zulu build `21.0.8+9-LTS`, build 21.44+17-CA), compiling to target bytecode version 21. Comparative boundary trials were executed against OpenJDK 24 (`24.0.2+12`) and early-access OpenJDK 25.
+*   **Java Runtime Environment:** OpenJDK 64-Bit Server VM (OpenJDK 21.0.8 as recorded in the benchmark manifests; the manifests do not provide a reliable vendor identity), compiling to target bytecode version 21. Comparative boundary trials were executed against OpenJDK 24 (`24.0.2+12`) and early-access OpenJDK 25.
 *   **Application Framework:** Spring Boot version **`3.5.12`** (derived from `spring-boot-starter-parent:3.5.12`), pulling Spring Framework core version **`6.2.x`**.
 *   **Web Container:** Embedded **Apache Tomcat 10.1.52** (`org.apache.tomcat.embed:tomcat-embed-core:10.1.52`), incorporating virtual thread lifecycle fixes.
 *   **Connection Pool:** **HikariCP 6.3.3** (`com.zaxxer:HikariCP:6.3.3`), providing JDBC connection management.
 *   **In-Memory Database:** **H2 Database 2.3.232** (`com.h2database:h2:2.3.232`), utilized in local exploratory executions.
-*   **Container Database & Driver:** **PostgreSQL 15-alpine** container engine backed by **PostgreSQL JDBC Driver 42.7.10** (`org.postgresql:postgresql:42.7.10`). This driver version strictly exceeds the `pgjdbc >= 42.6.0` threshold, ensuring internal socket monitor refactoring is active ([`CLM-RQ2-06`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L226-L237)).
-*   **Load Generation Harness:** **k6 v0.54.0** (darwin/arm64 and linux/amd64), driving closed-loop HTTP virtual users.
+*   **Container Database & Driver:** **PostgreSQL 15-alpine** container engine backed by **PostgreSQL JDBC Driver 42.7.10** (`org.postgresql:postgresql:42.7.10`). This driver version strictly exceeds the `pgjdbc >= 42.6.0` threshold, ensuring internal socket monitor refactoring is active ([`CLM-RQ2-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L226-L237)).
+*   **Load Generation Harness:** **k6 v1.7.1** in the admitted manifests (darwin/arm64), driving closed-loop HTTP virtual users.
 
 ### 4.1.3 Spring Boot 3 Virtual Thread Wiring and Tomcat Configuration
 
@@ -127,14 +127,14 @@ public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadCustomizer
 Under this configuration:
 1.  **Request Dispatching:** Tomcat's non-blocking `NioEndpoint` acceptor and poller threads accept incoming TCP connections using OS-level event multiplexing (`kqueue` on macOS Darwin; `epoll` on Linux).
 2.  **Thread Allocation:** Upon socket readability, request parsing and servlet execution are handed off to an ephemeral Virtual Thread produced by `Thread.ofVirtual().factory()`. The legacy bounded thread pool (Tomcat's traditional default of `maxThreads = 200` platform threads bounded by an internal task queue) is completely bypassed.
-3.  **Carrier Scheduling:** The newly allocated virtual thread is submitted to HotSpot's internal `ForkJoinPool.commonPool` carrier scheduler (`java.lang.VirtualThread.DEFAULT_SCHEDULER`).
+3.  **Carrier Scheduling:** The newly allocated virtual thread is submitted to HotSpot's dedicated private virtual-thread scheduler (`java.lang.VirtualThread.DEFAULT_SCHEDULER`), distinct from `ForkJoinPool.commonPool()`.
 4.  **Platform Mode Fallback:** When `spring.threads.virtual.enabled` is set to `false`, Tomcat retains its traditional `StandardThreadExecutor`, allocating requests from a bounded pool of 200 physical OS threads.
 
 ---
 
 ## 4.2 Payment Synchronization Implementations
 
-The primary synchronization treatments evaluated in Research Question 1 are implemented within [`PaymentService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L32-L107). The service models an atomic financial transaction where state mutations must be strictly serialized via mutual exclusion to prevent double-spending or ledger inconsistencies:
+The primary synchronization treatments evaluated in Research Question 1 are implemented within [`PaymentService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L32-L107). The service models an atomic financial transaction where state mutations must be strictly serialized via mutual exclusion to prevent double-spending or ledger inconsistencies:
 
 ```java
 package com.thesis.virtualthreadsdemo.service;
@@ -243,10 +243,10 @@ When `demo.payment.lock-mode` is configured to `synchronized`, mutual exclusion 
 4.  **Pinning Invocation:** Because the virtual thread holds `monitor`, `can_freeze()` returns `false`. The unmount operation is rejected.
 5.  **Carrier Captivity:** Unable to yield, the virtual thread invokes `VirtualThread.parkOnCarrierThread()`. The underlying operating system carrier thread is forced into physical kernel sleep for the full 500 ms duration.
 6.  **JFR Pinning Event Generation:** HotSpot posts the `jdk.VirtualThreadPinned` event to the active Java Flight Recorder session, logging the pin duration and full Java stack trace.
-7.  **Carrier Starvation Under Single-Carrier Isolation:** Under the single-carrier mechanism isolation constraint (`parallelism=1`), this lone carrier thread is immobilized. Although 9 other virtual users in k6 are waiting to execute, the JVM cannot schedule any task, establishing the empirical foundation of [`CLM-RQ1-01`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L42-L55) and [`CLM-RQ1-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L57-L70).
+7.  **Carrier Starvation Under Single-Carrier Isolation:** Under the single-carrier mechanism isolation constraint (`parallelism=1`), this lone carrier thread is immobilized. Although 9 other virtual users in k6 are waiting to execute, the JVM cannot schedule any task, establishing the empirical foundation of [`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L55) and [`CLM-RQ1-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L57-L70).
 
 > [!IMPORTANT]
-> **The Carrier Compensation Fallacy (`CLM-RQ1-07`):** Early literature hypothesized that HotSpot's `ForkJoinPool` dynamically compensates for monitor pinning by spawning additional carrier threads up to `maxPoolSize = 256`. As established by [JEP 444](https://openjdk.org/jeps/444) and verified during research triage ([`fact-check-jdk-runtime.md#L17-L21`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/fact-check-jdk-runtime.md#L17-L21)), **HotSpot never expands carrier parallelism for monitor pinning or native code**. Carrier expansion is reserved exclusively for `ForkJoinPool.ManagedBlocker` calls (file I/O and specific `Object.wait()` calls). Constraining `maxPoolSize=1` strictly eliminated carrier expansion for file operations, ensuring unambiguous single-carrier isolation.
+> **The Carrier Compensation Fallacy (`CLM-RQ1-07`):** Early literature hypothesized that HotSpot's `ForkJoinPool` dynamically compensates for monitor pinning by spawning additional carrier threads up to `maxPoolSize = 256`. As established by [JEP 444](https://openjdk.org/jeps/444) and verified during research triage ([`fact-check-jdk-runtime.md#L17-L21`](../docs/fact-check-jdk-runtime.md#L17-L21)), **HotSpot never expands carrier parallelism for monitor pinning or native code**. Carrier expansion is reserved exclusively for `ForkJoinPool.ManagedBlocker` calls (file I/O and specific `Object.wait()` calls). Constraining `maxPoolSize=1` strictly eliminated carrier expansion for file operations, ensuring unambiguous single-carrier isolation.
 
 ### 4.2.2 The ReentrantLock Treatment (`reentrant-lock`)
 
@@ -257,7 +257,7 @@ When configured to `reentrant-lock`, mutual exclusion is governed by an explicit
 2.  **Clean Continuation Yielding:** Contending virtual threads park via `LockSupport.park()`, which calls `VirtualThread.park()` and `Continuation.yield()`. Because no Java `ObjectMonitor` is held on the stack, `can_freeze()` in `continuationFreeze.cpp` returns `true`.
 3.  **Heap Freezing:** HotSpot copies the virtual thread's interpreted and compiled activation frames into a `jdk.internal.vm.StackChunk` object allocated on the Java heap.
 4.  **Carrier Release:** The carrier thread unbinds from the virtual thread continuation and immediately returns to the `ForkJoinPool` work-stealing scheduler, free to execute other runnable tasks.
-5.  **Resumption via `continuationThaw.cpp`:** When the lock holder releases the lock via `unlock()`, it calls `LockSupport.unpark()`. The scheduler places the waiting virtual thread into a carrier run-queue. Upon dispatch, HotSpot's `continuationThaw.cpp` copies the stack frames from the heap chunk back to the physical carrier stack, restoring execution seamlessly ([`CLM-RQ1-03`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)).
+5.  **Resumption via `continuationThaw.cpp`:** When the lock holder releases the lock via `unlock()`, it calls `LockSupport.unpark()`. The scheduler places the waiting virtual thread into a carrier run-queue. Upon dispatch, HotSpot's `continuationThaw.cpp` copies the stack frames from the heap chunk back to the physical carrier stack, restoring execution seamlessly ([`CLM-RQ1-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)).
 
 #### The Non-Fair Direct-CAS Barging Signature (`CLM-RQ1-05`):
 By default, `ReentrantLock` instantiates a `NonfairSync`. In `NonfairSync.initialTryLock()`, an arriving virtual thread immediately attempts to flip the state word via `compareAndSetState(0, 1)`:
@@ -276,7 +276,7 @@ final boolean initialTryLock() {
 
 If the lock is released at the precise microsecond of request arrival, the newly arriving virtual thread barges ahead of threads that have been parked in the AQS queue for seconds. This barging dynamic introduces high tail-latency dispersion under contention:
 *   Intrinsic monitor (`synchronized`) latency standard deviation: $s \le \mathbf{7.4\text{ ms}}$.
-*   `ReentrantLock` latency standard deviation: $s \approx \mathbf{16.0\text{--}30.0\text{ ms}}$ (a **$23\times$ expansion** in variance, documented in [`CLM-RQ1-05`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L101-L112)).
+*   `ReentrantLock` latency standard deviation: $s \approx \mathbf{16.0\text{--}30.0\text{ ms}}$ (a **$23\times$ expansion** in variance, documented in [`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L112)).
 
 ### 4.2.3 Fair Lock and Semaphore Treatments
 
@@ -296,7 +296,7 @@ To evaluate the impact of foreign library execution and non-yielding operating s
 
 ### 4.3.1 C Implementation: `libnativeblocking`
 
-The native source file [`native/native_blocking.c`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/native/native_blocking.c) defines two exported entry points:
+The native source file [`native/native_blocking.c`](../native/native_blocking.c) defines two exported entry points:
 
 ```c
 #include <jni.h>
@@ -327,7 +327,7 @@ Java_com_thesis_virtualthreadsdemo_service_NativeBlockingService_nativeNoop(
 }
 ```
 
-The C library is compiled during the Maven build lifecycle via `exec-maven-plugin` in [`pom.xml#L62-L83`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/pom.xml#L62-L83), producing a shared library (`target/native/libnativeblocking.dylib` on macOS / arm64; `target/native/libnativeblocking.so` on Linux / amd64).
+The C library is compiled during the Maven build lifecycle via `exec-maven-plugin` in [`pom.xml#L62-L83`](../pom.xml#L62-L83), producing a shared library (`target/native/libnativeblocking.dylib` on macOS / arm64; `target/native/libnativeblocking.so` on Linux / amd64).
 
 ### 4.3.2 The Service Binding: `NativeBlockingService.java`
 
@@ -397,7 +397,7 @@ The invocation of `nativeSleep(500)` triggers a low-level thread transition with
          ▼
 [Kernel Space: sys_nanosleep()]
          │ Darwin XNU / Linux kernel places OS carrier thread into wait queue
-         │ Thread state = TASK_INTERRUPTIBLE / Mach wait
+         │ Thread state = Darwin/Mach wait state; `TASK_INTERRUPTIBLE` is Linux-specific terminology
          │ * Carrier thread yields CPU core to OS scheduler *
          │ * Steady-state CPU consumption drops to ~1.0% *
          │ * VirtualThread continuation is NEVER unmounted! *
@@ -411,13 +411,13 @@ The invocation of `nativeSleep(500)` triggers a low-level thread transition with
 #### Detailed Execution Phases:
 1.  **Thread State Transition:** The HotSpot-generated JNI transition stub updates the carrier thread's internal state machine from `_thread_in_Java` to `_thread_in_native`.
 2.  **Kernel Wait-Queue Suspension:** The C function executes the POSIX `nanosleep()` system call. The host operating system kernel (Darwin XNU or Linux) places the physical OS carrier thread into an interruptible sleep wait-queue. The thread yields its CPU core to the operating system scheduler.
-3.  **Zero Active CPU Consumption (`CLM-RQ2-02`, `DISC-02`):** Because the carrier thread is asleep inside the kernel wait queue, it consumes virtually zero processor cycles. Process telemetry sampled at 1-second intervals via `ps -p $APP_PID -o %cpu=` recorded an average steady-state process CPU utilization of **$1.04\% \pm 0.12\%$** across all 9 repeated trials. This directly refuted the pre-experimental assumption that native blocking manifests as a 100% CPU busy-spin loop ([`discrepancy-register.md#L63-L80`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L63-L80)).
+3.  **Zero Active CPU Consumption (`CLM-RQ2-02`, `DISC-02`):** Process telemetry sampled at 1-second intervals via `ps -p $APP_PID -o %cpu=` recorded **$1.04\% \pm 0.12\%$** across the recorded Java 21 blocking-JNI trials; this refutes busy-spinning for this path but does not generalize to all native calls. This directly refuted the pre-experimental assumption that native blocking manifests as a 100% CPU busy-spin loop ([`discrepancy-register.md#L63-L80`](../docs/evidence-freeze/discrepancy-register.md#L63-L80)).
 4.  **Suppression of Continuation Unmounting:** Because the carrier thread is executing machine code outside the JVM's bytecode interpreter loop, it never encounters a bytecode safe-point and never executes `Continuation.yield()`. The virtual thread continuation remains rigidly bound to the carrier.
-5.  **JFR Observability Omission (`CLM-RQ2-01`, `DISC-03`):** JFR's `jdk.VirtualThreadPinned` event is architecturally implemented as an **unmount-failure diagnostic**; it is posted exclusively inside `java.lang.VirtualThread.parkOnCarrierThread()` when `Continuation.yield()` returns false. Because `Continuation.yield()` is never called during native syscall execution, JFR recorded exactly **0 pinning events** across all 27 native experimental trials ([`forensic-investigations.md#L40-L120`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/forensic-investigations.md#L40-L120)). Under `parallelism=1`, this produces complete carrier starvation that is completely undetectable by standard JFR pinning alerts.
+5.  **JFR Observability Omission (`CLM-RQ2-01`, `DISC-03`):** JFR's `jdk.VirtualThreadPinned` event is architecturally implemented as an **unmount-failure diagnostic**; it is posted exclusively inside `java.lang.VirtualThread.parkOnCarrierThread()` when `Continuation.yield()` returns false. Because `Continuation.yield()` is never called during native syscall execution, JFR recorded exactly **0 pinning events** across all 27 native experimental trials ([`forensic-investigations.md#L40-L120`](../docs/evidence-freeze/forensic-investigations.md#L40-L120)). Under `parallelism=1`, this produces complete carrier starvation that is completely undetectable by standard JFR pinning alerts.
 
 ### 4.3.4 Native No-Op Control (`/native-short`)
 
-To ensure that the throughput collapse observed under `/native` was caused by kernel sleep rather than the overhead of crossing the JNI boundary itself, [`NativeShortController.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/controller/NativeShortController.java) exposes `/native-short`, which invokes `nativeNoop()`. The native function immediately returns without invoking system calls. This endpoint confirmed that the JNI state transition overhead ($< 20\text{ ns}$) introduces zero measurable scheduler stalls under high concurrency.
+To ensure that the throughput collapse observed under `/native` was caused by kernel sleep rather than the overhead of crossing the JNI boundary itself, [`NativeShortController.java`](../src/main/java/com/thesis/virtualthreadsdemo/controller/NativeShortController.java) exposes `/native-short`, which invokes `nativeNoop()`. The native function immediately returns without invoking system calls. This endpoint showed no measurable scheduler stall in the recorded workload; it did not measure a universal nanosecond-level JNI transition cost.
 
 ---
 
@@ -427,7 +427,7 @@ Relational persistence is implemented using Spring's `JdbcTemplate` backed by a 
 
 ### 4.4.1 Relational Schema and Seed Data
 
-The database schema ([`src/main/resources/schema.sql`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/resources/schema.sql)) defines two relational tables:
+The database schema ([`src/main/resources/schema.sql`](../src/main/resources/schema.sql)) defines two relational tables:
 
 ```sql
 DROP TABLE IF EXISTS orders;
@@ -449,11 +449,11 @@ CREATE TABLE products (
 );
 ```
 
-At startup, the database is seeded by [`src/main/resources/data.sql`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/resources/data.sql) with 5 initial records in `orders` (representing pending and shipped customer orders) and 8 records in `products` (representing catalog inventory).
+At startup, the database is seeded by [`src/main/resources/data.sql`](../src/main/resources/data.sql) with 5 initial records in `orders` (representing pending and shipped customer orders) and 8 records in `products` (representing catalog inventory).
 
 ### 4.4.2 The Physical Anatomy of the `/orders` Pre-Acquisition Delay Flaw (`CLM-RQ2-03`)
 
-The `/orders` endpoint was designed to evaluate HikariCP connection pool exhaustion and carrier unmounting under constrained connection pool limits (`maximumPoolSize = 1` vs. `10`). Source code inspection of [`OrderService.java#L36-L59`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L59) revealed a critical construct flaw in the service execution lifecycle:
+The `/orders` endpoint was designed to evaluate HikariCP connection pool exhaustion and carrier unmounting under constrained connection pool limits (`maximumPoolSize = 1` vs. `10`). Source code inspection of [`OrderService.java#L36-L59`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L59) revealed a critical construct flaw in the service execution lifecycle:
 
 ```java
 package com.thesis.virtualthreadsdemo.service;
@@ -504,11 +504,11 @@ public class OrderService {
     $$X = \frac{N}{R + Z} = \frac{50}{0.3005 + 0.100} \approx 124.8\text{ req/s}$$
     With a connection hold time of $T_{\text{hold}} \approx 0.0001\text{ s}$ ($0.1\text{ ms}$), average pool occupancy $L_{\text{pool}}$ is:
     $$L_{\text{pool}} = X \times T_{\text{hold}} = 124.8 \times 0.0001 \approx \mathbf{0.0125\text{ connections}}$$
-    Even during the 50-VU load test with `maximumPoolSize = 1`, the HikariCP pool was over **98.7% idle**. No connection wait queue ever formed, explaining why pool size 1 and pool size 10 produced identical latency profiles ([`CLM-RQ2-03`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L179-L193), [`DISC-07`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L150-L166)).
+    Even during the 50-VU load test with `maximumPoolSize = 1`, the HikariCP pool was over **98.7% idle**. No connection wait queue ever formed, explaining why pool size 1 and pool size 10 produced identical latency profiles ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166)).
 
 ### 4.4.3 The YAML Indentation Defect and Autoconfiguration Fallback (`CLM-RQ2-04`)
 
-A secondary configuration defect was identified during static inspection of [`src/main/resources/application.yml`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/resources/application.yml#L13-L31):
+A secondary configuration defect was identified during static inspection of [`src/main/resources/application.yml`](../src/main/resources/application.yml#L13-L31):
 
 ```yaml
 spring:
@@ -547,11 +547,11 @@ demo:
 
 *   **Property Binding Evaluation:** Spring Boot's `DataSourceAutoConfiguration` binds properties matching the prefix `spring.datasource.*`. Because lines 13–31 were indented under `demo:`, Spring Boot bound them as `demo.datasource.*`, `demo.jpa.*`, and `demo.sql.*`.
 *   **Classpath Fallback:** Finding no `spring.datasource.url` defined, Spring Boot's `EmbeddedDatabaseConnection` automatically initiated an auto-configured in-memory H2 database based on `com.h2database:h2` on the classpath.
-*   **Default Pool Parameters:** The fallback H2 database was initialized with HikariCP 6.3.3 default properties: **`maximumPoolSize = 10`**, `minimumIdle = 10`, and `connectionTimeout = 30000 ms`. Custom pool adjustments attempted in local H2 runs via `application.yml` were completely inert ([`CLM-RQ2-04`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L195-L208), [`DISC-06`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L133-L149)).
+*   **Default Pool Parameters:** The fallback H2 database was initialized with HikariCP 6.3.3 default properties: **`maximumPoolSize = 10`**, `minimumIdle = 10`, and `connectionTimeout = 30000 ms`. Custom pool adjustments attempted in local H2 runs via `application.yml` were completely inert ([`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L208), [`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L149)).
 
 ### 4.4.4 Docker Compose PostgreSQL 15 Deployment and JFR Omission
 
-In contrast to the local H2 setup, the containerized PostgreSQL environment was orchestrated via [`docker-compose.yml`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docker-compose.yml):
+In contrast to the local H2 setup, the containerized PostgreSQL environment was orchestrated via [`docker-compose.yml`](../docker-compose.yml):
 
 ```yaml
 version: '3.8'
@@ -591,13 +591,13 @@ services:
 In this environment:
 1.  **Valid Environment Binding:** Environment variables used the canonical `SPRING_DATASOURCE_*` prefix, successfully overriding defaults and allowing parameterization of `HIKARI_MAXIMUM_POOL_SIZE` (tested at pool sizes 1 and 10).
 2.  **Driver Pinning Immunity (`CLM-RQ2-06`):** The application resolved PostgreSQL JDBC driver `42.7.10`. In pgjdbc version `42.6.0`, internal driver monitors wrapping network socket streams were refactored to `ReentrantLock` (PR #2670), ensuring database network reads do not pin carrier threads.
-3.  **JFR Instrumentation Omission (`CLM-RQ2-05`, `DISC-08`):** Audit of [`Dockerfile#L14-L18`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/Dockerfile#L14-L18) confirmed that the container image entry point executes `java -jar app.jar` without `-XX:StartFlightRecording`. Consequently, while k6 measured stable HTTP latencies ($p50 \approx 303.5\text{ ms}$), no JFR data exists for containerized runs; all claims of measured carrier unmounting on PostgreSQL are declared **Not Established** ([`CLM-RQ2-05`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)).
+3.  **JFR Instrumentation Omission (`CLM-RQ2-05`, `DISC-08`):** Audit of [`Dockerfile#L14-L18`](../Dockerfile#L14-L18) confirmed that the container image entry point executes `java -jar app.jar` without `-XX:StartFlightRecording`. Consequently, while k6 measured stable HTTP latencies ($p50 \approx 303.5\text{ ms}$), no JFR data exists for containerized runs; all claims of measured carrier unmounting on PostgreSQL are declared **Not Established** ([`CLM-RQ2-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)).
 
 ---
 
 ## 4.5 Request Context and ThreadLocal Lifecycle
 
-The application explicitly models request-scoped context propagation in [`OrderService.java#L28-L47`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28-L47) to evaluate the memory and hygiene implications of ThreadLocal storage under virtualized concurrency (RQ2):
+The application explicitly models request-scoped context propagation in [`OrderService.java#L28-L47`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28-L47) to evaluate the memory and hygiene implications of ThreadLocal storage under virtualized concurrency (RQ2):
 
 ```java
 public class OrderService {
@@ -630,12 +630,14 @@ Where $M_{\text{context}}$ is the byte size of the context payload.
 
 Under Virtual Threads, thread creation is unbounded ($10^4$ to $10^6$ concurrent threads). When a virtual thread allocates a ThreadLocal variable:
 1.  A dedicated `ThreadLocalMap` is allocated on the Java garbage-collected heap for that specific virtual thread continuation.
-2.  If the virtual thread is long-lived, queued in a downstream executor, or blocked on an external socket, its `ThreadLocalMap` cannot be reclaimed by garbage collection.
+2.  If the virtual thread remains reachable while it is long-lived, queued in a downstream executor, or blocked on an external socket, its `ThreadLocalMap` remains reachable as well.
 3.  Under $N = 100,000$ concurrent requests, heap memory consumption scales linearly:
     $$\text{Memory}_{\text{virtual}} = 100,000 \times M_{\text{context}}$$
 4.  If $M_{\text{context}} = 50\text{ KB}$ (typical of enterprise security credentials, JWT tokens, tenant metadata, and distributed tracing contexts), total heap overhead reaches:
     $$\text{Memory}_{\text{virtual}} = 100,000 \times 50\text{ KB} = \mathbf{5.0\text{ GB}}$$
-    This unmitigated heap growth risks triggering catastrophic `OutOfMemoryError: Java heap space` ([`CLM-RQ2-07`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L239-L250)).
+
+This is an arithmetic projection under explicit assumptions, not a measured heap result.
+    This projection identifies potential heap pressure; an `OutOfMemoryError` outcome was not measured ([`CLM-RQ2-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L239-L250)).
 
 While `OrderService` implements defensive cleanup via `REQUEST_CONTEXT.remove()`, the code artifact establishes the theoretical foundation for Chapter 7's migration guidelines regarding JEP 446 / JEP 481 Scoped Values (`ScopedValue`).
 
@@ -643,7 +645,7 @@ While `OrderService` implements defensive cleanup via `REQUEST_CONTEXT.remove()`
 
 ## 4.6 Benchmarking and Automation Infrastructure
 
-All experimental trials were orchestrated via an automated bash pipeline encapsulated in [`run-benchmark.sh`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/run-benchmark.sh), ensuring identical execution environments, reproducible parameters, and cryptographic provenance.
+All experimental trials were orchestrated via an automated bash pipeline encapsulated in [`run-benchmark.sh`](../run-benchmark.sh), ensuring identical execution environments, reproducible parameters, and cryptographic provenance.
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -668,14 +670,14 @@ All experimental trials were orchestrated via an automated bash pipeline encapsu
   │
   ├─► 6. Teardown: Sends SIGTERM to JVM; waits for clean JFR dump on process exit
   │
-  ├─► 7. Cryptographic Hashing: Computes SHA-256 for k6 JSON, JFR binary, telemetry CSV
+  ├─► 7. SHA-256 checksums: Computes digests for k6 JSON, JFR binary, and telemetry CSV
   │
   └─► 8. Manifest Generation: Compiles metadata into results/run-manifest-<timestamp>.json
 ```
 
 ### 4.6.1 Master Orchestrator: `run-benchmark.sh`
 
-The harness script [`run-benchmark.sh`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/run-benchmark.sh) accepts command-line arguments to parameterize trials:
+The harness script [`run-benchmark.sh`](../run-benchmark.sh) accepts command-line arguments to parameterize trials:
 *   `--vus <count>`: Overrides target virtual user concurrency (defaults to 50, 100, 200).
 *   `--endpoint <name>`: Selects workload endpoint (`payments`, `orders`, `products`, `cpu`, `native`, `native-short`).
 *   `--lock-mode <mode>`: Sets mutex implementation (`synchronized`, `reentrant-lock`, `fair-reentrant-lock`, `semaphore`, `fair-semaphore`, `none`).
@@ -685,12 +687,12 @@ The harness script [`run-benchmark.sh`](file:///Users/mohamedhamed/Documents/vir
 ### 4.6.2 Automated Matrix Runners
 
 To execute repeated experimental matrices across varied JVM runtimes without manual intervention, dedicated matrix runner scripts were developed:
-*   [`scripts/run-java21-synchronization-matrix.sh`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/run-java21-synchronization-matrix.sh): Executes 12 randomized trials across four conditions (`synchronized`, `reentrant-lock`, `no-lock-diagnostic`, `platform-synchronized`) under 10 VUs and single-carrier isolation.
-*   [`scripts/run-native-boundary-matrix.sh`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/run-native-boundary-matrix.sh): Executes 27 repeated trials across three runtimes (Java 21 LTS, Java 24, and Java 25) across three conditions (`pure-java-sleep`, `blocking-jni`, `native-short`) under `SCHEDULER_OPTS="-Djdk.virtualThreadScheduler.parallelism=1 -Djdk.virtualThreadScheduler.maxPoolSize=1"`.
+*   [`scripts/run-java21-synchronization-matrix.sh`](../scripts/run-java21-synchronization-matrix.sh): Executes 12 randomized trials across four conditions (`synchronized`, `reentrant-lock`, `no-lock-diagnostic`, `platform-synchronized`) under 10 VUs and single-carrier isolation.
+*   [`scripts/run-native-boundary-matrix.sh`](../scripts/run-native-boundary-matrix.sh): Executes 27 repeated trials across three runtimes (Java 21 LTS, Java 24, and Java 25) across three conditions (`pure-java-sleep`, `blocking-jni`, `native-short`) under `SCHEDULER_OPTS="-Djdk.virtualThreadScheduler.parallelism=1 -Djdk.virtualThreadScheduler.maxPoolSize=1"`.
 
 ### 4.6.3 Workload Generation via k6
 
-Client-side HTTP traffic was generated via [k6](https://k6.io/) executing [`k6/isolated-load-test.js`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/k6/isolated-load-test.js). The load test executes three distinct stages:
+Client-side HTTP traffic was generated via [k6](https://k6.io/) executing [`k6/isolated-load-test.js`](../k6/isolated-load-test.js). The load test executes three distinct stages:
 *   `15s` ramp-up to target concurrency (10 VUs in primary matrix; 50 VUs in pool sensitivity).
 *   `30s` steady-state hold stage at constant concurrency.
 *   `10s` ramp-down to 0 VUs.
@@ -718,7 +720,7 @@ capture_telemetry() {
 }
 ```
 
-This telemetry stream provided the empirical evidence that disproved the 100% CPU utilization assertion during native JNI blocking ([`CLM-RQ2-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L164-L177), [`DISC-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L63-L80)).
+This telemetry stream provided the empirical evidence that disproved the 100% CPU utilization assertion during native JNI blocking ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L177), [`DISC-02`](../docs/evidence-freeze/discrepancy-register.md#L63-L80)).
 
 ### 4.6.5 Cryptographic Execution Manifest Structure
 
@@ -736,7 +738,7 @@ At the conclusion of each benchmark run, `run-benchmark.sh` generates a cryptogr
   "java_command": "java",
   "java_vendor_and_version": "OpenJDK 21.0.8",
   "spring_boot_version": "3.5.12",
-  "k6_version": "k6 v0.54.0",
+  "k6_version": "k6 v1.7.1",
   "os": "Darwin 25.2.0 Darwin Kernel Version 25.2.0",
   "cpu": "Apple M1",
   "logical_processors": "8",
@@ -777,19 +779,19 @@ To ensure that the experimental dataset is fully reproducible and traceable back
 
 ### 4.7.1 The Master Artifact Inventory Generator (`scripts/generate_artifact_inventory.py`)
 
-This tool ([`scripts/generate_artifact_inventory.py`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/generate_artifact_inventory.py)) crawls the `results/` directory, computing SHA-256 digests, recording byte sizes, extracting run metadata, and mapping each file to its admission status. It generated the definitive master ledger [`docs/evidence-freeze/artifact-inventory.csv`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/artifact-inventory.csv) (**504 physical disk files**) and resolved the historical glob double-counting defect ([`DISC-04`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L99-L115)).
+This tool ([`scripts/generate_artifact_inventory.py`](../scripts/generate_artifact_inventory.py)) crawls the `results/` directory, computing SHA-256 digests, recording byte sizes, extracting run metadata, and mapping each file to its admission status. It generated the definitive master ledger [`docs/evidence-freeze/artifact-inventory.csv`](../docs/evidence-freeze/artifact-inventory.csv) (**504 physical disk files**) and resolved the historical glob double-counting defect ([`DISC-04`](../docs/evidence-freeze/discrepancy-register.md#L99-L115)).
 
 ### 4.7.2 The Configuration Matrix Auditor (`scripts/generate_run_family_matrix.py`)
 
-This script ([`scripts/generate_run_family_matrix.py`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/generate_run_family_matrix.py)) parses all 113 execution manifests and unmanifested Docker runs, extracting scheduler flags, JVM versions, and database parameters into [`docs/evidence-freeze/run-family-matrix.csv`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/run-family-matrix.csv) (**120 matrix rows** representing 119 physical executions and 1 template).
+This script ([`scripts/generate_run_family_matrix.py`](../scripts/generate_run_family_matrix.py)) parses all 113 execution manifests and unmanifested Docker runs, extracting scheduler flags, JVM versions, and database parameters into [`docs/evidence-freeze/run-family-matrix.csv`](../docs/evidence-freeze/run-family-matrix.csv) (**120 matrix rows** representing 119 physical executions and 1 template).
 
 ### 4.7.3 The Independent Metric Recalculator (`scripts/recalculate_metrics.py`)
 
-This engine ([`scripts/recalculate_metrics.py`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/recalculate_metrics.py)) streams through raw k6 JSON lines (parsing over 150,000 JSON records), recalculating full-run ($t \in [0, 55\text{s}]$) versus steady-state ($t \in [15, 45\text{s}]$) throughput, failure rates, and exact percentile latencies ($p50, p95, p99$). It resolved the throughput normalization error ([`DISC-01`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L42-L61), [`CLM-METH-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L271-L284)), confirming the exact throughput delta of **0.765%** and $p50$ latency delta of **0.184%**, and produced [`docs/evidence-freeze/metric-recalculations.csv`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/metric-recalculations.csv).
+This engine ([`scripts/recalculate_metrics.py`](../scripts/recalculate_metrics.py)) streams through raw k6 JSON lines (parsing over 150,000 JSON records), recalculating full-run ($t \in [0, 55\text{s}]$) versus steady-state ($t \in [15, 45\text{s}]$) throughput, failure rates, and exact percentile latencies ($p50, p95, p99$). It resolved the throughput normalization error ([`DISC-01`](../docs/evidence-freeze/discrepancy-register.md#L42-L61), [`CLM-METH-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L271-L284)), confirming the exact throughput delta of **0.765%** and $p50$ latency delta of **0.184%**, and produced [`docs/evidence-freeze/metric-recalculations.csv`](../docs/evidence-freeze/metric-recalculations.csv).
 
 ### 4.7.4 Evidence Normalization Pipeline
 
-To provide a consolidated data source for visualization dashboards and automated audit reporting, [`scripts/normalize_evidence.py`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/normalize_evidence.py) aggregates parsed run manifests, recalculated metrics, and JFR event counts into a single JSON schema ([`normalized-evidence.json`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/resources/static/data/normalized-evidence.json)). The schema is verified for consistency by [`scripts/validate_normalized_evidence.py`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/scripts/validate_normalized_evidence.py).
+To provide a consolidated data source for visualization dashboards and automated audit reporting, [`scripts/normalize_evidence.py`](../scripts/normalize_evidence.py) aggregates parsed run manifests, recalculated metrics, and JFR event counts into a single JSON schema ([`normalized-evidence.json`](../src/main/resources/static/data/normalized-evidence.json)). The schema is verified for consistency by [`scripts/validate_normalized_evidence.py`](../scripts/validate_normalized_evidence.py).
 
 ---
 
@@ -801,11 +803,11 @@ To preserve publication-grade scientific integrity, all implementation component
 
 | Architectural Component | Target Mechanism | RQ Addressed | Identified Defect / Threat | Applied Forensic Qualification | Primary Claim Reference |
 | :--- | :--- | :---: | :--- | :--- | :---: |
-| **`PaymentService` (`synchronized`)** | HotSpot monitor pinning under single-carrier stress | **RQ1** | Misconception that HotSpot expands carrier pool to compensate for pinning | ForkJoinPool pinning compensation disproven via JEP 444 source audit; `parallelism=1` confirmed effective. | [`CLM-RQ1-01`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L42-L55)<br>[`CLM-RQ1-07`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L129-L140) |
-| **`PaymentService` (`reentrant-lock`)** | AQS continuation yielding & non-fair barging | **RQ1** | Latency standard deviation inflation ($23\times$) misattributed to lock overhead | Identified as AQS `NonfairSync` direct-CAS barging; verified via fair lock baseline. | [`CLM-RQ1-03`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)<br>[`CLM-RQ1-05`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L101-L112) |
-| **`NativeBlockingService` (`/native`)** | Foreign C POSIX `nanosleep()` syscall | **RQ2** | 0 JFR events interpreted as healthy execution; CPU assumed 100% | Proved JFR suppresses native events; process telemetry proved carrier is suspended in kernel at 1.0% CPU. | [`CLM-RQ2-01`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L148-L162)<br>[`CLM-RQ2-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L164-L177) |
-| **`OrderService` (`/orders`)** | HikariCP pool exhaustion under concurrency | **RQ2** | Pre-acquisition sleep defect: `simulateSlowQuery()` executes *before* connection checkout | Little's Law proved pool was >98% idle ($L_{\text{pool}} \approx 0.0125$); qualified as construct defect. | [`CLM-RQ2-03`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L179-L193)<br>[`DISC-07`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L150-L166) |
-| **`application.yml` (H2 Configuration)** | Local database connection pool sizing | **RQ2** | Indentation defect under `demo:` caused fallback to default pool size 10 | Static configuration audit confirmed fallback; qualified local pool variation as inert. | [`CLM-RQ2-04`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L195-L208)<br>[`DISC-06`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L133-L149) |
-| **`docker-compose.yml` (PostgreSQL)** | Containerized database concurrency | **RQ2** | Docker runtime omitted JFR instrumentation (`-XX:StartFlightRecording`) | k6 latency admitted as exploratory; all JFR carrier unmounting claims declared Not Established. | [`CLM-RQ2-05`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)<br>[`DISC-08`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L167-L182) |
-| **`OrderService` (`ThreadLocal`)** | Request context propagation memory scaling | **RQ2** | Closed-loop 10/50 VUs insufficient to trigger heap `OutOfMemoryError` | Evaluated analytically ($O(N)$ heap scaling); foundational motivation for JEP 446 Scoped Values. | [`CLM-RQ2-07`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L239-L250) |
-| **`run-benchmark.sh` (Harness)** | Automated execution and telemetry | **Methodology** | Throughput calculation normalized against 55s rather than 30s steady window | Recalculated via `recalculate_metrics.py`; confirmed exact steady-state throughput delta of 0.765%. | [`CLM-METH-02`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md#L271-L284)<br>[`DISC-01`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md#L42-L61) |
+| **`PaymentService` (`synchronized`)** | HotSpot monitor pinning under single-carrier stress | **RQ1** | Misconception that HotSpot expands carrier pool to compensate for pinning | ForkJoinPool pinning compensation disproven via JEP 444 source audit; `parallelism=1` confirmed effective. | [`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L55)<br>[`CLM-RQ1-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L129-L140) |
+| **`PaymentService` (`reentrant-lock`)** | AQS continuation yielding & non-fair barging | **RQ1** | Latency standard deviation inflation ($23\times$) misattributed to lock overhead | Identified as AQS `NonfairSync` direct-CAS barging; verified via fair lock baseline. | [`CLM-RQ1-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)<br>[`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L112) |
+| **`NativeBlockingService` (`/native`)** | Foreign C POSIX `nanosleep()` syscall | **RQ2** | 0 JFR events interpreted as healthy execution; CPU assumed 100% | Proved JFR suppresses native events; process telemetry proved carrier is suspended in kernel at 1.0% CPU. | [`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L162)<br>[`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L177) |
+| **`OrderService` (`/orders`)** | HikariCP pool exhaustion under concurrency | **RQ2** | Pre-acquisition sleep defect: `simulateSlowQuery()` executes *before* connection checkout | Little's Law proved pool was >98% idle ($L_{\text{pool}} \approx 0.0125$); qualified as construct defect. | [`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193)<br>[`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166) |
+| **`application.yml` (H2 Configuration)** | Local database connection pool sizing | **RQ2** | Indentation defect under `demo:` caused fallback to default pool size 10 | Static configuration audit confirmed fallback; qualified local pool variation as inert. | [`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L208)<br>[`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L149) |
+| **`docker-compose.yml` (PostgreSQL)** | Containerized database concurrency | **RQ2** | Docker runtime omitted JFR instrumentation (`-XX:StartFlightRecording`) | k6 latency admitted as exploratory; all JFR carrier unmounting claims declared Not Established. | [`CLM-RQ2-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)<br>[`DISC-08`](../docs/evidence-freeze/discrepancy-register.md#L167-L182) |
+| **`OrderService` (`ThreadLocal`)** | Request context propagation memory scaling | **RQ2** | Closed-loop 10/50 VUs insufficient to trigger heap `OutOfMemoryError` | Evaluated analytically ($O(N)$ heap scaling); foundational motivation for JEP 446 Scoped Values. | [`CLM-RQ2-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L239-L250) |
+| **`run-benchmark.sh` (Harness)** | Automated execution and telemetry | **Methodology** | Throughput calculation normalized against 55s rather than 30s steady window | Recalculated via `recalculate_metrics.py`; confirmed exact steady-state throughput delta of 0.765%. | [`CLM-METH-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L271-L284)<br>[`DISC-01`](../docs/evidence-freeze/discrepancy-register.md#L42-L61) |

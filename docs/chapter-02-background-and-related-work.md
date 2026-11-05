@@ -12,8 +12,8 @@ The architecture of concurrency in the Java Virtual Machine (JVM) has undergone 
 To overcome these severe scalability and multi-core scheduling limitations, Java 1.2 (released in 1998) fundamentally abandoned green threads in favor of **native threads**. Under the native threading model, the JVM established an **architectural 1:1 mapping** between each `java.lang.Thread` instance and a physical operating system platform thread (such as a POSIX `pthread` on Linux, Solaris, and macOS, or a Win32 thread on Windows).
 
 By delegating thread scheduling, CPU affinity, and hardware preemption directly to the operating system kernel, the 1:1 platform thread architecture allowed Java applications to achieve genuine hardware parallelism across multi-socket and multi-core server processors. However, this 1:1 coupling bound Java's scalability ceiling directly to the physical costs of operating system kernel threads:
-1.  **Fixed Virtual Memory Stack Allocation:** The operating system kernel requires each platform thread to maintain a dedicated, contiguous virtual memory stack allocated outside the garbage-collected Java heap. HotSpot defaults to a 1,024 KB (`-Xss1m`) stack reservation per thread. A high-concurrency server hosting 2,000 active platform threads immediately commits approximately 2.0 GB of memory solely to reserve thread call stacks, regardless of whether a thread's active stack depth is only a few kilobytes.
-2.  **Kernel Scheduling and Mode Transitions:** Thread preemption, synchronization, and rescheduling require kernel context transitions (`ring 3` user mode to `ring 0` kernel mode). These transitions invalidate hardware CPU instruction and data caches (L1/L2 caches and Translation Lookaside Buffers [TLB]), introducing significant CPU overhead when switching between hundreds or thousands of active threads.
+1.  **Fixed Virtual Memory Stack Allocation:** The operating system kernel requires each platform thread to maintain a dedicated, contiguous virtual memory stack allocated outside the garbage-collected Java heap. HotSpot commonly configures a stack reservation such as 1,024 KB (`-Xss1m`) per platform thread. A high-concurrency server hosting 2,000 platform threads may reserve substantial virtual address space, but committed memory depends on stack use and platform/runtime behavior.
+2.  **Kernel Scheduling and Mode Transitions:** Thread preemption, synchronization, and rescheduling require kernel context transitions (`ring 3` user mode to `ring 0` kernel mode). These transitions can incur scheduling and cache-locality costs; their magnitude depends on the operating system, hardware, workload, and switching pattern.
 
 ### 2.1.2 The Synchronous Thread-per-Request Paradigm and Its Ceiling
 
@@ -21,12 +21,12 @@ For the subsequent two decades, the **thread-per-request** programming model bec
 
 The architectural ergonomics of the thread-per-request model are clear:
 *   **Procedural Call Stacks:** Application logic executes sequentially down a single, predictable call stack. Control flow conforms directly to standard procedural constructs (`if`, `for`, `try-catch`), eliminating the cognitive friction of asynchronous callbacks.
-*   **Implicit Context Propagation:** Transactional boundaries, security authentication tokens, and distributed tracing metadata ([`ThreadLocal`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28)) can be stored in per-thread memory and accessed transparently across deep layered architectures without explicit method argument threading.
+*   **Implicit Context Propagation:** Transactional boundaries, security authentication tokens, and distributed tracing metadata ([`ThreadLocal`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28)) can be stored in per-thread memory and accessed transparently across deep layered architectures without explicit method argument threading.
 *   **Deterministic Diagnostics:** If an exception occurs, the resulting stack trace captures a chronological snapshot of the entire request lifecycle from HTTP controller down to database persistence.
 
-However, because platform threads are scarce and memory-intensive, enterprise servlet containers must strictly constrain concurrency using **bounded thread pools** (e.g., Apache Tomcat's default `maxThreads = 200`). This constraint imposes a strict architectural limit: **concurrency is bounded to thread pool capacity**. 
+However, because platform threads are scarce and memory-intensive, enterprise servlet containers must strictly constrain concurrency using **bounded thread pools** (e.g., Apache Tomcat's default `maxThreads = 200`). This constraint imposes a strict architectural limit: **concurrency is bounded to thread pool capacity**.
 
-In modern microservice architectures, enterprise services spend the vast majority of their lifecycle waiting on external network dependencies—such as relational database queries via JDBC, REST calls to downstream services, or external payment gateways. Under high concurrency, worker threads rapidly block on network sockets. The container thread pool exhausts, incoming requests queue up in container backlogs, client response times escalate exponentially, and the application inevitably suffers from cascading timeouts and complete service collapse.
+In modern microservice architectures, enterprise services spend the vast majority of their lifecycle waiting on external network dependencies—such as relational database queries via JDBC, REST calls to downstream services, or external payment gateways. Under high concurrency, worker threads rapidly block on network sockets. The container thread pool exhausts, incoming requests queue up in container backlogs, client response times escalate exponentially, and the application may queue requests, increase latency, or trigger timeouts under saturation.
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -66,7 +66,7 @@ The tension between synchronous imperative programming and scalable concurrency 
 | **C# / TypeScript / Node** | `async / await` Task | Promise / Task | Stackless continuations compiled to state machines | Event Loop / Task ThreadPool | Cooperative (yields explicitly on `await`) | Non-blocking OS readiness multiplexing |
 | **Java 21 Virtual Threads** | `java.lang.Thread` (Loom) | $M:N$ | Resizable heap `StackChunk` frames | JVM HotSpot `ForkJoinPool` | Semi-cooperative (yields on blocking Java APIs) | JVM runtime unmounts virtual thread to heap |
 
-Unlike Go, which built its $M:N$ scheduler into the language runtime from its initial design, or C#, which introduced explicit `async/await` syntax, Java faced a strict evolutionary constraint: **backward compatibility with 25 years of existing enterprise code**. 
+Unlike Go, which built its $M:N$ scheduler into the language runtime from its initial design, or C#, which introduced explicit `async/await` syntax, Java faced a strict evolutionary constraint: **backward compatibility with 25 years of existing enterprise code**.
 
 Rewriting the Java language with `async/await` would have fractured the ecosystem into mutually incompatible synchronous and asynchronous libraries. Instead, the OpenJDK design team chose **Project Loom**: re-engineering the Java Virtual Machine runtime so that standard, synchronous, imperative Java code could achieve $M:N$ user-mode concurrency without modifying language syntax or discarding the fundamental `java.lang.Thread` API contract.
 
@@ -100,7 +100,7 @@ Rewriting the Java language with `async/await` would have fractured the ecosyste
 
 1.  **The User-Mode Virtual Thread (`java.lang.VirtualThread`):** A virtual thread is an instance of `java.lang.Thread` whose execution state is managed directly by HotSpot runtime bytecode rather than the OS kernel. It encapsulates a `jdk.internal.vm.Continuation` object representing its suspendable call stack.
 2.  **Carrier Threads:** A carrier thread is a standard OS platform thread that provides CPU execution cycles for a virtual thread. The virtual thread is temporarily **mounted** onto a carrier thread to execute instructions. From the perspective of Java code executing within the virtual thread, the identity of the carrier thread is invisible; calling `Thread.currentThread()` returns the virtual thread instance itself.
-3.  **The Dedicated ForkJoinPool Scheduler:** Virtual threads are scheduled onto carrier threads by a dedicated, private `ForkJoinPool` instance encapsulated within `java.lang.VirtualThread.DEFAULT_SCHEDULER`. 
+3.  **The Dedicated ForkJoinPool Scheduler:** Virtual threads are scheduled onto carrier threads by a dedicated, private `ForkJoinPool` instance encapsulated within `java.lang.VirtualThread.DEFAULT_SCHEDULER`.
     *   This scheduler is completely separate from `ForkJoinPool.commonPool()`, which is used by parallel streams and `CompletableFuture`.
     *   The scheduler's default parallelism equals the number of available logical processor cores (`Runtime.getRuntime().availableProcessors()`).
     *   Carrier worker threads are assigned internal HotSpot names following the convention `ForkJoinPool-1-worker-*`.
@@ -309,7 +309,7 @@ In the OpenJDK implementation, `ReentrantLock` delegates internal queue manageme
 +-----------------------------------------------------------------------------------+
 ```
 
-When a thread attempts to acquire an unlocked `NonfairSync` lock, it immediately executes `compareAndSetState(0, 1)`. If the lock was released fractions of a microsecond prior, the newly arriving thread **barges** ahead of all threads currently waiting in the AQS FIFO queue. 
+When a thread attempts to acquire an unlocked `NonfairSync` lock, it immediately executes `compareAndSetState(0, 1)`. If the lock was released fractions of a microsecond prior, the newly arriving thread **barges** ahead of all threads currently waiting in the AQS FIFO queue.
 
 Because waiting virtual threads must be unparked by the scheduler, re-enqueued, and remounted onto a carrier thread, a barging thread already executing on a hot carrier core possesses an overwhelming scheduling advantage. This phenomenon introduces substantial tail-latency jitter, directly explaining the **$\approx 23\times$ wider latency dispersion** observed in `ReentrantLock` compared to `synchronized` (`CLM-RQ1-05`).
 
@@ -322,7 +322,7 @@ Because waiting virtual threads must be unparked by the scheduler, re-enqueued, 
 A widespread misconception regarding Project Loom is that *all* Java blocking I/O unmounts virtual threads. In reality, the runtime behavior depends entirely on whether the underlying operating system kernel supports non-blocking readiness notification for the specific file descriptor:
 
 1.  **Network Socket I/O (Unmounts Cleanly):** Modern operating systems provide asynchronous readiness multiplexers for network sockets (`epoll` on Linux, `kqueue` on macOS, I/O Completion Ports on Windows). HotSpot integrates a background network poller thread that monitors socket readiness. When a virtual thread executes a socket read or write that cannot proceed immediately, it unmounts cleanly to the heap.
-2.  **Regular File Descriptor I/O (Blocks Carrier Threads):** In standard POSIX operating systems (Linux and macOS), regular disk file descriptors are fundamentally incompatible with `epoll` and `kqueue`; the OS kernel always reports regular files as immediately "ready," even though actual read/write operations block waiting on physical NVMe/SATA disk controller I/O. True asynchronous file I/O requires newer kernel interfaces (such as Linux `io_uring`), which are not integrated into Java 21 Virtual Threads. 
+2.  **Regular File Descriptor I/O (Blocks Carrier Threads):** In standard POSIX operating systems (Linux and macOS), regular disk file descriptors are fundamentally incompatible with `epoll` and `kqueue`; the OS kernel always reports regular files as immediately "ready," even though actual read/write operations block waiting on physical NVMe/SATA disk controller I/O. True asynchronous file I/O requires newer kernel interfaces (such as Linux `io_uring`), which are not integrated into Java 21 Virtual Threads.
 
 Consequently, when a virtual thread performs regular file I/O via `java.io` or `java.nio.channels.FileChannelImpl`, **it physically blocks the carrier thread**. HotSpot mitigates this carrier blockage using `ForkJoinPool.ManagedBlocker`, dynamically expanding carrier thread count up to `maxPoolSize` (`CHK-JDK-18`). If an application executes intensive synchronous file logging or disk cache operations under virtual threads, carrier thread proliferation can exhaust operating system thread limits, as demonstrated in real-world rollbacks such as dotCMS PR #36900 (`CHK-JDK-19`).
 
@@ -337,11 +337,11 @@ HikariCP implements an exceptionally fast, lock-free connection pool architectur
 
 Because HikariCP's connection wait mechanics delegate directly to `LockSupport.parkNanos()`, **waiting for a database connection in HikariCP unmounts virtual threads cleanly without pinning carrier threads** (`CHK-JDK-23`).
 
-However, this clean unmounting exposes the **Connection Pool Sizing Fallacy** (`CLM-MIG-03`). While the JVM can spawn 10,000 virtual threads without exhausting memory, the physical database server (e.g., PostgreSQL or Oracle) is strictly bounded by hardware capacity (CPU cores, RAM buffer pools, disk IOPS, and transaction row locks). If an engineering team expands the HikariCP pool to thousands of connections to match virtual thread concurrency, the database engine suffers catastrophic context-switching overhead, connection memory exhaustion, and query serialization.
+However, this clean unmounting exposes the **Connection Pool Sizing Fallacy** (`CLM-MIG-03`). While a JVM may support many virtual threads subject to heap and workload limits, the physical database server (e.g., PostgreSQL or Oracle) is strictly bounded by hardware capacity (CPU cores, RAM buffer pools, disk IOPS, and transaction row locks). If an engineering team expands the HikariCP pool to thousands of connections to match virtual-thread concurrency, the database engine may encounter increased memory, scheduling, and query-contention costs; the magnitude is workload- and database-dependent.
 
 ### 2.6.3 Database Driver Pinning Vulnerabilities
 
-Even when application code avoids `synchronized`, legacy database drivers historically contained internal intrinsic monitor locks wrapping network socket write streams. 
+Even when application code avoids `synchronized`, legacy database drivers historically contained internal intrinsic monitor locks wrapping network socket write streams.
 
 A prominent example is the PostgreSQL JDBC driver (`pgjdbc`). Prior to version **42.6.0**, the driver synchronized on an internal stream monitor during query transmission:
 *   In `pgjdbc < 42.6.0`, when a query was sent across the network socket, the driver held an intrinsic Java monitor while blocking on network I/O, **pinning the carrier thread on Java 21**.
@@ -365,14 +365,14 @@ Enterprise Spring applications make extensive use of `ThreadLocal` storage for i
 In traditional platform thread deployments, `ThreadLocal` usage was implicitly constrained by the bounded size of the web container's thread pool:
 $$\text{Memory}_{\text{ThreadLocal}} \le N_{\text{platform\_pool}} \times \text{Size}_{\text{context}} = 200 \times \text{Size}_{\text{context}}$$
 
-Because platform worker threads are recycled indefinitely, the total memory committed to `ThreadLocal` maps remained strictly bounded.
+Because platform worker threads are reused, context footprint was bounded by the active pool only under the stated payload and cleanup assumptions.
 
 Under Virtual Threads, this operational assumption collapses:
 *   Virtual threads are ephemeral: a new virtual thread is created for every incoming HTTP request and discarded upon request completion.
 *   If an application or library attaches large object graphs to a virtual thread's `ThreadLocal` map without invoking `ThreadLocal.remove()` in a mandatory `finally` block, the memory remains referenced until garbage collection cleans up the dead virtual thread.
 *   If 100,000 virtual threads execute concurrently, total memory overhead scales linearly as $O(N)$:
 $$\text{Memory}_{\text{ThreadLocal}} = N_{\text{concurrent\_virtual\_threads}} \times \text{Size}_{\text{context}}$$
-This unchecked scaling can rapidly trigger heap exhaustion, excessive GC overhead, and catastrophic `OutOfMemoryError` failures.
+This parameterized projection identifies a possible heap risk, not an observed outcome. Actual retention depends on payload size, reachability, request lifetime, garbage collection, and cleanup discipline; heap exhaustion was not measured here.
 
 ---
 
@@ -403,7 +403,7 @@ The interaction between Virtual Threads and native code exposes a critical archi
     ▼
   C code invokes blocking POSIX syscall: nanosleep(&req, NULL)
     ├── Darwin / Linux kernel suspends OS Platform Thread (Carrier)
-    ├── Thread enters kernel wait-queue (TASK_INTERRUPTIBLE)
+    ├── Thread enters a Darwin/Mach wait state (Linux-specific terminology such as `TASK_INTERRUPTIBLE` does not apply to this host)
     │
     ▼
   CARRIER THREAD IS HELD CAPTIVE IN THE OS KERNEL!
@@ -420,7 +420,7 @@ When native C code executes a blocking system call (such as POSIX `nanosleep()`,
 3.  The continuation freeze engine is bypassed entirely; the virtual thread cannot unmount.
 4.  The underlying OS carrier thread is captured and held captive for the entire duration of the native call.
 5.  **The Observability Failure:** Because `java.lang.VirtualThread.parkOnCarrierThread()` is never called, HotSpot never triggers `postPinnedEvent`. Consequently, **Java Flight Recorder emits exactly zero `jdk.VirtualThreadPinned` events** (`CLM-RQ2-01`).
-6.  **The CPU Utilization Reality:** Because the carrier thread is suspended in the operating system kernel wait-queue, it consumes zero active processor cycles. Process telemetry confirms that steady-state JVM CPU utilization during native blocking is **approximately 1.0%**, conclusively disproving the industrial myth that carrier blocking manifests as 100% CPU spinning (`CLM-RQ2-02`).
+6.  **The CPU Utilization Reality:** Because the carrier thread is suspended in the operating-system wait state, it consumes little active processor time in this tested path. Process telemetry confirms that steady-state JVM CPU utilization during native blocking is **approximately 1.0%**, conclusively disproving the industrial myth that carrier blocking manifests as 100% CPU spinning (`CLM-RQ2-02`).
 
 ---
 
@@ -454,7 +454,7 @@ In Java 21 LTS, `ThreadMXBean` intentionally excludes virtual threads (`CHK-JDK-
 
 ### 2.9.3 JVMTI Observer Effect and Carrier Serialization (`CHK-JDK-15`)
 
-When developers attach external profilers that track virtual thread mount/unmount events via the JVM Tool Interface (JVMTI), HotSpot executes internal state transitions guarded by the global VM lock `JvmtiThreadState_lock`. 
+When developers attach external profilers that track virtual thread mount/unmount events via the JVM Tool Interface (JVMTI), HotSpot executes internal state transitions guarded by the global VM lock `JvmtiThreadState_lock`.
 
 Under high concurrency, contention for `JvmtiThreadState_lock` serializes carrier worker threads across the entire JVM (documented in `async-profiler` Issue #779). This observer effect introduces severe performance distortion, justifying this dissertation's methodological decision to rely strictly on non-invasive in-process JFR recording and host OS telemetry rather than external JVMTI profilers.
 

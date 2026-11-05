@@ -9,13 +9,13 @@ This chapter synthesizes the empirical measurements presented in Chapter 5 to fo
 *   **External Specifications (`[EXTERNALLY SUPPORTED]`):** Architectural invariants established by OpenJDK Enhancement Proposals (JEPs), HotSpot VM source code, and upstream library specifications.
 *   **Methodological Non-Claims (`[NOT ESTABLISHED]`):** Explicit boundaries delineating what the repository evidence cannot substantiate or actively refutes.
 
-Every assertion in this chapter is cross-referenced against the authoritative [Claim-to-Evidence Ledger](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/claim-evidence-ledger.md), [Discrepancy Register](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/discrepancy-register.md), [Metric Recalculation Audit](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/metric-recalculation-audit.md), and [Forensic Investigations](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/forensic-investigations.md), establishing an unassailable foundation for academic defense.
+Every assertion in this chapter is cross-referenced against the authoritative [Claim-to-Evidence Ledger](../docs/evidence-freeze/claim-evidence-ledger.md), [Discrepancy Register](../docs/evidence-freeze/discrepancy-register.md), [Metric Recalculation Audit](../docs/evidence-freeze/metric-recalculation-audit.md), and [Forensic Investigations](../docs/evidence-freeze/forensic-investigations.md), providing an evidence-bounded basis for academic discussion.
 
 ---
 
 ## 6.1 Formal Analysis of RQ1: Synchronization, Pinning, and Serialization
 
-> **Research Question 1 (RQ1):**  
+> **Research Question 1 (RQ1):**
 > *How does synchronization (specifically monitor pinning) interact with carrier-thread availability, application-level serialization, and runtime throughput in Java 21 Spring Boot MVC systems?*
 
 ---
@@ -26,7 +26,7 @@ The central empirical finding of the primary synchronization matrix (`Stratum 1`
 
 $$\text{Throughput}_{\text{synchronized}} = 1.967\text{ req/s} \quad \approx \quad \text{Throughput}_{\text{reentrant-lock}} = 1.956\text{ req/s} \quad \approx \quad \text{Throughput}_{\text{platform}} = 1.967\text{ req/s}$$
 
-To explain why eliminating monitor pinning via [`ReentrantLock`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) yielded zero throughput improvement over intrinsic monitors, we apply classical queueing saturation theory and Amdahl's Law (1967).
+To explain why eliminating monitor pinning via [`ReentrantLock`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) yielded zero throughput improvement over intrinsic monitors, we apply classical queueing saturation theory and Amdahl's Law (1967).
 
 #### 1. Single-Server Mutual Exclusion Service Bound
 In any concurrent system where access to a shared resource or state transition is protected by a strict mutual exclusion primitive, the critical section functions as a single-server queue ($M/M/1$ or $G/G/1$ in Kendall's notation) with a deterministic service duration $D$:
@@ -43,16 +43,16 @@ $$X_{\text{max}} \le \mu = 2.000\text{ req/s}$$
 
 When the system reaches this saturation point, the utilization of the critical section reaches $\rho = X / \mu \to 1.0$. Allocating additional threads cannot increase throughput because only a single thread can execute within the critical section at any instant.
 
-#### 2. Amdahl's Asymptotic Ceiling
-Amdahl's Law defines the theoretical execution speedup $S(N)$ of a software system executing across $N$ parallel execution units:
+#### 2. Service-demand interpretation (not an Amdahl speedup estimate)
+For this endpoint, the directly supported bound is the single-server service demand $1/0.500 = 2.000$ requests/s. Amdahl-style speedup calculations would require independently measured parallel and serial components, which this study did not obtain; therefore no numerical Amdahl speedup claim is made.
 
 $$S(N) = \frac{1}{(1 - P) + \frac{P}{N}}$$
 
-Where $P$ represents the parallelizable fraction of the workload and $(1 - P)$ represents the strictly sequential fraction. In the `/payments` transaction ([`PaymentService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L55-L98)), total single-request execution latency ($T_1$) consists of:
+Where $P$ represents the parallelizable fraction of the workload and $(1 - P)$ represents the strictly sequential fraction. In the `/payments` transaction ([`PaymentService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L55-L98)), total single-request execution latency ($T_1$) consists of:
 
 $$T_1 = T_{\text{serial}} + T_{\text{parallel}} = 500.0\text{ ms} + 0.5\text{ ms} = 500.5\text{ ms}$$
 
-Where $T_{\text{serial}} = 500.0\text{ ms}$ represents the mandatory critical section delay ([`simulatePaymentCall()`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L100-L106)), and $T_{\text{parallel}} \approx 0.5\text{ ms}$ encompasses Spring MVC HTTP dispatching, controller reflection, JSON marshalling, and network transport.
+Where $T_{\text{serial}} = 500.0\text{ ms}$ represents the mandatory critical section delay ([`simulatePaymentCall()`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L100-L106)), and $T_{\text{parallel}} \approx 0.5\text{ ms}$ encompasses Spring MVC HTTP dispatching, controller reflection, JSON marshalling, and network transport.
 
 The sequential fraction is therefore:
 
@@ -70,19 +70,21 @@ Even under infinite parallel concurrency ($N \to \infty$), the asymptotic speedu
 
 $$S(\infty) = \lim_{N \to \infty} \frac{1}{(1 - P) + \frac{P}{N}} = \frac{1}{1 - P} = \frac{1}{0.999001} \approx \mathbf{1.0010}$$
 
-Amdahl's Law mathematically proves that for a workload dominated by a 99.9% sequential bottleneck, scaling concurrency from 1 to 10 VUs yields a maximum theoretical performance improvement of less than $0.1\%$. The bottleneck is the mathematical structure of the algorithm, not the thread multiplexing efficiency of the runtime.
+The measured result is consistent with a single serialized service demand limiting throughput near 2 requests/s; changing the thread model does not remove that application-level serialization. This is a service-capacity interpretation, not a measured Amdahl speedup.
 
 #### 3. Little's Law and Equilibrium Response Time (`CLM-METH-05`)
 Under a closed-loop benchmarking architecture with $N = 10$ fixed Virtual Users, system throughput $X$ and mean residence time $R$ are bound by Little's Law (1961):
 
-$$N = X \times R \iff R = \frac{N}{X}$$
+$$N = X \times (R + Z) \iff R = \frac{N}{X} - Z$$
 
-When the serialized lock saturates at its empirical steady-state service capacity ($X_{\text{steady}} = 1.9667\text{ req/s}$, corresponding to 59 completed requests across the 30-second hold window in [`docs/evidence-freeze/metric-recalculations.csv`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/metric-recalculations.csv)), the equilibrium response time must expand to:
+When the serialized lock saturates at its empirical steady-state service capacity ($X_{\text{steady}} = 1.9667\text{ req/s}$, corresponding to 59 completed requests across the 30-second hold window in [`docs/evidence-freeze/metric-recalculations.csv`](../docs/evidence-freeze/metric-recalculations.csv)), the corresponding closed-loop cycle time is:
 
-$$R = \frac{N}{X} = \frac{10\text{ VUs}}{1.9667\text{ req/s}} \approx \mathbf{5.0847\text{ s}} = \mathbf{5084.7\text{ ms}} \approx \mathbf{5085\text{ ms}}$$
+$$R + Z = \frac{N}{X} = \frac{10}{1.9667} \approx \mathbf{5.0847\text{ s}}$$
+
+Using the script's `Z = 0.100 s`, the derived response time is $R \approx 4.9847\text{ s}$. This is a derived mean/cycle quantity and must not be compared directly with a measured p50.
 
 #### Microscopic Queueing Cycle Analysis
-In a deterministic closed queueing network where $N = 10$ closed-loop clients cycle through a single server with deterministic service time $D = 500\text{ ms}$, each client issues a request immediately upon receiving the previous response. Once steady-state equilibrium is established:
+In a deterministic closed queueing network where $N = 10$ clients cycle through a single server with deterministic service time $D = 500\text{ ms}$, the following is an idealized capacity model; the selected completion window is not itself proof of equilibrium:
 1. Exactly one request occupies the critical section.
 2. The remaining $N - 1 = 9$ virtual users are blocked in the wait queue.
 3. Every newly arriving request arrives behind exactly 9 predecessor requests.
@@ -94,7 +96,7 @@ Accounting for non-zero framework dispatch overhead, context switching, and netw
 *   `payments-reentrant-lock`: measured steady-state $p50 = 4981.95\text{ ms}$; mean $R = 5032.1\text{ ms}$; $p95 = 4997.78\text{ ms}$.
 *   `platform-synchronized`: measured steady-state $p50 = 4929.49\text{ ms}$; mean $R = 5077.9\text{ ms}$; $p95 = 8976.32\text{ ms}$.
 
-This convergence confirms that response time inflation under load is not an artifact of JVM scheduler thrashing or garbage collection pauses, but a mathematical consequence of closed-loop queueing saturation behind a serialized critical section.
+These values are consistent with closed-loop queueing behind a serialized critical section. The available measurements do not exclude all scheduler or garbage-collection contributions.
 
 ---
 
@@ -135,7 +137,7 @@ To resolve the core paradox of RQ1—why `ReentrantLock` completely eliminated 1
 ```
 
 #### 1. Runtime-Level Carrier Schedulability
-*   **Java 21 `synchronized`:** Intrinsic object monitors in Java 21 are coupled to the physical OS carrier thread (`JavaThread*`). When [`simulatePaymentCall()`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L100) calls `Thread.sleep(500)`, the HotSpot runtime detects an active monitor hold, aborts continuation suspension, and pins the virtual thread to the carrier. Under `parallelism=1`, the carrier thread is monopolized for 500 ms, completely starving the entire JVM.
+*   **Java 21 `synchronized`:** Intrinsic object monitors in Java 21 are coupled to the physical OS carrier thread (`JavaThread*`). When [`simulatePaymentCall()`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L100) calls `Thread.sleep(500)`, the HotSpot runtime detects an active monitor hold, aborts continuation suspension, and pins the virtual thread to the carrier. Under `parallelism=1`, the carrier thread is monopolized for 500 ms, completely starving the entire JVM.
 *   **`ReentrantLock`:** `ReentrantLock` bypasses HotSpot object monitors entirely, delegating acquisition to `java.util.concurrent.locks.AbstractQueuedSynchronizer` (AQS). When a virtual thread blocks in AQS, it calls `LockSupport.park()`. HotSpot recognizes this cooperative yield, freezes continuation stack frames to the Java heap as `StackChunk` objects, and unmounts the virtual thread. The single carrier thread is returned to the `ForkJoinPool` scheduler, fully available to execute other runnable tasks.
 
 #### 2. Application-Level Mutual Exclusion
@@ -163,7 +165,7 @@ freeze_result Continuation::freeze(JavaThread* current, intptr_t* sp) {
         post_pinned_event(current, PinnedReason::MONITOR);
         return freeze_failed; // Pinning: continuation cannot yield carrier!
     }
-    
+
     // Check for native C frames on the call stack
     if (current->has_native_frames()) {
         post_pinned_event(current, PinnedReason::NATIVE);
@@ -200,7 +202,7 @@ Authoritative inspection of OpenJDK source code and [JEP 444](https://openjdk.or
 Chapter 5 documented a striking descriptive dispersion signature: while `synchronized` exhibited an exceptionally narrow steady-state median latency range of **$\Delta = 1.28\text{ ms}$** ($\sigma = 0.70\text{ ms}$, relative spread $0.026\%$), `reentrant-lock` exhibited an absolute spread of **$\Delta = 29.78\text{ ms}$** ($\sigma = 16.53\text{ ms}$, relative spread $0.598\%$)—a dispersion **23.2 times wider**. Furthermore, tail latency spread ($p95$) was $40.37\text{ ms}$ for `reentrant-lock` versus $9.76\text{ ms}$ for `synchronized`.
 
 #### The Low-Level Origin of Barging
-[`PaymentService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) instantiates `ReentrantLock` using its default parameterless constructor:
+[`PaymentService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) instantiates `ReentrantLock` using its default parameterless constructor:
 
 ```java
 private final ReentrantLock lock = new ReentrantLock(); // Defaults to NonfairSync
@@ -265,7 +267,7 @@ Based on the empirical measurements, derived mathematical proofs, and runtime an
 
 ## 6.2 Formal Analysis of RQ2: Architectural Migration Risks
 
-> **Research Question 2 (RQ2):**  
+> **Research Question 2 (RQ2):**
 > *What architectural risks—including native boundaries, connection pool management, context propagation, and observability limits—must engineering teams evaluate before enabling Virtual Threads in existing Spring Boot MVC systems?*
 
 ---
@@ -275,7 +277,7 @@ Based on the empirical measurements, derived mathematical proofs, and runtime an
 The empirical findings from Stratum 3 (Table 5.6) uncover the most severe operational risk identified in this study: **silent carrier thread starvation across foreign function boundaries**.
 
 #### 1. The Physical Mechanism of Carrier Captivity
-When [`NativeBlockingService.block()`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java#L31-L34) invokes `nativeSleep(500)` via JNI, the virtual thread transitions into native C execution in [`native/native_blocking.c`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/native/native_blocking.c#L5-L18). The C code invokes the POSIX `nanosleep()` system call:
+When [`NativeBlockingService.block()`](../src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java#L31-L34) invokes `nativeSleep(500)` via JNI, the virtual thread transitions into native C execution in [`native/native_blocking.c`](../native/native_blocking.c#L5-L18). The C code invokes the POSIX `nanosleep()` system call:
 
 ```c
 while (nanosleep(&remaining, &remaining) == -1 && errno == EINTR) {
@@ -283,7 +285,7 @@ while (nanosleep(&remaining, &remaining) == -1 && errno == EINTR) {
 }
 ```
 
-The Darwin XNU kernel transitions the underlying physical OS carrier thread into an interruptible sleep state (`wait_queue`). The carrier thread stops executing instructions on the Apple M1 processor core. Because the thread is executing in native machine code outside the JVM bytecode interpreter, it enters the HotSpot thread state `_thread_in_native`.
+The Darwin XNU kernel transitions the underlying physical OS carrier thread into a Mach wait state. The carrier thread stops executing instructions on the Apple M1 processor core. Because the thread is executing in native machine code outside the JVM bytecode interpreter, it enters the HotSpot thread state `_thread_in_native`.
 
 #### 2. The Observability Blind Spot
 Because the blocking call occurs in kernel space outside HotSpot's managed runtime:
@@ -291,10 +293,10 @@ Because the blocking call occurs in kernel space outside HotSpot's managed runti
 *   Because `Continuation.yield()` is never called, HotSpot's continuation freeze subsystem (`continuationFreeze.cpp`) is bypassed entirely.
 *   Because continuation freeze is never attempted, **HotSpot never invokes `post_pinned_event()`**.
 
-As proven in Table 5.6, JFR recorded **exactly 0 `jdk.VirtualThreadPinned` events** across all 27 native trials, even though the carrier thread was 100% captive and throughput was completely throttled to $1.967\text{ req/s}$ ($p50 = 4963.36\text{ ms}$).
+In the tested direct JNI `nanosleep()` path without Java callbacks, JFR recorded **0 `jdk.VirtualThreadPinned` events** across the native trials, while the single carrier was occupied for the native call and throughput was completely throttled to $1.967\text{ req/s}$ ($p50 = 4963.36\text{ ms}$).
 
 #### 3. Resolution of the 100% CPU Conflation (`CLM-RQ2-02`)
-Companion process telemetry sampled at 1-second intervals disproved earlier speculative claims (`DISC-02`) asserting that native carrier blocking manifests as 100% CPU utilization. Steady-state host process CPU utilization across all 9 trials was **$1.02\% \pm 0.11\%$** (with peak steady-state sample $\le 8.5\%$). The carrier thread was not burning processor cycles in a spin-wait loop; it was suspended in the operating system kernel wait-queue (`TASK_INTERRUPTIBLE`).
+Companion process telemetry sampled at 1-second intervals disproved earlier speculative claims (`DISC-02`) asserting that native carrier blocking manifests as 100% CPU utilization. Steady-state host process CPU utilization was **$1.04\% \pm 0.12\%** across the recorded Java 21 blocking-JNI trials (with peak steady-state sample $\le 8.5\%$). The carrier thread was not burning processor cycles in a spin-wait loop; on the macOS host it was observed in a Darwin/Mach wait state.
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -305,14 +307,14 @@ Companion process telemetry sampled at 1-second intervals disproved earlier spec
                             ▼
   OS Kernel:           Darwin XNU moves carrier thread to wait_queue (SLEEPING)
                             │
-                            ├── Host Process CPU: 1.02% (Idle in kernel!)
+                            ├── Host Process CPU: 1.04% ± 0.12% (recorded Java 21 trials)
                             ├── Carrier Thread:   100% CAPTIVE (Scheduler stalled!)
                             └── JFR Event Stream: ZERO jdk.VirtualThreadPinned events!
 +-----------------------------------------------------------------------------------+
 ```
 
 #### 4. Enterprise Migration Vulnerabilities
-Engineering teams relying on JFR `jdk.VirtualThreadPinned` alerts to detect virtual thread bottlenecks will be **completely blind to foreign function blocking**. This vulnerability applies broadly across enterprise Java architectures:
+Engineering teams relying only on JFR `jdk.VirtualThreadPinned` alerts may miss foreign-function blocking. The following are conditional examples requiring separate verification; they were not measured by this study:
 *   **Legacy C Database Drivers:** SQLite JDBC (`sqlite-jdbc`) executing native statement execution via `NativeDB.c`.
 *   **Cryptographic Hardware Modules:** JNI bindings to native OpenSSL libraries, PKCS#11 hardware security modules (HSMs), or native compression libraries (e.g., Zstandard JNI).
 *   **Operating System Hostname Resolution:** Standard Java hostname resolution via `InetAddress.getByName()` invokes POSIX `getaddrinfo(3)` through JNI ([JEP 418](https://openjdk.org/jeps/418)), holding carrier threads captive during DNS latency spikes.
@@ -325,7 +327,7 @@ Engineering teams relying on JFR `jdk.VirtualThreadPinned` alerts to detect virt
 A dangerous assumption in virtual thread adoption is that because virtual threads allow concurrent application tasks to scale from hundreds to hundreds of thousands, database connection pools can be expanded proportionally or made unbounded.
 
 #### 1. Analysis of the `/orders` Construct Flaw (`CLM-RQ2-03`)
-In Section 4.4 and forensic investigation `docs/evidence-freeze/forensic-investigations.md`, code inspection revealed that [`OrderService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L49) executed `simulateSlowQuery()` (`Thread.sleep(300)`) *before* checking out a database connection:
+In Section 4.4 and forensic investigation `docs/evidence-freeze/forensic-investigations.md`, code inspection revealed that [`OrderService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L49) executed `simulateSlowQuery()` (`Thread.sleep(300)`) *before* checking out a database connection:
 
 ```java
 // OrderService.java (Lines 40-44)
@@ -335,23 +337,23 @@ try {
 }
 ```
 
-Because `getOrders()` lacked Spring's `@Transactional` annotation, connection checkout did not span the method lifecycle. HikariCP checked out a connection lazily inside `jdbcTemplate.queryForList()` and returned it immediately after executing a sub-millisecond in-memory query, resulting in an effective connection hold time of $T_{\text{hold}} < 0.1\text{ ms} = 0.0001\text{ s}$.
+Because `getOrders()` lacked Spring's `@Transactional` annotation, connection checkout did not span the method lifecycle. HikariCP checked out a connection lazily inside `jdbcTemplate.queryForList()` and returned it immediately after executing a sub-millisecond query, resulting in an effective connection hold time of $T_{\text{hold}} < 0.1\text{ ms} = 0.0001\text{ s}$.
 
-Applying Little's Law to the connection pool under peak benchmark throughput ($X = 166.4\text{ req/s}$):
+No HikariCP active, pending, or acquisition-time telemetry was captured. The source ordering shows only that the artificial delay preceded connection checkout; pool utilization and exhaustion remain unmeasured.
 
-$$L_{\text{pool}} = X \times T_{\text{hold}} = 166.4\text{ req/s} \times 0.0001\text{ s} \approx \mathbf{0.0166\text{ connections}}$$
 
-The HikariCP pool was over 98% idle throughout the benchmark. Even when pool size was constrained to `maximumPoolSize = 1`, no queue formed, explaining why pool sizes 1 and 10 exhibited identical latency profiles in Table 5.8 ($p50 \approx 303.5\text{ ms}$).
+
+The source ordering indicates that the artificial delay occurred before checkout; pool active/pending/acquisition telemetry was not captured, so measured utilization cannot be claimed. Similar latency profiles under pool-size variants are therefore descriptive only and do not establish absence of a queue.
 
 #### 2. Configuration Defect in Local H2 (`CLM-RQ2-04`)
-In [`src/main/resources/application.yml`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/resources/application.yml#L13-L17), lines 13–17 indented `datasource:` under the custom `demo:` key rather than the root `spring:` namespace. Spring Boot 3 strictly binds datasource configuration to `spring.datasource`. Consequently, Spring Boot ignored custom pool sizing parameters during local H2 runs, falling back to auto-configured H2 with default HikariCP parameters (`maximumPoolSize = 10`).
+In [`src/main/resources/application.yml`](../src/main/resources/application.yml#L13-L17), lines 13–17 indented `datasource:` under the custom `demo:` key rather than the root `spring:` namespace. Spring Boot 3 strictly binds datasource configuration to `spring.datasource`. Consequently, Spring Boot ignored custom pool sizing parameters during local H2 runs, falling back to auto-configured H2 with default HikariCP parameters (`maximumPoolSize = 10`).
 
 #### 3. Modern Driver Pinning Immunity (`CLM-RQ2-06`) and JFR Omission (`CLM-RQ2-05`)
 *   **Driver Immunity:** The benchmark resolved `org.postgresql:postgresql:42.7.10`, which safely exceeds the `pgjdbc >= 42.6.0` boundary where internal socket reads were refactored from `synchronized` to `ReentrantLock` (pgjdbc Issue #1951 / PR #2629).
 *   **JFR Omission:** The Docker Compose benchmark runs (`docker-pg-orders`) omitted the `-XX:StartFlightRecording` JVM flag. Consequently, while k6 logs proved successful query execution, all claims regarding carrier unmounting during PostgreSQL network I/O are formally declared **Not Established** (`CLM-RQ2-05`).
 
 #### 4. The Real Architectural Risk in Production Enterprise Systems
-While our benchmark artifact contained a pre-acquisition construct flaw, queueing theory establishes the severe risk of unconstrained virtual thread expansion against relational persistence tiers:
+While our benchmark artifact contained a pre-acquisition construct flaw, queueing theory motivates a conditional risk assessment for unconstrained virtual-thread expansion against relational persistence tiers:
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -360,32 +362,32 @@ While our benchmark artifact contained a pre-acquisition construct flaw, queuein
    Client Concurrency:   10,000 Concurrent Virtual Threads
                               │
                               ▼
-   Web Container:        Tomcat handles 10,000 requests without thread exhaustion!
+   Web Container:        Tomcat may admit many requests without a platform-thread ceiling, subject to other limits.
                               │
                               ▼
-   HikariCP Pool:        Bounded to 20 Connections (Optimal Sizing Formula)
+   HikariCP Pool:        Bounded to an application-calibrated connection limit
                               │
                               ▼
-   Acquisition Queue:    9,980 Virtual Threads blocked in HikariCP FairQueue!
+   Acquisition Queue:    many virtual threads may wait behind a bounded pool
                               │
                               ▼ (After connectionTimeout = 30,000 ms)
-   Client Outcome:       💥 CASCADING FAILURE:
-                         - 9,980 SQLTransientConnectionException errors
-                         - Connection pool exhaustion & 500 Server Errors
+   Possible outcome under an overloaded, long-held-connection workload:
+                         - acquisition timeouts or rejected requests
+                         - database/pool saturation (requires measurement)
 +-----------------------------------------------------------------------------------+
 ```
 
 *   **Database Server Saturation:** Relational database engines (PostgreSQL, Oracle, MySQL) rely on dedicated backend worker processes or native OS threads. Server capacity is governed by physical disk I/O bandwidth, write-ahead log (WAL) synchronization, buffer pool latch contention, and CPU cache locality.
-*   **The HikariCP Sizing Equation:** As established by the HikariCP engineering team, optimal pool sizing follows:
+*   **A commonly cited pool-sizing heuristic (not a universal law):** As established by the HikariCP engineering team, optimal pool sizing follows:
     $$\text{Pool Size} = T_n \times (\text{Core Count}) + \text{Disk Spindle Factor}$$
     For an 8-core database server with SSD storage, optimal pool size is typically $8 \times 2 + 1 \approx 17\text{ connections}$.
-*   **The Virtual Thread Risk:** When 10,000 virtual threads concurrently attempt to query a relational database, they must queue behind a small, bounded connection pool. If transactions hold connections during downstream RPC calls or long queries, thousands of virtual threads block in HikariCP acquisition (`LockSupport.park()`). While virtual threads unmount cleanly without pinning carriers, HikariCP's internal queue will exceed its `connectionTimeout` (default 30 seconds), throwing catastrophic cascades of `SQLTransientConnectionException` and collapsing the service.
+*   **The Virtual Thread Risk:** When many virtual threads concurrently attempt to query a relational database, they may queue behind a small, bounded connection pool. If transactions hold connections during downstream RPC calls or long queries, virtual threads can block in HikariCP acquisition (`LockSupport.park()`). Under a sufficiently overloaded, long-held-connection workload, acquisition timeouts or rejected requests are possible; this study did not measure that scenario.
 
 ---
 
 ### 6.2.3 Risk 3: Context Propagation and ThreadLocal Memory Scaling (`CLM-RQ2-07`)
 
-Spring MVC architectures historically rely upon [`ThreadLocal`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28) storage for security authentication (`SecurityContextHolder`), transaction synchronization (`TransactionSynchronizationManager`), and HTTP request context (`RequestContextHolder`).
+Spring MVC architectures historically rely upon [`ThreadLocal`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28) storage for security authentication (`SecurityContextHolder`), transaction synchronization (`TransactionSynchronizationManager`), and HTTP request context (`RequestContextHolder`).
 
 #### The Memory Scaling Liability
 In traditional Spring MVC, Tomcat's platform thread pool bounds the total number of concurrently allocated `ThreadLocalMap` structures to `maxThreads` (default 200):
@@ -394,27 +396,29 @@ $$\text{Heap Memory}_{\text{platform}} = 200 \times \text{Size}(\text{Context}) 
 
 Under Virtual Threads, Spring Boot dispatches every incoming HTTP request to an ephemeral virtual thread generated via `Executors.newVirtualThreadPerTaskExecutor()`. Under high concurrency ($N = 100,000$ active requests):
 
-$$\text{Heap Memory}_{\text{virtual}} = 100,000 \times \text{Size}(\text{Context}) = 100,000 \times 50\text{ KB} \approx \mathbf{5.0\text{ GB}}$$
+$$\text{Heap Memory}_{\text{virtual}} = 100,000 \times \text{Size}(\text{Context})$$
+
+A 5.0 GB figure is only an arithmetic projection under the explicit 50 KB/request assumption; it was not measured.
 
 ```
 +-----------------------------------------------------------------------------------+
 |               THREADLOCAL MEMORY SCALING: PLATFORM VS. VIRTUAL                    |
 +-----------------------------------------------------------------------------------+
   PLATFORM THREADS (Bounded Pool):
-  [200 Platform Threads]  ──>  200 ThreadLocalMaps  ──>  ~10 MB Heap (BOUNDED O(1))
+  [200 Platform Threads]  ──>  200 ThreadLocalMaps  ──> bounded only under stated payload/lifecycle assumptions
 
   VIRTUAL THREADS (Unbounded Ephemeral Allocation):
-  [100,000 Virtual Threads] ──> 100,000 ThreadLocalMaps ──> ~5.0 GB Heap (LINEAR O(N))
+  [100,000 Virtual Threads] ──> 100,000 ThreadLocalMaps ──> 5.0 GB projection under explicit 50 KB/request assumptions
                                        │
                                        ▼ Slow downstream database or API...
-                                 *OUT OF MEMORY ERROR (OOM)*
+                                 *Potential heap pressure; OOM was not measured*
 +-----------------------------------------------------------------------------------+
 ```
 
 #### Mechanism of Heap Retention
 1.  **Lack of Thread Pooling:** Platform threads are pooled and reused; their `ThreadLocalMap` instances are recycled across requests. Virtual threads are short-lived, unpooled objects.
 2.  **Delayed Garbage Collection:** If request processing encounters downstream queueing (e.g., HikariCP connection checkout or third-party API latency), tens of thousands of uncollected `VirtualThread` instances remain referenced on the Java heap.
-3.  **Context Leakage:** Each virtual thread retains strong references to its private `ThreadLocalMap`, preventing garbage collection of security tokens, user session graphs, and transaction resources. This transforms a bounded $O(1)$ memory footprint into an $O(N)$ linear heap liability.
+3.  **Context Lifecycle:** Live virtual threads can carry per-request context, so footprint can scale with live request count and payload size. Dead, unreachable virtual threads and their maps remain eligible for garbage collection; this study did not measure retention or OOM.
 4.  **Buffer Recycler Churn:** Older serialization libraries (e.g., Jackson Core prior to version 2.16.0, FasterXML Issue #1089) pooled I/O buffers in `ThreadLocal<SoftReference<BufferRecycler>>`. Under virtual threads, this allocated tens of thousands of 16 KB buffers, inducing severe young-generation GC pauses until Jackson 2.16 introduced pluggable `RecyclerPool` implementations.
 
 ---
@@ -432,8 +436,8 @@ As established in Section 3.10 and OpenJDK HotSpot source code, standard JFR pro
 </event>
 ```
 
-*   **Empirical Implication:** Any monitor pinning event lasting less than 20 ms is **silently discarded by the JFR ring buffer**.
-*   **Production Vulnerability:** In microservice systems, micro-pinning events (e.g., in-memory synchronized map updates holding a monitor for 2–10 ms during JSON serialization or cache synchronization) will never appear in JFR logs. If hundreds of virtual threads repeatedly incur 5 ms pinning delays, the carrier thread pool suffers severe throughput degradation while JFR reports exactly zero pinning events.
+*   **Empirical Implication:** Any monitor pinning event lasting less than 20 ms is **not emitted because the configured event threshold excludes durations below 20 ms**.
+*   **Production Vulnerability:** In microservice systems, micro-pinning events (e.g., in-memory synchronized map updates holding a monitor for 2–10 ms during JSON serialization or cache synchronization) will never appear in JFR logs. If shorter pins matter for a workload, their operational impact requires separate measurement; the configured JFR threshold alone cannot quantify it.
 
 #### 2. The Formal Semantics of `jdk.VirtualThreadPinned`
 The thesis formally establishes that:
@@ -461,9 +465,9 @@ Traditional Application Performance Monitoring (APM) agents and Prometheus expor
 Based on the empirical evidence and architectural analyses presented in Sections 6.2.1 through 6.2.4, this dissertation formally answers **Research Question 2**:
 
 Engineering teams evaluating Virtual Threads in existing Spring Boot MVC systems must assess four primary architectural risks:
-1.  **Foreign Function JNI Carrier Captivity:** Blocking system calls executed across native boundaries (JNI, Panama, C database drivers, POSIX `getaddrinfo`) hold OS carrier threads captive in kernel wait-queues while consuming negligible CPU (~1.0%) and emitting **zero JFR pinning events**. Native blocking must be strictly isolated to dedicated platform thread executors.
-2.  **Downstream Relational Database Pool Starvation:** Eliminating the Tomcat web-tier thread ceiling transfers concurrency pressure directly to downstream database connection pools. Unconstrained virtual thread concurrency causes connection pool checkout queues to collapse with `SQLTransientConnectionException` timeouts unless pool sizes follow Little's Law and acquisition queues are strictly bounded.
-3.  **ThreadLocal Memory Scaling Liability:** Ephemeral virtual threads allocate unpooled `ThreadLocalMap` structures on the Java heap. Under high concurrency or downstream latency, uncollected virtual threads retain large request context graphs, scaling heap consumption from a bounded $O(1)$ pool overhead to an $O(N)$ linear memory liability.
+1.  **Foreign-function boundary risk:** In the tested direct JNI `nanosleep()` path without callbacks, the carrier was occupied while process CPU remained low and no qualifying JFR pin event was recorded. Other JNI, Panama, driver, and resolver paths require separate verification; long or unpredictable blocking calls should be bounded or isolated.
+2.  **Downstream capacity risk:** Virtual threads can expose database-pool and database-server limits, but pool starvation and `SQLTransientConnectionException` cascades were not established by this construct-flawed experiment. Pool size and acquisition timeout require workload-specific calibration.
+3.  **ThreadLocal Lifecycle and Heap Risk:** Per-request context can scale with live request count and payload size, but this study did not measure a 5 GB retention or OOM outcome.
 4.  **Observability Telemetry Blind Spots:** JFR's default 20 ms threshold filter discards micro-pinning events below 20 ms, while `jdk.VirtualThreadPinned` is completely blind to native blocking and CPU monopolization. Legacy `ThreadMXBean` metrics omit virtual threads entirely, necessitating modern diagnostic tooling (Micrometer 1.12+, custom JFR templates with 0 ms thresholds).
 
 ---
@@ -480,7 +484,7 @@ To maintain strict academic integrity and defensibility, Table 6.1 explicitly it
 | **"Replacing `synchronized` with `ReentrantLock` increases throughput"** | In Stratum 1, `ReentrantLock` achieved $1.956\text{ req/s}$ vs. `synchronized` at $1.967\text{ req/s}$ ($<0.5\%$ delta). | Refactoring eliminates carrier pinning, but does not alter application-level Amdahl serialization (`CLM-RQ1-04`). |
 | **"This study established optimal PostgreSQL connection pool sizing"** | In Stratum 7, `/orders` executed its delay before checking out a connection, leaving the pool over 98% idle ($L_{\text{pool}} \approx 0.0166$). | Connection pool sizing must be derived theoretically from Little's Law; empirical pool saturation was unexercised (`CLM-RQ2-03`). |
 | **"PostgreSQL carrier unmounting was empirically verified in JFR"** | Docker Compose executions omitted the `-XX:StartFlightRecording` JVM flag. | PostgreSQL JFR pinning behavior is formally declared **Not Established** (`CLM-RQ2-05`). |
-| **"JNI blocking always consumes 100% carrier CPU"** | Telemetry in Stratum 3 proved steady-state CPU during `nanosleep` was $1.02\% \pm 0.11\%$. | Native POSIX sleep suspends the carrier thread in the kernel wait-queue; active CPU consumption occurs only in busy-wait loops (`CLM-RQ2-02`). |
+| **"JNI blocking always consumes 100% carrier CPU"** | Telemetry in Stratum 3 proved steady-state CPU during `nanosleep` was $1.04\% \pm 0.12\% in the recorded Java 21 blocking-JNI trials$. | Native POSIX sleep suspends the carrier thread in the kernel wait-queue; active CPU consumption occurs only in busy-wait loops (`CLM-RQ2-02`). |
 | **"Single-carrier stress (`parallelism=1`) models 1-vCPU cloud containers"** | Host OS was an 8-core Apple M1 executing GC, Tomcat acceptor threads, and k6 concurrently across all cores. | `parallelism=1` is an in-process JVM scheduler constraint for mechanism isolation, not a cgroup CPU quota (`CLM-METH-01`). |
 | **"HotSpot dynamically compensates for monitor pinning with extra carriers"** | JEP 444 and HotSpot source code confirm carrier compensation is implemented exclusively for `ManagedBlocker` file I/O, never for monitors. | Pinning is a passive stall; `-Djdk.virtualThreadScheduler.maxPoolSize=1` only constrained file I/O expansion (`CLM-RQ1-07`). |
 | **"Observed dispersion differences establish asymptotic statistical distributions"** | Primary experimental conditions were evaluated across $N=3$ process repetitions per treatment. | $N=3$ repetitions provide descriptive mechanism validation; inferential hypothesis testing (ANOVA, p-values) is excluded (`CLM-METH-03`). |
