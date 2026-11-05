@@ -181,7 +181,7 @@ bool ContinuationFreeze::can_freeze() {
 }
 ```
 
-The underlying technical reason for this restriction in Java 21 stems from HotSpot's historical C++ architecture. When an intrinsic monitor is acquired, the C++ runtime stores direct native memory pointers to the `ObjectMonitor` structures on the physical OS execution stack. In Java 21, the continuation engine lacked the capability to safely evacuate, relocate, and update these internal C++ memory addresses on the heap. Consequently, HotSpot prohibits continuation freezing while an intrinsic monitor is held.
+The underlying reason is an ownership and continuation-bookkeeping constraint, not simply an inability to copy C++ pointers. In Java 21, monitor ownership was associated with the carrier platform thread rather than independently with the virtual thread. If the virtual thread were unmounted while holding the monitor, another virtual thread could later run on that carrier and be mistaken for the monitor owner, allowing incorrect re-entry or release and violating mutual exclusion. HotSpot therefore conservatively rejects continuation freezing while an intrinsic monitor is held ([JEP 491](https://openjdk.org/jeps/491#The-reason-for-pinning)).
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -240,6 +240,8 @@ JEP 491 rearchitected `ObjectMonitor` locking so that acquiring, holding, or wai
 2.  When a virtual thread encounters monitor contention or blocks (e.g., `Thread.sleep()`) inside a `synchronized` block on Java 24, HotSpot evacuates the continuation frames to the heap and unmounts the virtual thread, freeing the carrier thread for other work.
 3.  In this research, empirical validation on JDK 24.0.2 (`Stratum 2`, Table 5.5) confirmed that under the exact identical workload that produced 110 pinning events on Java 21, Java 24 recorded **exactly 0 `jdk.VirtualThreadPinned` events** (`CLM-RQ1-06`).
 
+The Java 21 limitation should not be reduced to the claim that HotSpot merely lacked a mechanism for copying arbitrary C++ memory addresses. Java 21 could already freeze and relocate managed continuation frames and their Java references. The critical incompatibility was the identity recorded by the monitor implementation: ownership was associated with the carrier platform thread rather than independently with the virtual thread. If a virtual thread holding a monitor were unmounted and its carrier immediately mounted another virtual thread, the JVM could observe that second virtual thread as running on the monitor-owning carrier. It could then incorrectly permit monitor re-entry or release, violating mutual exclusion. Java 21 therefore conservatively rejected continuation freezing while a monitor was held. JEP 491 changed the monitor and mount/unmount bookkeeping so that monitor ownership follows the virtual thread across carriers. This is a runtime ownership redesign, not merely a larger or safer heap-copy operation ([JEP 491](https://openjdk.org/jeps/491#Description)).
+
 ### 2.4.2 Ineligibility of JEP 491 for Java 21 LTS Backporting
 
 A critical architectural reality for enterprise software engineering is that **JEP 491 will never be backported to Java 21 LTS**:
@@ -277,7 +279,7 @@ While both primitives provide mutual exclusion and reentrancy, they represent fu
 | **Implementation Layer** | JVM HotSpot C++ (`ObjectMonitor`) bytecode | Java Class Library (`AbstractQueuedSynchronizer` [AQS]) |
 | **Java 21 Virtual Thread Behavior** | **Pins Carrier Thread** if blocking occurs inside | **Unmounts Cleanly** to heap via `LockSupport.park()` |
 | **Java 24+ Virtual Thread Behavior** | Unmounts cleanly (JEP 491) | Unmounts cleanly |
-| **Lock Acquisition Fairness** | Strictly non-fair (OS-dependent thread scheduling) | Configurable: Non-fair (default) or Fair |
+| **Lock Acquisition Fairness** | No contractual fairness guarantee; acquisition order is implementation- and scheduling-dependent | Configurable: Non-fair (default) or Fair |
 | **Interruptibility** | Uninterruptible (thread blocks indefinitely) | Configurable: `lock()` vs. `lockInterruptibly()` |
 | **Timed Acquisition** | Unsupported | Supported (`tryLock(timeout, unit)`) |
 | **Scope Encapsulation** | Strict lexical block scoping (compiler-enforced) | Explicit method calls (requires mandatory `finally` block) |
@@ -311,7 +313,9 @@ In the OpenJDK implementation, `ReentrantLock` delegates internal queue manageme
 
 When a thread attempts to acquire an unlocked `NonfairSync` lock, it immediately executes `compareAndSetState(0, 1)`. If the lock was released fractions of a microsecond prior, the newly arriving thread **barges** ahead of all threads currently waiting in the AQS FIFO queue.
 
-Because waiting virtual threads must be unparked by the scheduler, re-enqueued, and remounted onto a carrier thread, a barging thread already executing on a hot carrier core possesses an overwhelming scheduling advantage. This phenomenon introduces substantial tail-latency jitter, directly explaining the **$\approx 23\times$ wider latency dispersion** observed in `ReentrantLock` compared to `synchronized` (`CLM-RQ1-05`).
+Because waiting virtual threads must be unparked by the scheduler, re-enqueued, and remounted onto a carrier thread, a barging thread already executing on a hot carrier core can possess a scheduling advantage. This provides a plausible mechanism for the **descriptive $\approx 23\times$ wider latency dispersion** observed in `ReentrantLock` compared to `synchronized` (`CLM-RQ1-05`), but the $N=3$ process-repetition design does not isolate AQS barging as the sole cause.
+
+The lower dispersion observed for `synchronized` should not be interpreted as proof that intrinsic monitors provide a contractual FIFO or fair queue. The Java Language Specification defines monitor exclusion but does not promise FIFO fairness ([JLS §17.1](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.1)). The Java 21 `ReentrantLock` specification likewise states that the default non-fair lock guarantees no particular access order and that fair locks may have smaller acquisition-time variance ([Java 21 API](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html)). The tested OpenJDK implementation attempts a direct CAS before queueing in `NonfairSync.initialTryLock()` ([OpenJDK JDK 21 source](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java)), whereas intrinsic monitors use a different JVM-managed synchronization path. Under the measured workload, that difference was consistent with less cross-trial dispersion for `synchronized`; it does not establish that intrinsic monitors are universally fairer or have better tail latency.
 
 ---
 

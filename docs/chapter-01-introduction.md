@@ -77,7 +77,64 @@ Upon setting this property, Spring Boot configures Apache Tomcat's embedded prot
 +-----------------------------------------------------------------------------------+
 ```
 
-### 1.1.4 The Virtual Thread Bottleneck Fallacy
+### 1.1.4 Why Java 21 Remains Relevant After JEP 491
+
+The fact that JEP 491 was delivered in JDK 24 does not make Java 21 an
+obsolete or purely historical research target. Java 21 was the release in
+which Virtual Threads became a permanent Java platform feature through
+[JEP 444](https://openjdk.org/jeps/444), and it remains an LTS release in
+Oracle's support roadmap, with Premier Support listed through September 2028
+and Extended Support through September 2031
+([Oracle Java SE Support Roadmap](https://www.oracle.com/java/technologies/java-se-support-roadmap.html)).
+The Spring Boot threading configuration used in this research also activates
+Virtual Threads when the application runs on Java 21 or later
+([Spring Boot `Threading` API](https://docs.spring.io/spring-boot/3.5/api/java/org/springframework/boot/autoconfigure/thread/Threading.html)).
+
+Available ecosystem surveys further indicate that Java 21 achieved substantial
+adoption rather than remaining a niche release. JetBrains' *State of Java
+2025*, based on more than 5,000 developers, reported Java 21 as the regularly
+used version for 40% of respondents, compared with 39% for Java 17
+([JetBrains, *The State of Java 2025*](https://lp.jetbrains.com/the-state-of-java-2025/)).
+The 2026 JUG.RU/VK *State of Java* survey reported Java 21 production usage
+among 68.7% of its 722 respondents, compared with 59.6% for Java 17
+([JUG.RU/VK, *State of Java 2026*](https://jokerconf.com/research/state-of-java/2026/report.html)).
+The Eclipse Foundation's 2025 Jakarta EE Developer Survey provides a
+complementary enterprise-ecosystem perspective, although its respondent
+population and question wording differ from the JetBrains and JUG.RU surveys
+([Eclipse Foundation, *2025 Jakarta EE Developer Survey Report*](https://outreach.eclipse.foundation/hubfs/2025%20Jakarta%20EE%20Developer%20Survey%20Report.pdf)).
+These percentages are therefore not directly interchangeable or a universal
+market census; they are evidence that Java 21 is a credible and materially
+deployed enterprise baseline.
+
+Java 25 became the newer LTS release in September 2025, but the existence of a
+newer LTS does not immediately remove Java 21 from production. Enterprise LTS
+migrations are constrained by application validation, dependency compatibility,
+operational certification, release governance, and support planning. The
+research consequently treats Java 21 as the primary migration baseline and
+Java 24.0.2 as a boundary comparison, rather than assuming that every
+organization has already moved to the newest LTS.
+
+JEP 491 changes an important runtime mechanism: on Java 24 and later, ordinary
+blocking inside `synchronized` methods and statements can release the carrier
+thread. It does not remove application-level serialization or increase the
+service rate of a mutually exclusive critical section. In the workload studied
+here, a 500 ms serialized operation retains an approximate service ceiling of
+2.0 requests per second regardless of whether the carrier is pinned. The
+runtime improvement therefore changes the schedulability layer, not the
+domain-capacity layer ([JEP 491](https://openjdk.org/jeps/491)).
+
+Nor does JEP 491 eliminate all migration risks. Its specification identifies
+remaining pinning situations involving native frames and class initialization.
+Independent of monitor pinning, Virtual Thread adoption still requires analysis
+of JNI and foreign-function boundaries, JDBC connection pools, downstream
+database capacity, ThreadLocal lifecycle, scheduler constraints, cancellation,
+observability, and correctness-preserving synchronization semantics. This
+dissertation therefore studies Java 21 not merely to document a superseded
+runtime behavior, but to establish a controlled baseline for separating
+carrier schedulability from application serialization and finite-resource
+capacity—distinctions that remain relevant on Java 24 and later.
+
+### 1.1.5 The Virtual Thread Bottleneck Fallacy
 
 The simplicity of enabling Virtual Threads led to a widespread industry belief: that toggling `spring.threads.virtual.enabled: true` would universally eliminate concurrency bottlenecks, drastically reduce latencies, and deliver immediate order-of-magnitude throughput gains for legacy Spring Boot applications.
 
@@ -198,11 +255,24 @@ All primary benchmark trials were executed on a dedicated bare-metal host enviro
 > ```
 > This configuration represents an **in-process JVM scheduler constraint** that forces the virtual thread `ForkJoinPool` carrier worker count to exactly one. **It is not a Linux cgroup CPU bandwidth quota (`cpu.cfs_quota_us`)**. The JVM process, garbage collector, JFR telemetry daemon, Tomcat acceptor threads, and the k6 load generator continued to execute concurrently across all 8 host cores of the Apple M1 processor. The thesis explicitly rejects describing `parallelism=1` as "1-vCPU container equivalence."
 
+The choice of one carrier is a deliberate **mechanism-isolation boundary**, not a claim that production systems should use one carrier. With one carrier, a pinned virtual thread occupies the only scheduler worker, making carrier starvation directly observable:
+
+```text
+parallelism=1:  [Carrier 1: pinned]  -> other runnable virtual threads cannot execute
+parallelism=2:  [Carrier 1: pinned]  [Carrier 2: available] -> partial masking
+parallelism=4:  [Carrier 1: pinned]  [Carriers 2-4 available] -> greater masking
+parallelism=8:  [Carrier 1: pinned]  [Carriers 2-8 available] -> still less visible
+```
+
+Increasing parallelism from 1 to 2, 4, or 8 would therefore address a different question: how scheduler capacity and independent parallel work affect the practical cost of pinning. Those values may reduce the observed starvation impact, but they would also make the monitor-pinning mechanism harder to isolate from ordinary scheduling and workload effects. The primary study does not claim a complete `1 \rightarrow 2 \rightarrow 4 \rightarrow 8` scaling law. It includes a separate unconstrained **8-carrier historical baseline** (Stratum 5) as boundary evidence; intermediate values and production-capacity scaling remain outside the primary scope.
+
 ### 1.4.3 Closed-Loop Workload Model (`CLM-METH-05`)
 
 Workload generation is executed using **k6** in a **closed-loop concurrency model** (10 to 50 concurrent Virtual Users [VUs]):
 *   In closed-loop testing, each virtual user issues an HTTP request, synchronously awaits the response, then performs the configured 100 ms think time ($Z = 0.100\text{ s}$) before dispatching the subsequent request.
-*   Consequently, client arrival rate is structurally coupled to system response time by Little's Law ($N = X(R + Z)$, or $R = N/X - Z$). When response time inflates due to a serialized critical section, the client self-throttles. This model reflects client behavior in synchronous batch processing and microservice RPC pipelines, but does not simulate open-loop Poisson arrival spikes.
+*   Consequently, client arrival rate is structurally coupled to system response time by Little's Law ($N = X(R + Z)$, or $R = N/X - Z$). When response time inflates due to a serialized critical section, the client self-throttles.
+*   This choice is deliberate for the primary research questions. The fixed VU population keeps the offered concurrency bounded while the experiment isolates whether monitor pinning and carrier occupation differ between synchronization treatments. An open-loop workload would instead continue issuing requests independently of completion, making queue growth, overload thresholds, timeouts, and tail-latency collapse the principal outcomes. Those are important capacity-planning questions, but they are not required to answer whether removing monitor pinning changes throughput in this controlled serialized workload.
+*   The closed-loop model therefore represents synchronous batch or microservice-RPC clients; it does not evaluate open-loop arrival processes, such as fixed-rate or Poisson arrivals, in which request generation is independent of server completion.
 
 ### 1.4.4 Explicit Exclusions
 
