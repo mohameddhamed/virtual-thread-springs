@@ -3,19 +3,19 @@
 ## 8.0 Epistemic Framing and Chapter Overview
 
 This chapter presents an architectural, theoretical, and practical discussion of the empirical findings established in this dissertation. In alignment with the epistemic framework ratified in [Chapter 3: Research Design and Methodology](../docs/chapter-03-research-design-and-methodology.md) and formalized in the [Claim-to-Evidence Ledger](../docs/evidence-freeze/claim-evidence-ledger.md), every argument in this discussion is calibrated to its underlying evidentiary basis:
-*   `[MEASURED]`: Direct quantitative outcomes from the 119 physical executions across Strata 1 through 5.
+*   `[MEASURED]`: Direct quantitative outcomes from the 119 physical executions, interpreted by their documented strata and admission status.
 *   `[DERIVED]`: Mathematical formulations applying closed-loop queueing theory, Little's Law with think-time, Amdahl's Law, and dispersion statistics.
 *   `[INTERPRETED]`: Architectural and causal explanations linking empirical data to OpenJDK HotSpot C++ internals, Darwin/Mach and POSIX kernel mechanics, and enterprise framework abstractions.
 *   `[EXTERNALLY SUPPORTED]`: Authoritative specifications from OpenJDK Enhancement Proposals (JEPs), HotSpot VM source code, and peer-reviewed computer systems literature.
 *   `[NOT ESTABLISHED]`: Explicit non-claims where local experimental evidence is defective, unmeasured, or actively refutes widespread industrial assumptions.
 
 The discussion is structured across seven core sections:
-1.  **Section 8.1 (Synthesis of Main Findings):** Unifies the empirical discoveries across all five admitted strata into an integrated architectural synthesis, centered on the *Schedulability Fallacy* and the decoupling of carrier unpinning from critical section serialization.
-2.  **Section 8.2 (Comparative Concurrency Paradigms):** Situates Project Loom within the broader taxonomy of modern systems concurrency, contrasting Java 21 Virtual Threads against Spring WebFlux/Project Reactor (event loops), Go (goroutines), Erlang/Elixir BEAM (actor processes), and C#/.NET (async/await state machines).
+1.  **Section 8.1 (Synthesis of Main Findings):** Unifies the empirical discoveries across the admitted strata into an integrated architectural synthesis, centered on the *Schedulability Fallacy* and the decoupling of carrier unpinning from critical section serialization.
+2.  **Section 8.2 (Comparative Concurrency Paradigms):** Situates Project Loom within the broader taxonomy of modern systems concurrency, contrasting Java 21 Virtual Threads against Spring WebFlux/Project Reactor (event loops), Go (goroutines), Erlang/Elixir BEAM (actor processes), and C#/.NET (async/await state machines). These comparisons are externally supported background, not additional local measurements.
 3.  **Section 8.3 (Architectural Foundations and Conservation Laws):** Evaluates the experimental outcomes through the lens of classical systems theory (Amdahl's Law, Little's Law, and Gunther's Universal Scalability Law), formalizing the *Three-Tier Concurrency Taxonomy*.
 4.  **Section 8.4 (Engineering, Operational, and Organisational Relevance):** Analyzes the concrete economic and operational implications for enterprise software engineering organizations, detailing the shift from container thread tuning to backend capacity planning.
 5.  **Section 8.5 (Master Threats to Validity and Explicit Limitations):** Provides a comprehensive audit of internal, external, construct, and statistical validity threats, ensuring total defensibility against academic critique.
-6.  **Section 8.6 (Reproducibility and Transferability):** Details the open-science master evidence package (504 files, ~966 MB, 100% SHA-256 verified) and defines the exact boundary conditions governing the transferability of this study's findings to production systems.
+6.  **Section 8.6 (Reproducibility and Transferability):** Details the open-science master evidence package (504 files, ~966 MB, with the recorded comparisons SHA-256 verified) and defines the boundary conditions governing transferability to production systems.
 7.  **Section 8.7 (Future Research Directions):** Outlines a prioritized, actionable research agenda for subsequent investigations, separating necessary experimental completions from advanced architectural extensions.
 
 ---
@@ -39,7 +39,7 @@ The central thesis of this dissertation is that this promise represents an archi
 
 > **The Schedulability Fallacy:** The assumption that eliminating thread-per-request concurrency ceilings in the web application tier automatically expands system throughput or eliminates latency degradation, without regard to domain synchronization, queueing equilibrium, downstream resource constraints, or foreign-function runtime boundaries.
 
-Across 119 controlled benchmark executions spanning five distinct experimental strata, this research systematically deconstructs this fallacy. The empirical data reveals that while virtual threads effortlessly eliminate the memory and scheduling overhead of operating system platform threads, they expose underlying architectural friction points that platform thread pools historically concealed.
+Across 119 physical executions partitioned into seven documented strata, with the principal synthesis based on the admitted and qualified populations, this research examines this fallacy. The evidence shows that virtual threads can reduce platform-thread scheduling constraints while leaving domain serialization, finite resources, and foreign-boundary risks subject to separate analysis.
 
 ```
 +===================================================================================+
@@ -71,20 +71,20 @@ Across 119 controlled benchmark executions spanning five distinct experimental s
 
 ### 8.1.2 Cross-Stratum Empirical Synthesis
 
-To establish a unified evidence base, Table 8.1 synthesizes the empirical outcomes across the five admitted experimental strata, mapping each phenomenon directly to its underlying physical mechanism and adjudicated claim.
+To establish a unified evidence base, Table 8.1 synthesizes selected outcomes from the admitted experimental strata, mapping each phenomenon directly to its underlying physical mechanism and adjudicated claim.
 
 ### Table 8.1: Cross-Stratum Empirical Synthesis Matrix
 
 | Stratum / Treatment | Primary Independent Variable | Steady-State Throughput ($X$) | Median Latency ($p50$) | JFR Pinning Events | Carrier Telemetry Signature | Adjudicated Mechanism & Ledger Link |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Stratum 1:** `payments-synchronized` | Intrinsic lock (`synchronized`), Java 21, `parallelism=1` | $1.967\text{ req/s}$ | $4,966.78\text{ ms}$ | $108\text{ events}$ (1:1 with requests) | Carrier thread pinned to OS thread during 500 ms sleep | Carrier pinned in HotSpot monitor wait; Amdahl serialization dominates throughput ([`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L54)). |
-| **Stratum 1:** `payments-reentrant-lock` | Virtual-thread-safe lock (`ReentrantLock`), Java 21, `parallelism=1` | $1.956\text{ req/s}$ | $4,981.95\text{ ms}$ | $0\text{ events}$ | Carrier thread unmounts cleanly; unparks on critical section entry | Carrier unpinned, but critical section remains serialized ($\mu = 2.0\text{ req/s}$); zero throughput gain ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L83-L98)). |
-| **Stratum 1:** `platform-synchronized` | OS Platform Threads (1:1), Java 21, unconstrained scheduler | $1.967\text{ req/s}$ | $4,929.49\text{ ms}$ | $0\text{ events}$ | OS thread blocks directly in kernel wait-queue | Classical thread-per-request baseline; steady-state throughput identical to virtual threads ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L115-L129)). |
-| **Stratum 2:** `java24-sync-repeat` | Intrinsic lock (`synchronized`), OpenJDK 24 + JEP 491, `parallelism=1` | $1.967\text{ req/s}$ | $5,000.73\text{ ms}$ | $0\text{ events}$ | HotSpot `ObjectMonitor` unmounts continuation cleanly | Runtime unpinning achieved without code changes; throughput still bounded at 2.0 req/s ([`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L100-L113)). |
-| **Stratum 3:** `native-boundary-repeated` | Direct POSIX `nanosleep()` via JNI downcall, JDK 21/24/25 | $1.967\text{ req/s}$ | $4,978.22\text{ ms}$ | $0\text{ events}$ | Carrier thread suspended in Darwin/Mach wait state; CPU $= 1.04\% \pm 0.12\%$ | Silent carrier captivity; zero JFR pinning events recorded; complete observability blind spot ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L161), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L163-L177)). |
-| **Stratum 4:** `products-isolation` | Clean JDBC query (`SELECT * FROM products`), H2 database | $416.73\text{ req/s}$ | $2.14\text{ ms}$ | $0\text{ events}$ | High carrier multiplexing efficiency; unmounts during JDBC socket I/O | Demonstrates optimal virtual thread operating regime (high-concurrency, unpinned, non-serialized I/O) ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L83-L98)). |
-| **Stratum 4:** `cpu-control` | Compute-bound floating point ($5 \times 10^6$ `Math.fma`), `parallelism=1` | $389.03\text{ req/s}$ | $24.71\text{ ms}$ | $0\text{ events}$ | Single carrier thread 100% CPU saturated; virtual threads queue in FIFO order | Virtual threads offer zero advantage for CPU-bound tasks; scheduling becomes purely cooperative without time-slicing ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L163-L177)). |
-| **Stratum 5:** `synchronization-8carrier` | Intrinsic lock (`synchronized`), Java 21, unconstrained Apple M1 (8 carriers) | $1.967\text{ req/s}$ | $4,962.11\text{ ms}$ | $110\text{ events}$ (1:1 with requests) | Multiple carrier threads idle while 1 carrier executes critical section | Confirms carrier pool expansion cannot overcome domain serialization bound ([`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L54)). |
+| **Stratum 1:** `payments-synchronized` | Intrinsic lock (`synchronized`), Java 21, `parallelism=1` | $1.967\text{ req/s}$ | $4,966.78\text{ ms}$ | $108\text{ qualifying events}$ in the cited primary trial | Carrier thread pinned to OS thread during 500 ms sleep | Carrier pinning was recorded in the configured JFR profile; Amdahl-style serialization remains the throughput interpretation ([`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L54)). |
+| **Stratum 1:** `payments-reentrant-lock` | Virtual-thread-compatible lock (`ReentrantLock`), Java 21, `parallelism=1` | $1.956\text{ req/s}$ | $4,981.95\text{ ms}$ | $0\text{ qualifying events}$ | Carrier can unmount while waiting in AQS | Carrier unpinning did not remove the serialized critical-section ceiling in this workload ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L83-L98)). |
+| **Stratum 1:** `platform-synchronized` | OS Platform Threads (1:1), Java 21, unconstrained scheduler | $1.967\text{ req/s}$ | $4,929.49\text{ ms}$ | Not applicable | OS thread blocks directly in kernel wait-queue | Classical thread-per-request baseline; steady-state results were close to the virtual-thread synchronized condition. |
+| **Stratum 2:** `java24-sync-repeat` | Intrinsic lock (`synchronized`), OpenJDK 24.0.2 + JEP 491, `parallelism=1` | $1.967\text{ req/s}$ | $4,944.67\text{ ms}$ | $0\text{ qualifying events}$ | HotSpot `ObjectMonitor` supports continuation parking | Runtime unpinning was recorded without code changes; throughput remained near the serialized ceiling ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L114-L125)). |
+| **Stratum 3:** `native-boundary-repeated` | Direct POSIX `nanosleep()` via JNI downcall, JDK 21/24/25 | $1.967\text{ req/s}$ | $4,963.36\text{ ms}$ | $0\text{ qualifying events}$ | Carrier thread suspended in the observed Darwin/Mach wait state; CPU $= 1.04\% \pm 0.12\%$ | Silent carrier captivity was observed for this direct JNI path; it is not a universal JNI/FFM claim ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L161), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L163-L177)). |
+| **Stratum 4:** `products-isolation` | Clean JDBC query (`SELECT * FROM products`), H2 database | $96.98\text{ req/s}$ | $2.33\text{ ms}$ | $0\text{ qualifying events}$ | High carrier multiplexing efficiency in the tested control | Demonstrates a high-concurrency, non-serialized JDBC control under the stated test conditions. |
+| **Stratum 4:** `cpu-control` | Compute-bound floating point ($5 \times 10^6$ `Math.fma`/`Math.sqrt` iterations), `parallelism=1` | $90.54\text{ req/s}$ | $9.03\text{ ms}$ | $0\text{ qualifying events}$ | CPU-control behavior under a single carrier; no direct CPU-utilization trace proves universal scheduler behavior | The control did not show a throughput multiplication; virtual-thread and platform-thread results remained in the same order of magnitude (90.54 vs. 86.61 req/s). |
+| **Stratum 5:** `synchronization-8carrier` | Intrinsic lock (`synchronized`), Java 21, unconstrained Apple M1 (8 carriers) | $1.967\text{ req/s}$ | $4,931.26\text{ ms}$ | $110\text{ qualifying events}$ in the cited historical population | Multiple carriers available while the critical section remains serialized | The historical baseline is consistent with a serialization ceiling; it is not interchangeable with the one-carrier primary matrix ([`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L54)). |
 
 ---
 
@@ -93,7 +93,7 @@ To establish a unified evidence base, Table 8.1 synthesizes the empirical outcom
 From the synthesis presented in Table 8.1, five foundational insights emerge that directly challenge conventional industry practice:
 
 #### 1. The Decoupling of Carrier Unpinning from Domain Serialization (`CLM-RQ1-04`)
-The most critical empirical revelation of this research is that eliminating carrier pinning does not eliminate application-level serialization. In Stratum 1, replacing `synchronized` with [`ReentrantLock`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) reduced JFR pinning events from 108 to precisely 0. However, steady-state throughput remained strictly unchanged ($1.967\text{ req/s}$ vs. $1.956\text{ req/s}$, a nominal delta of $-0.56\%$). 
+The most critical empirical finding is that eliminating recorded carrier-pinning events did not eliminate application-level serialization. In the cited Stratum 1 comparison, replacing `synchronized` with [`ReentrantLock`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35) changed the qualifying JFR count from 108 to 0. Steady-state throughput remained close ($1.967\text{ req/s}$ vs. $1.956\text{ req/s}$, a nominal delta of $-0.56\%$).
 
 Because the critical section duration remained $D = 500\text{ ms}$, the service ceiling was mathematically dictated by the single-server service capacity:
 
@@ -102,14 +102,14 @@ $$\mu = \frac{1}{D} = \frac{1}{0.500\text{ s}} = 2.000\text{ req/s}$$
 While `ReentrantLock` allowed the carrier thread to be released to the ForkJoinPool scheduler, there were no other executable virtual threads in the `/payments` workload that could utilize the liberated carrier. Both treatments collapsed to the identical queueing equilibrium dictated by Little's Law ($R \approx 5.0\text{ s}$ under $N = 10$ VUs). Consequently, refactoring `synchronized` to `ReentrantLock` benefits system performance **only when carrier threads are the primary bottleneck constraining independent, parallel workloads**.
 
 #### 2. The Silent Carrier Captivity of Foreign Function Interfaces (`CLM-RQ2-01`, `CLM-RQ2-02`)
-When virtual threads transition across the Java Native Interface (JNI) or Project Panama Foreign Function & Memory (FFM) boundary to execute native system calls (such as [`nanosleep`](../native/native_blocking.c#L14-L24)), the OpenJDK HotSpot runtime cannot unmount the virtual thread's continuation. The virtual thread pins the underlying carrier thread.
+In the tested direct Java Native Interface (JNI) treatment, a virtual thread entered a native `nanosleep()` call ([`native_blocking.c`](../native/native_blocking.c#L14-L24)) and the observed carrier remained occupied for the call's duration. This result is scoped to the tested direct JNI path without Java callbacks on the recorded Darwin environment; it does not establish identical behavior for all JNI calls, Project Panama FFM calls, drivers, resolvers, or native libraries.
 
-Crucially, this condition produces **zero `jdk.VirtualThreadPinned` events** in Java Flight Recorder. Because JFR instruments only bytecode-level intrinsic monitors (`monitorenter`/`monitorexit`) and `Object.wait()`, native blocking operations are entirely invisible to JVM diagnostic subsystems. Furthermore, because POSIX `nanosleep()` transitions the carrier thread into the Darwin/Mach kernel wait state (equivalent to Linux `TASK_INTERRUPTIBLE`), CPU utilization drops to baseline ($1.04\% \pm 0.12\%$). To an engineering team monitoring APM dashboards, the system appears completely idle while simultaneously suffering 100% throughput collapse.
+The recordings reported **zero qualifying `jdk.VirtualThreadPinned` events** for this native treatment. The result therefore demonstrates a diagnostic gap between this JFR event and the observed native carrier occupation; it does not show that all native blocking is invisible to every diagnostic subsystem. The companion telemetry measured low process CPU ($1.04\% \pm 0.12\%$) while the carrier was observed in a Darwin/Mach wait state. Throughput in this single-carrier treatment was approximately 1.97 req/s, not a universal “100% collapse.”
 
 #### 3. Tail-Latency Dispersion Widening via AQS Direct-CAS Barging
-While median steady-state latencies between `payments-synchronized` and `payments-reentrant-lock` differed by less than 0.31% ($4,966.78\text{ ms}$ vs. $4,981.95\text{ ms}$), their latency dispersion characteristics diverged dramatically. In Stratum 1, `payments-reentrant-lock` exhibited an interquartile range ($IQR$) of $19.99\text{ ms}$ and standard deviation of $16.51\text{ ms}$—a **23-fold variance explosion** compared to `payments-synchronized` ($IQR = 0.86\text{ ms}$, $\sigma = 0.72\text{ ms}$).
+While median steady-state latencies between `payments-synchronized` and `payments-reentrant-lock` differed by less than 0.31% ($4,966.78\text{ ms}$ vs. $4,981.95\text{ ms}$), their measured trial-level dispersion characteristics diverged. Across the $N=3$ process repetitions, `payments-reentrant-lock` had a sample standard deviation of $\sigma = 16.53\text{ ms}$ compared with $\sigma = 0.70\text{ ms}$ for `payments-synchronized`. This is a descriptive approximately 23-fold difference; an IQR is not reported because the process-repetition sample is too small to support that summary reliably.
 
-This dispersion widening is directly attributable to the internal mechanics of `java.util.concurrent.locks.AbstractQueuedSynchronizer` (AQS) in non-fair mode ([`new ReentrantLock(false)`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35)). When an unparked virtual thread attempts to acquire the lock, it executes a direct `compareAndSetState()` CAS operation, successfully "barging" ahead of predecessor virtual threads waiting in the AQS FIFO queue. In contrast, HotSpot's `ObjectMonitor` implements an adaptive queueing policy with thread-parking policies that enforce tighter queue discipline under deterministic closed-loop load.
+The dispersion is consistent with the internal mechanics of `java.util.concurrent.locks.AbstractQueuedSynchronizer` (AQS) in non-fair mode ([`new ReentrantLock(false)`](../src/main/java/com/thesis/virtualthreadsdemo/service/PaymentService.java#L35)), where a new acquisition may succeed before an already-waiting thread. Under the small $N=3$ process-repetition design, this should be treated as a plausible behavioral interpretation rather than direct proof that AQS barging alone caused the full observed difference or that `ObjectMonitor` enforces a universally tighter queue discipline.
 
 #### 4. The Methodological Imperative of Dual-Window Analysis (`CLM-METH-02`)
 A critical methodological discovery of this dissertation is that evaluating virtual thread performance over an aggregate, whole-run benchmark window (0–55s) introduces profound measurement artifacts. In Stratum 1, whole-run analysis reported a median latency of $3,918.00\text{ ms}$ for `platform-synchronized`, appearing to suggest that platform threads achieved a 25.8% latency advantage over virtual threads ($4,929.00\text{ ms}$).
@@ -117,7 +117,7 @@ A critical methodological discovery of this dissertation is that evaluating virt
 Forensic audit of raw k6 JSON lines revealed that this "advantage" was entirely an artifact of k6's closed-loop connection ramp-up phase (0–15s). During ramp-up, platform threads completed an initial burst of requests before the 10 VUs fully saturated the mutual exclusion queue. When filtered to the isolated steady-state hold window (15–45s), the performance delta evaporated completely: `platform-synchronized` achieved $4,929.49\text{ ms}$ vs. `payments-synchronized` at $4,966.78\text{ ms}$ (a negligible 0.76% difference). Benchmarking virtual thread systems without strict phase isolation produces indefensible conclusions.
 
 #### 5. Schedulability Does Not Compensate for Downstream Capacity Boundaries
-Virtual threads allow the Spring Boot MVC container to ingest tens of thousands of concurrent client connections without dropping sockets. However, if downstream dependencies (such as relational databases managed by HikariCP) are strictly finite, virtual threads simply convert connection rejections at the HTTP boundary into massive acquisition queues and timeout cascades at the database boundary. Concurrency expansion at Tier 1 does not relax conservation laws at Tier 3.
+Virtual threads can permit more concurrent request handling than a bounded platform-thread pool, but the tested study did not measure tens-of-thousands request loads or establish a universal conversion into database timeout cascades. The architectural implication is conditional: finite downstream resources still require explicit admission control and workload-specific capacity measurements.
 
 ---
 
@@ -135,7 +135,7 @@ To appreciate the architectural positioning of Project Loom, Java 21 Virtual Thr
 | **Programming Paradigm** | Imperative, synchronous, linear thread-per-request flow | Monadic functional pipelines (`Mono`, `Flux`, functional operators) | Imperative sequential flow with explicit channel communication | Pure message-passing actor model; share-nothing concurrency | Imperative asynchronous flow with explicit language keywords (`async`/`await`) |
 | **Context Propagation** | Implicit via `ThreadLocal` or immutable `ScopedValue` (JEP 506) | Explicit context propagation via Project Reactor `Context` | Explicit parameter passing (`context.Context`) through call chain | Implicit process dictionary or explicit state record passing | Implicit via `AsyncLocal<T>` flowing across execution contexts |
 | **Debugging & Diagnostics** | Continuous, unbroken imperative stack traces; standard debuggers | Fragmented, decoupled stack traces; requires reactor-debug tools | Clear goroutine stack dumps; standard gdb/delve integration | Isolated process crashes; supervision tree telemetry | Synthesized compiler-generated stack traces across await boundaries |
-| **Ecosystem Alignment** | 100% native compatibility with legacy synchronous code (JDBC) | High friction; requires non-blocking reactive drivers (R2DBC) | Unified runtime; standard library built around non-blocking runtime | Unified runtime; all BEAM libraries conform to message-passing | Pervasive framework integration; synchronous code explicitly wrapped |
+| **Ecosystem Alignment** | Strong compatibility with blocking JDBC-style application code, subject to driver and resource-boundary validation | Requires non-blocking drivers and pipeline-aware APIs for end-to-end reactive execution | Unified runtime; standard library built around non-blocking runtime | Unified runtime; all BEAM libraries conform to message-passing | Pervasive framework integration; synchronous code explicitly wrapped |
 | **Primary Failure Mode** | Silent carrier pinning (Java 21 monitors, JNI); pool starvation | Event-loop blocking starvation; unhandled pipeline backpressure | Goroutine leaks; unbuffered channel deadlocks; lock contention | Mailbox memory exhaustion under unhandled message surges | Sync-over-async deadlocks (`.Result`, `.Wait()`); thread pool starvation |
 
 ---
@@ -185,7 +185,7 @@ The Go programming language has popularized $M:N$ user-mode concurrency since it
 
 1.  **Preemption and CPU Starvation:** Go (since version 1.14) implements asynchronous preemption using OS signals (`SIGURG`), allowing the Go runtime scheduler to preempt compute-heavy goroutines that do not execute function calls. Java 21 Virtual Threads possess **no preemption mechanism for compute-bound tasks**. As demonstrated in Stratum 4 (`/cpu`), if a virtual thread enters a long CPU loop, it monopolizes its carrier thread indefinitely until it voluntarily yields, executes a blocking I/O operation, or terminates.
 2.  **Stack Architecture:** Go utilizes contiguous, resizable stacks that dynamically grow by allocating larger contiguous memory blocks and copying existing frames. Project Loom utilizes segmented stacks represented as HotSpot `Continuation` objects on the heap. HotSpot's approach avoids stack copying overhead but incurs garbage collection tracking overhead for continuation objects.
-3.  **Foreign Function Calling:** Go manages foreign C calls via `cgo`, which automatically transitions the executing thread and allocates dedicated OS stacks. As proven in Stratum 3, Java's legacy JNI boundary rigidly captures carrier threads without unmounting, rendering native calls a major vulnerability under Project Loom.
+3.  **Foreign Function Calling:** Go manages foreign C calls via `cgo`, which automatically transitions the executing thread and allocates dedicated OS stacks. In the tested Stratum 3 direct-JNI `nanosleep()` treatment, the carrier remained occupied without an observed virtual-thread unmount; this is a bounded result, not a claim about every JNI or FFM call.
 
 ---
 
@@ -222,7 +222,7 @@ Tier 1 represents the JVM runtime execution layer. The primary responsibility of
 
 $$\text{Carrier Utilization } U_{\text{carrier}} = \frac{\sum_{i=1}^{M} T_{\text{cpu}}(i)}{N \times T_{\text{elapsed}}}$$
 
-Where $M$ is the number of virtual threads and $N$ is the number of carrier threads. In an ideal Loom workload (such as `/products` in Stratum 4), virtual threads spend the overwhelming majority of their lifespan in unmounted wait states awaiting socket I/O ($T_{\text{wait}} \gg T_{\text{cpu}}$). Under these conditions, a tiny carrier pool ($N = 1$ to $8$) can sustain hundreds of thousands of concurrent virtual threads with near-zero scheduling friction.
+Where $M$ is the number of virtual threads and $N$ is the number of carrier threads. In the tested `/products` control, the workload was non-serialized and completed quickly under the single-carrier configuration. This supports the narrower conclusion that virtual-thread scalability depends on the blocking behavior and parallelism of the workload; it does not establish capacity for hundreds of thousands of concurrent threads.
 
 However, Tier 1 breaks down completely under two failure modes:
 1.  **Monitor Pinning (Java 21):** HotSpot's `ObjectMonitor` synchronization primitives tie the execution stack to the OS thread.
@@ -232,19 +232,11 @@ However, Tier 1 breaks down completely under two failure modes:
 
 Tier 2 represents the application business logic, where shared state must be protected to satisfy Bernstein's Conditions for deterministic concurrent processing.
 
-Amdahl's Law (1967) dictates that the theoretical speedup $S(N)$ of an application under parallel concurrency $N$ is strictly bounded by the sequential fraction $s = (1 - P)$ of the workload:
+Amdahl's Law provides a useful conceptual model for why a serialized resource can dominate throughput:
 
 $$S(N) = \frac{1}{(1 - P) + \frac{P}{N}}$$
 
-In our experimental `/payments` transaction, the sequential critical section duration is $D = 500\text{ ms}$ within a total transaction time of $T_1 = 500.5\text{ ms}$, yielding a sequential fraction of:
-
-$$s = 1 - P = \frac{500.0\text{ ms}}{500.5\text{ ms}} = 0.999001 \quad (99.9001\%)$$
-
-Under this regime, the theoretical maximum speedup achievable under infinite concurrency ($N \to \infty$) is:
-
-$$S(\infty) = \lim_{N \to \infty} \frac{1}{(1 - P) + \frac{P}{N}} = \frac{1}{0.999001} \approx \mathbf{1.0010}$$
-
-This mathematical reality proves why replacing `synchronized` with `ReentrantLock` yielded zero throughput improvement. While `ReentrantLock` resolved the Tier 1 schedulability violation (eliminating carrier pinning), it left the Tier 2 domain serialization completely intact. Schedulability cannot expand the capacity of a serialized resource.
+The experiment does not provide an independent decomposition of the request into serial and parallel fractions, so it does not support estimating $P$, $s$, or a numerical speedup ceiling from Amdahl's equation. What it does establish is narrower and directly measured: the `/payments` critical section contains a 500 ms delay, its single-server service ceiling is approximately $\mu = 1/0.500 = 2.0\text{ req/s}$, and replacing the monitor with `ReentrantLock` left the measured throughput near that ceiling. Thus, carrier unpinning and domain unserialization are distinct interventions.
 
 ### 8.3.3 Tier 3: Backend Capacity and Little's Law Conservation
 
@@ -274,7 +266,7 @@ Where:
 *   $\sigma$ represents contention for shared serialized resources (Tier 2 lock serialization or Tier 3 database pool checkout contention).
 *   $\kappa$ represents crosstalk, cache invalidation, and coherency delays (AQS direct-CAS barging or database lock table contention).
 
-By allowing $N$ (concurrent in-flight threads) to expand from hundreds to tens of thousands, virtual threads massively amplify the denominator's quadratic coherency penalty $\kappa N (N - 1)$. If downstream resources are not provisioned with explicit queue boundaries, scaling virtual threads inevitably drives system throughput into retrograde collapse ($X(N) \to 0$).
+The USL expression is a conceptual framework here, not a fitted model: this study did not estimate $\sigma$ or $\kappa$, nor did it vary concurrency over the range needed to validate a quadratic collapse. It motivates, but does not prove, the need to measure contention and queue boundaries when a target system admits substantially more concurrent work.
 
 ---
 
@@ -284,11 +276,11 @@ The empirical and architectural conclusions of this dissertation have direct, pr
 
 ### 8.4.1 For Software Architects: The Re-Centering of Architectural Discipline
 
-For two decades, application architects utilized container thread pools (Tomcat's 200 threads) as an implicit, crude form of system-wide admission control. When incoming traffic spiked, the thread pool exhausted, causing Tomcat to reject connections at the perimeter and shielding downstream databases from catastrophic overload.
+Historically, bounded container thread pools could act as an implicit form of admission control. Their removal can expose downstream limits, so the resulting behavior should be measured rather than assumed to be catastrophic or uniform across deployments.
 
 Enabling virtual threads removes this implicit safety net. Consequently, architects must transition from **passive container tuning** to **active architectural capacity management**:
 1.  **Mandatory Perimeter Bulkheading:** Architects must introduce explicit, bounded bulkheads (such as resilience4j concurrency limiters) at the HTTP ingress layer. Concurrency limits must be calibrated to downstream database capacity rather than JVM memory capacity.
-2.  **Critical Section Minimization:** Architects must enforce strict design patterns prohibiting I/O, network calls, or sleep delays inside mutual exclusion blocks. Critical sections must be restricted entirely to sub-microsecond in-memory state mutations.
+2.  **Critical Section Minimization:** Architects should avoid I/O, network calls, and artificial delays inside mutual exclusion blocks where the application contract permits. The appropriate critical-section duration is workload- and correctness-dependent; this study does not establish a universal sub-microsecond threshold.
 3.  **Deprecation of Synchronous Foreign Functions:** Architects must mandate that long-running native libraries (cryptographic hardware modules, legacy C/C++ drivers) be encapsulated within isolated, bounded platform thread pools or migrated to modern asynchronous wrappers.
 
 ---
@@ -299,14 +291,14 @@ Virtual thread migrations alter the operational telemetry profile of enterprise 
 
 #### 1. The Collapse of Traditional APM Metrics (`JDK-8303251`)
 Production monitoring stacks (Prometheus exporters, Datadog, New Relic) historically relied on `java.lang.management.ThreadMXBean` to track thread count surges and thread CPU utilization. As established in [Chapter 6](../docs/chapter-06-analysis-and-answers-to-research-questions.md#L455-L460):
-*   In Java 21, `ThreadMXBean.getThreadCount()` tracks **platform carrier threads only**.
+*   In Java 21, the relevant `ThreadMXBean` views report **platform threads only**, rather than virtual threads.
 *   A service concurrently executing 50,000 virtual threads will report an unvarying metric of ~30 platform threads.
 *   `ThreadMXBean.getThreadCpuTime()` returns -1 for virtual threads.
 
-SRE teams must upgrade monitoring infrastructure to Micrometer 1.12+ (which instruments `jvm.threads.virtual` via JVM-native JFR streaming) and deploy custom JFR continuous profiling agents to detect carrier starvation.
+SRE teams should evaluate tooling that exposes virtual-thread and carrier metrics, such as the externally supported `io.micrometer:micrometer-java21` `VirtualThreadMetrics` binder, alongside JFR and OS/application telemetry. This repository did not integrate or benchmark Micrometer, so the recommendation is externally supported guidance rather than a measured result.
 
 #### 2. The Database Connection Pool Paradox
-DBAs must be actively involved in any virtual thread migration. Increasing Tomcat concurrency from 200 to 10,000 does not allow a PostgreSQL or MySQL cluster to handle 10,000 concurrent transactions. Relational database engines execute transactions on OS kernel processes or threads that contend for disk I/O, shared memory buffers, and table row locks. Sizing HikariCP connection pools beyond the database server's physical CPU core and I/O spindle capacity ($N_{\text{connections}} = \text{CPU cores} \times 2 + \text{spindle count}$) results in catastrophic disk head thrashing and transaction lock contention.
+DBAs should be involved in virtual-thread migration because increasing request concurrency does not remove database CPU, I/O, locking, or connection limits. The local `/orders` construct did not exercise connection-pool saturation, so pool sizes and acquisition timeouts must be calibrated with target-database measurements rather than a universal formula.
 
 ---
 
@@ -314,8 +306,8 @@ DBAs must be actively involved in any virtual thread migration. Increasing Tomca
 
 In enterprise cloud deployments (Kubernetes, AWS ECS), compute costs are directly proportional to CPU and memory resource reservations. Virtual threads offer significant cloud cost optimization, but also introduce hidden multi-tenancy risks:
 
-1.  **Memory Footprint Reduction:** By eliminating 1 MB OS stack reservations per thread, virtual threads allow microservice memory reservations (`resources.requests.memory`) to be scaled down by 40–70% for I/O-intensive workloads, dramatically increasing pod packing density on Kubernetes worker nodes.
-2.  **The CPU Quota Starvation Risk:** However, as demonstrated by the methodological constraint in Stratum 1 (`CLM-METH-01`), constraining CPU capacity (`parallelism=1` or Linux CFS bandwidth quotas `cpu.cfs_quota_us`) amplifies carrier starvation. If a virtual thread in a CPU-throttled Kubernetes pod executes a non-cooperative CPU task or enters a pinning state, the entire pod's request-processing capacity instantly drops to zero.
+1.  **Memory Footprint Reduction:** Virtual threads may reduce per-thread memory overhead relative to platform threads, but the magnitude of any container-memory or pod-density benefit depends on the JDK, workload, heap, native allocations, and deployment limits. This study did not measure a 40–70% reduction.
+2.  **The CPU Quota Starvation Risk:** The single-carrier experiment demonstrates that constrained scheduler parallelism can magnify the effect of carrier occupation. Linux CFS quotas and Kubernetes behavior are a separate external-validity question requiring target-environment measurements; the study does not show that an entire pod necessarily loses all request-processing capacity.
 
 ---
 
@@ -329,7 +321,7 @@ To maintain academic rigor and satisfy the strict standards of the ELTE Faculty 
 | :--- | :--- | :--- | :--- | :--- |
 | **Internal Validity** | Single-Carrier Scheduler Constraint (`CLM-METH-01`) | `-Djdk.virtualThreadScheduler.parallelism=1` enforced across Strata 1, 2, 3, and 4. | Magnifies carrier starvation by eliminating HotSpot ForkJoinPool multi-carrier work-stealing. | Intentionally applied as a mechanism isolation device to unmask pinning and serialization; verified against unconstrained 8-carrier baseline in Stratum 5 (`CLM-RQ1-01`). |
 | **Internal Validity** | Closed-Loop Load Model Dynamics (`CLM-METH-05`) | k6 load generator configured with $N = 10\text{ fixed VUs}$ and deterministic `sleep(0.1)` ($Z = 0.100\text{ s}$). | Enforces Little's Law equilibrium ($R = N/X - Z$), capping throughput at service capacity and masking open-loop arrival bursts. | Formally derived and acknowledged; findings represent closed-loop equilibrium dynamics, not open-loop Poisson arrival queueing. |
-| **Internal Validity** | JFR 20 ms Duration Threshold Filter (`CLM-METH-04`) | Java Flight Recorder `jdk.VirtualThreadPinned` event configured with default `threshold=20ms`. | Automatically drops micro-pinning events with durations $< 20\text{ ms}$, creating potential false negatives for micro-critical sections. | Restricts zero-event claims strictly to operations exceeding 20 ms; identified as an operational blind spot in migration guidance. |
+| **Internal Validity** | JFR 20 ms Duration Threshold Filter (`CLM-METH-04`) | Java Flight Recorder `jdk.VirtualThreadPinned` event configured with `threshold=20ms` in the recorded profile. | Automatically excludes micro-pinning events with durations $< 20\text{ ms}$, creating potential false negatives for micro-critical sections. | Restricts zero-event claims to the configured profile and threshold; identified as an operational blind spot in migration guidance. |
 | **External Validity** | Bare-Metal Single-Host Environment | Apple M1 (8 cores: 4 Firestorm performance, 4 Icestorm efficiency), macOS Darwin 25.2.0 (arm64). | Results cannot be naively generalized to multi-socket NUMA Intel/AMD Xeon servers or containerized Linux environments without re-measurement. | Explicitly framed as a single-machine empirical systems case study; platform-independent JVM invariants separated from host-specific timing. |
 | **External Validity** | Synthetic Benchmark Workload Homogeneity | Deterministic 500 ms and 300 ms delays; uniform request distribution across identical endpoints. | Enterprise production workloads exhibit heterogeneous, non-stationary traffic with long-tail Pareto execution distributions. | Validates physical execution mechanisms in isolation; migration guidance explicitly mandates staging validation under production traffic profiles. |
 | **Construct Validity** | The `/orders` Pre-Acquisition Delay Flaw (`CLM-RQ2-03`) | [`OrderService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L32) executed `Thread.sleep(300)` *before* checking out a JDBC connection. | HikariCP connection checkout duration was $< 0.1\text{ ms}$; connection pool utilization remained $>98\%$ idle ($L_{\text{pool}} \approx 0.0125$). | Empirical connection pool exhaustion declared **Not Established**; all database pool capacity guidance strictly classified as theoretical/literature-backed. |
@@ -345,7 +337,7 @@ To maintain academic rigor and satisfy the strict standards of the ELTE Faculty 
 
 In compliance with modern open-science reproducibility standards, the complete experimental corpus supporting this dissertation has been frozen, audited, and cataloged within the project repository under [`docs/evidence-freeze/`](../docs/evidence-freeze/):
 
-1.  **Artifact Master Inventory ([`artifact-inventory.csv`](../docs/evidence-freeze/artifact-inventory.csv)):** Exhaustive registry of 504 physical disk files totaling ~966 MB, encompassing raw k6 JSON lines streams, JFR binary recordings, container telemetry logs, and benchmark manifests across 119 physical executions. Every file is indexed with its exact filesystem byte size and cryptographic SHA-256 hash.
+1.  **Artifact Master Inventory ([`artifact-inventory.csv`](../docs/evidence-freeze/artifact-inventory.csv)):** Exhaustive registry of 504 physical disk files totaling ~966 MB, encompassing raw k6 JSON lines streams, JFR binary recordings, container telemetry logs, and benchmark manifests. The recorded comparisons were verified against their expected SHA-256 hashes.
 2.  **Stratum Run-Family Matrix ([`run-family-matrix.csv`](../docs/evidence-freeze/run-family-matrix.csv)):** Partitions all 119 executions into seven mutually exclusive strata, defining the exact execution parameters, JVM flags, environment variables, and claim admission status for every trial.
 3.  **Metric Recalculations Registry ([`metric-recalculations.csv`](../docs/evidence-freeze/metric-recalculations.csv)):** Contains recalculations for all 76 admitted trials, systematically contrasting aggregate whole-run metrics against steady-state hold window metrics.
 4.  **Forensic Investigation Register ([`forensic-investigations.md`](../docs/evidence-freeze/forensic-investigations.md)):** Documents the low-level investigative procedures that uncovered the `/orders` pre-acquisition defect, the `application.yml` indentation flaw, and Darwin/Mach kernel wait states.
@@ -361,12 +353,12 @@ To assist software engineering practitioners in applying the findings of this di
 |                           TRANSFERABILITY BOUNDARY AUDIT                          |
 +-----------------------------------------------------------------------------------+
 |                                                                                   |
-|  DIRECTLY TRANSFERABLE (JVM Runtime Invariants):                                  |
-|  ✔ HotSpot C++ 'continuationFreeze.cpp' monitor pinning mechanics (Java 21).     |
-|  ✔ Carrier unpinning without un-serialization Amdahl saturation (mu = 1/D).       |
-|  ✔ Silent JNI / native downcall carrier captivity with zero JFR pin events.       |
-|  ✔ JFR 20 ms threshold filter blindness to micro-pinning operations.              |
-|  ✔ AQS NonfairSync direct-CAS barging dispersion widening.                       |
+|  CONCEPTS SUPPORTED, BUT REQUIRING TARGET VALIDATION:                             |
+|  ✔ HotSpot Java 21 monitor-pinning mechanics under matching runtime conditions.   |
+|  ✔ Separation of carrier unpinning from application serialization.                |
+|  ✔ The tested JNI/JFR diagnostic asymmetry as a risk to investigate.              |
+|  ✔ The configured 20 ms JFR threshold as a source of shorter-event false negatives.|
+|  ✔ Non-fair AQS behavior as a possible source of dispersion differences.          |
 |                                                                                   |
 |  REQUIRES TARGET-SYSTEM CALIBRATION (Workload & Infrastructure Dependent):        |
 |  ✖ Exact throughput numbers (req/s) and latency percentiles (p50/p95/p99).        |
@@ -386,7 +378,7 @@ Based on the limitations and unresolved questions identified in this research, w
 
 The primary limitation of this study's workload harness is its reliance on a closed-loop k6 configuration ($N = 10\text{ VUs}$ with think-time). In closed-loop systems, queue length is bounded by $N$, preventing queue explosion.
 
-Future research should evaluate virtual thread systems under **open-loop Poisson arrival processes** ($M/M/1$ and $M/G/1$ queueing models), where requests arrive independently of system completion rates. Such experiments will quantify the exact arrival rate threshold ($\lambda \to \mu$) at which unpinned vs. pinned systems diverge into catastrophic latency degradation and memory exhaustion.
+Future research should evaluate virtual thread systems under **open-loop Poisson arrival processes** ($M/M/1$ and $M/G/1$ queueing models), where requests arrive independently of system completion rates. Such experiments could estimate the arrival-rate region ($\lambda \to \mu$) in which pinned and unpinned treatments diverge in latency, queue growth, or memory use.
 
 ### 8.7.2 Direction 2: Linux CFS Bandwidth Throttling vs. Virtual Thread Scheduling
 

@@ -339,11 +339,7 @@ try {
 
 Because `getOrders()` lacked Spring's `@Transactional` annotation, connection checkout did not span the method lifecycle. HikariCP checked out a connection lazily inside `jdbcTemplate.queryForList()` and returned it immediately after executing a sub-millisecond query, resulting in an effective connection hold time of $T_{\text{hold}} < 0.1\text{ ms} = 0.0001\text{ s}$.
 
-No HikariCP active, pending, or acquisition-time telemetry was captured. The source ordering shows only that the artificial delay preceded connection checkout; pool utilization and exhaustion remain unmeasured.
-
-
-
-The source ordering indicates that the artificial delay occurred before checkout; pool active/pending/acquisition telemetry was not captured, so measured utilization cannot be claimed. Similar latency profiles under pool-size variants are therefore descriptive only and do not establish absence of a queue.
+No HikariCP active, pending, or acquisition-time telemetry was captured. The source ordering shows only that the artificial delay preceded connection checkout; pool utilization and exhaustion remain unmeasured. Similar latency profiles under pool-size variants are therefore descriptive only and do not establish absence of a queue.
 
 #### 2. Configuration Defect in Local H2 (`CLM-RQ2-04`)
 In [`src/main/resources/application.yml`](../src/main/resources/application.yml#L13-L17), lines 13–17 indented `datasource:` under the custom `demo:` key rather than the root `spring:` namespace. Spring Boot 3 strictly binds datasource configuration to `spring.datasource`. Consequently, Spring Boot ignored custom pool sizing parameters during local H2 runs, falling back to auto-configured H2 with default HikariCP parameters (`maximumPoolSize = 10`).
@@ -482,7 +478,7 @@ To maintain strict academic integrity and defensibility, Table 6.1 explicitly it
 | :--- | :--- | :--- |
 | **"Virtual Threads are universally faster than Platform Threads"** | Under compute-bound tasks (`/cpu`) and serialized locks (`/payments`), virtual threads exhibited zero throughput advantage over platform threads. | Virtual threads improve throughput *only* for high-concurrency, unpinned, non-serialized blocking I/O workloads (`CLM-RQ1-04`, `CLM-METH-05`). |
 | **"Replacing `synchronized` with `ReentrantLock` increases throughput"** | In Stratum 1, `ReentrantLock` achieved $1.956\text{ req/s}$ vs. `synchronized` at $1.967\text{ req/s}$ ($<0.5\%$ delta). | Refactoring eliminates carrier pinning, but does not alter application-level Amdahl serialization (`CLM-RQ1-04`). |
-| **"This study established optimal PostgreSQL connection pool sizing"** | In Stratum 7, `/orders` executed its delay before checking out a connection, leaving the pool over 98% idle ($L_{\text{pool}} \approx 0.0166$). | Connection pool sizing must be derived theoretically from Little's Law; empirical pool saturation was unexercised (`CLM-RQ2-03`). |
+| **"This study established optimal PostgreSQL connection pool sizing"** | In Stratum 7, `/orders` executed its delay before checking out a connection; with the configured 100 ms think time, the derived occupancy is approximately $L_{\text{pool}} \approx 0.0125$ (the zero-think-time ceiling is approximately 0.0166). | Connection pool sizing must be derived theoretically from Little's Law; empirical pool saturation was unexercised (`CLM-RQ2-03`). |
 | **"PostgreSQL carrier unmounting was empirically verified in JFR"** | Docker Compose executions omitted the `-XX:StartFlightRecording` JVM flag. | PostgreSQL JFR pinning behavior is formally declared **Not Established** (`CLM-RQ2-05`). |
 | **"JNI blocking always consumes 100% carrier CPU"** | Telemetry in Stratum 3 proved steady-state CPU during `nanosleep` was $1.04\% \pm 0.12\% in the recorded Java 21 blocking-JNI trials$. | Native POSIX sleep suspends the carrier thread in the kernel wait-queue; active CPU consumption occurs only in busy-wait loops (`CLM-RQ2-02`). |
 | **"Single-carrier stress (`parallelism=1`) models 1-vCPU cloud containers"** | Host OS was an 8-core Apple M1 executing GC, Tomcat acceptor threads, and k6 concurrently across all cores. | `parallelism=1` is an in-process JVM scheduler constraint for mechanism isolation, not a cgroup CPU quota (`CLM-METH-01`). |

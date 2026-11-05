@@ -309,8 +309,6 @@ In the `/orders` endpoint, `OrderService.simulateSlowQuery()` executed `Thread.s
 
 The query execution time was measured at $T_{\text{query}} < 0.1\text{ ms} = 0.0001\text{ s}$. Under 50 VUs, the benchmark did not instrument HikariCP acquisition, active, or pending metrics. Because the 300 ms delay occurred before checkout, the experiment cannot establish pool occupancy or exhaustion:
 
-
-
 The source ordering establishes only that the experiment did not hold a connection during the artificial delay. Pool saturation and occupancy remain unmeasured, so the result should be treated as a construct-validity limitation rather than a measured pool utilization result.
 
 ---

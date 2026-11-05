@@ -280,8 +280,8 @@ Stratum 4 evaluates isolated diagnostic workloads (`/products`, `/cpu`, and `/or
 Figure 5.5: Stratum 4 Architectural Controls Throughput & Equilibrium
 Endpoint Workload Scaling under Single-Carrier Scheduling (parallelism=1)
 Throughput (req/s)
-100 +--+ [96.98 req/s] /products (Virtual, In-Memory Fast-Path)
-    |  | [96.29 req/s] /products (Platform, In-Memory Fast-Path)
+100 +--+ [96.98 req/s] /products (Virtual, Fast-Path JDBC Query)
+    |  | [96.29 req/s] /products (Platform, Fast-Path JDBC Query)
  80 +--+ [90.54 req/s] /cpu (Virtual, 5,000,000 FMA/square-root Iterations)
     |  | [86.61 req/s] /cpu (Platform, 5,000,000 FMA/square-root Iterations)
  60 +--+

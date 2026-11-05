@@ -478,11 +478,11 @@ $$\lim_{N \to \infty} S(N) = \frac{1}{1 - P} = \frac{1}{0.999} \approx 1.001$$
 #### 2. Little's Law (1961) (`CLM-METH-05`)
 In any stationary queueing system, the average number of requests in the system ($L$) equals the long-term average effective arrival rate ($\lambda$) multiplied by the average time a request spends in the system ($W$):
 
-$$L = \lambda W \quad \iff \quad N = X \times R$$
+$$L = \lambda W \quad \iff \quad N = X \times (R + Z)$$
 
-In a closed-loop benchmarking regime where $N$ Virtual Users issue continuous requests, system throughput $X$ is mathematically bounded by:
+For this workload, the configured client think time is $Z = 0.100\text{ s}$. Therefore, in a closed-loop benchmarking regime where $N$ Virtual Users issue requests and wait between iterations:
 
-$$X = \frac{N}{R}$$
+$$R = \frac{N}{X} - Z$$
 
 When response time $R$ inflates due to queueing behind a serialized bottleneck, throughput $X$ must decrease proportionally.
 

@@ -504,6 +504,7 @@ public class OrderService {
     $$X = \frac{N}{R + Z} = \frac{50}{0.3005 + 0.100} \approx 124.8\text{ req/s}$$
     With a connection hold time of $T_{\text{hold}} \approx 0.0001\text{ s}$ ($0.1\text{ ms}$), average pool occupancy $L_{\text{pool}}$ is:
     $$L_{\text{pool}} = X \times T_{\text{hold}} = 124.8 \times 0.0001 \approx \mathbf{0.0125\text{ connections}}$$
+    This 0.0125 value includes the configured 100 ms think time; the corresponding zero-think-time ceiling ($X = 166.4\text{ req/s}$) yields approximately 0.0166 connections.
     Even during the 50-VU load test with `maximumPoolSize = 1`, the HikariCP pool was over **98.7% idle**. No connection wait queue ever formed, explaining why pool size 1 and pool size 10 produced identical latency profiles ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166)).
 
 ### 4.4.3 The YAML Indentation Defect and Autoconfiguration Fallback (`CLM-RQ2-04`)
@@ -742,7 +743,7 @@ At the conclusion of each benchmark run, `run-benchmark.sh` generates a cryptogr
   "os": "Darwin 25.2.0 Darwin Kernel Version 25.2.0",
   "cpu": "Apple M1",
   "logical_processors": "8",
-  "memory": "16 GB",
+  "memory": "8 GB",
   "execution_mode": "virtual",
   "virtual_threads_enabled": true,
   "lock_variant": "synchronized",
