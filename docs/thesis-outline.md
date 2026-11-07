@@ -240,6 +240,8 @@ The complete current result map is `docs/research-synthesis.md`.
 - [Java Language Specification, §17.1: Synchronization](https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.1)
 - [Java SE 21 API: `ReentrantLock`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html)
 - [OpenJDK JDK 21 source: `ReentrantLock.java`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java)
+- [OpenJDK JDK 21 source: `VirtualThread.java`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/lang/VirtualThread.java)
+- [Doug Lea: A Java Fork/Join Framework (ACM Java Grande 2000)](https://doi.org/10.1145/337449.337465)
 - [JEP 491: Synchronize Virtual Threads without Pinning](https://openjdk.org/jeps/491)
 - [Virtual Threads Best Practices](https://loom.openjdk.org/)
 - [Spring Framework 6.1 Virtual Threads](https://spring.io/blog/2023/09/09/all-together-now-spring-boot-3-2-graalvm-native-images-and-virtual-threads)

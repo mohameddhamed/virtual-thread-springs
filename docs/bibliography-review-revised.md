@@ -59,19 +59,21 @@ The bibliography contains literature and authoritative documentation only. Scrip
 4. Oracle. (2023). *Java Language Specification, §17.1: Synchronization*. https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html#jls-17.1
 5. Oracle. (2023). *Java SE 21 API: `ReentrantLock`*. https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html
 6. OpenJDK. (2024). *JDK 21 source: `ReentrantLock.java`*. https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java
-7. Beronić, D., et al. (2021). *On Analyzing Virtual Threads—a Structured Concurrency Model for Scalable Applications on the JVM*. DOI: https://doi.org/10.23919/MIPRO52101.2021.9596855
-8. Navarro, J., et al. (2023). *Considerations for integrating virtual threads in a Java framework: a Quarkus example in a resource-constrained environment*. DOI: https://doi.org/10.1145/3583678.3596895
-9. Lašić, L., Beronić, D., Mihaljević, B., & Radovan, A. (2024). *Assessing the Efficiency of Java Virtual Threads in Database-Driven Server Applications*. DOI: https://doi.org/10.1109/MIPRO60963.2024.10569754
-10. Likus, P., & Krużel, F. (2025). *Analysis of Virtual Threads in Spring Applications*. ECMS 2025. DOI: https://doi.org/10.7148/2025-0555
-11. Charlak, D., Brzeziński, J., & Kozieł, G. (2026). *Comparative analysis of reactive programming and Java virtual threads*. *Journal of Computer Sciences Institute*. DOI: https://doi.org/10.35784/jcsi.9409
-12. Traini, D., et al. (2022). *Towards effective assessment of steady state performance in Java software: Are we there yet?* DOI: https://doi.org/10.1007/s10664-022-10247-x
-13. Spring Team. (2026). *Spring Boot Reference Documentation: Virtual Threads*. Cite the exact tested Spring Boot version and versioned URL.
-14. Apache Tomcat. (2026). *Tomcat 10.1 HTTP Connector Documentation*. Cite the exact tested Tomcat version and settings.
-15. HikariCP. (2026). *Configuration Knobs*. https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby
-16. HikariCP. (2026). *About Pool Sizing*. https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
-17. Grafana Labs. (2026). *k6 Documentation: Scenarios, Metrics, Thresholds, and JSON Output*. Cite the exact pages and k6 version used.
-18. von Behren, R., Condit, J., & Brewer, E. (2003). *Why Events Are a Bad Idea (for High-Concurrency Servers)*. HotOS IX.
-19. Welsh, M., Culler, D., & Brewer, E. (2001). *SEDA: An Architecture for Well-Conditioned, Scalable Internet Services*. SOSP. DOI: https://doi.org/10.1145/502034.502057
-20. Georges, A., Buytaert, D., & Eeckhout, L. (2007). *Statistically Rigorous Java Performance Evaluation*. OOPSLA. DOI: https://doi.org/10.1145/1297027.1297033
-21. Kalibera, T., & Jones, R. (2013). *Rigorous Benchmarking in Reasonable Time*. ISMM. DOI: https://doi.org/10.1145/2555670.2464160
-22. Schroeder, B., Wierman, A., & Harchol-Balter, M. (2006). *Open Versus Closed: A Cautionary Tale*. USENIX NSDI.
+7. OpenJDK. (2024). *JDK 21 source: `VirtualThread.java`*. https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/lang/VirtualThread.java
+8. Lea, D. (2000). *A Java Fork/Join Framework*. ACM Java Grande Conference. DOI: https://doi.org/10.1145/337449.337465
+9. Beronić, D., et al. (2021). *On Analyzing Virtual Threads—a Structured Concurrency Model for Scalable Applications on the JVM*. DOI: https://doi.org/10.23919/MIPRO52101.2021.9596855
+10. Navarro, J., et al. (2023). *Considerations for integrating virtual threads in a Java framework: a Quarkus example in a resource-constrained environment*. DOI: https://doi.org/10.1145/3583678.3596895
+11. Lašić, L., Beronić, D., Mihaljević, B., & Radovan, A. (2024). *Assessing the Efficiency of Java Virtual Threads in Database-Driven Server Applications*. DOI: https://doi.org/10.1109/MIPRO60963.2024.10569754
+12. Likus, P., & Krużel, F. (2025). *Analysis of Virtual Threads in Spring Applications*. ECMS 2025. DOI: https://doi.org/10.7148/2025-0555
+13. Charlak, D., Brzeziński, J., & Kozieł, G. (2026). *Comparative analysis of reactive programming and Java virtual threads*. *Journal of Computer Sciences Institute*. DOI: https://doi.org/10.35784/jcsi.9409
+14. Traini, D., et al. (2022). *Towards effective assessment of steady state performance in Java software: Are we there yet?* DOI: https://doi.org/10.1007/s10664-022-10247-x
+15. Spring Team. (2026). *Spring Boot Reference Documentation: Virtual Threads*. Cite the exact tested Spring Boot version and versioned URL.
+16. Apache Tomcat. (2026). *Tomcat 10.1 HTTP Connector Documentation*. Cite the exact tested Tomcat version and settings.
+17. HikariCP. (2026). *Configuration Knobs*. https://github.com/brettwooldridge/HikariCP#configuration-knobs-baby
+18. HikariCP. (2026). *About Pool Sizing*. https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
+19. Grafana Labs. (2026). *k6 Documentation: Scenarios, Metrics, Thresholds, and JSON Output*. Cite the exact pages and k6 version used.
+20. von Behren, R., Condit, J., & Brewer, E. (2003). *Why Events Are a Bad Idea (for High-Concurrency Servers)*. HotOS IX.
+21. Welsh, M., Culler, D., & Brewer, E. (2001). *SEDA: An Architecture for Well-Conditioned, Scalable Internet Services*. SOSP. DOI: https://doi.org/10.1145/502034.502057
+22. Georges, A., Buytaert, D., & Eeckhout, L. (2007). *Statistically Rigorous Java Performance Evaluation*. OOPSLA. DOI: https://doi.org/10.1145/1297027.1297033
+23. Kalibera, T., & Jones, R. (2013). *Rigorous Benchmarking in Reasonable Time*. ISMM. DOI: https://doi.org/10.1145/2555670.2464160
+24. Schroeder, B., Wierman, A., & Harchol-Balter, M. (2006). *Open Versus Closed: A Cautionary Tale*. USENIX NSDI.

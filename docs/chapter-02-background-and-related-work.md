@@ -98,12 +98,59 @@ Rewriting the Java language with `async/await` would have fractured the ecosyste
 +-----------------------------------------------------------------------------------+
 ```
 
-1.  **The User-Mode Virtual Thread (`java.lang.VirtualThread`):** A virtual thread is an instance of `java.lang.Thread` whose execution state is managed directly by HotSpot runtime bytecode rather than the OS kernel. It encapsulates a `jdk.internal.vm.Continuation` object representing its suspendable call stack.
+1.  **The User-Mode Virtual Thread (`java.lang.VirtualThread`):** A virtual thread is an instance of `java.lang.Thread` whose execution state is managed directly by HotSpot runtime bytecode rather than the OS kernel. It encapsulates a `jdk.internal.vm.Continuation` object representing its suspendable call stack ([OpenJDK JDK 21 source: `VirtualThread.java`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/lang/VirtualThread.java)):
+
+```java
+// OpenJDK JDK 21: java.lang.VirtualThread (jdk21u / jdk-21.0.8-ga)
+final class VirtualThread extends BaseVirtualThread {
+    private static final ContinuationScope VTHREAD_SCOPE = new ContinuationScope("VirtualThreads");
+
+    private final Executor scheduler;
+    private final Continuation cont;
+    private final Runnable runContinuation;
+
+    VirtualThread(Executor scheduler, String name, int characteristics, Runnable task) {
+        super(name, characteristics, /*bound*/ false);
+        Objects.requireNonNull(task);
+
+        // choose scheduler if not specified
+        if (scheduler == null) {
+            Thread parent = Thread.currentThread();
+            if (parent instanceof VirtualThread vparent) {
+                scheduler = vparent.scheduler;
+            } else {
+                scheduler = DEFAULT_SCHEDULER;
+            }
+        }
+
+        this.scheduler = scheduler;
+        this.cont = new VThreadContinuation(this, task);
+        this.runContinuation = this::runContinuation;
+    }
+
+    private static class VThreadContinuation extends Continuation {
+        VThreadContinuation(VirtualThread vthread, Runnable task) {
+            super(VTHREAD_SCOPE, () -> vthread.run(task));
+        }
+
+        @Override
+        protected void onPinned(Continuation.Pinned reason) {
+            if (TRACE_PINNING_MODE > 0) {
+                boolean printAll = (TRACE_PINNING_MODE == 1);
+                PinnedThreadPrinter.printStackTrace(System.out, printAll);
+            }
+        }
+    }
+}
+```
+
 2.  **Carrier Threads:** A carrier thread is a standard OS platform thread that provides CPU execution cycles for a virtual thread. The virtual thread is temporarily **mounted** onto a carrier thread to execute instructions. From the perspective of Java code executing within the virtual thread, the identity of the carrier thread is invisible; calling `Thread.currentThread()` returns the virtual thread instance itself.
 3.  **The Dedicated ForkJoinPool Scheduler:** Virtual threads are scheduled onto carrier threads by a dedicated, private `ForkJoinPool` instance encapsulated within `java.lang.VirtualThread.DEFAULT_SCHEDULER`.
-    *   This scheduler is completely separate from `ForkJoinPool.commonPool()`, which is used by parallel streams and `CompletableFuture`.
-    *   The scheduler's default parallelism equals the number of available logical processor cores (`Runtime.getRuntime().availableProcessors()`).
-    *   Carrier worker threads are assigned internal HotSpot names following the convention `ForkJoinPool-1-worker-*`.
+    *   **Architecture and Work-Stealing Mechanics:** Originally developed by Doug Lea (JSR 166), `ForkJoinPool` is a specialized `ExecutorService` built upon a **work-stealing algorithm**. Rather than having all threads contend for tasks on a single global blocking queue (the primary scalability bottleneck of traditional `ThreadPoolExecutor`), every worker thread maintains its own private double-ended queue (deque). A worker executes tasks from its own deque; when its queue becomes empty, it "steals" tasks from the tail of another worker's deque, drastically reducing lock contention and cross-core bus synchronization.
+    *   **Asynchronous FIFO Mode:** In Project Loom's scheduler, the pool is initialized with `asyncMode = true`. Rather than executing tasks in recursive divide-and-conquer LIFO (Last-In, First-Out) order, worker queues process unparked virtual threads in FIFO (First-In, First-Out) order. This provides fair message-passing latency and prevents task starvation when handling high volumes of independent web requests.
+    *   **Isolation from Common Pool:** This scheduler is completely separate from `ForkJoinPool.commonPool()`, which is used by parallel streams and `CompletableFuture`, preventing user-space batch computations from starving virtual thread carrier workers.
+    *   **Carrier Core Sizing:** The scheduler's default parallelism equals the number of available logical processor cores (`Runtime.getRuntime().availableProcessors()`).
+    *   **Thread Naming:** Carrier worker threads are assigned internal HotSpot names following the convention `ForkJoinPool-1-worker-*`.
 
 ### 2.2.2 The Mounting and Unmounting Lifecycle
 
