@@ -208,7 +208,20 @@ The primary experimental treatment evaluates the `/payments` endpoint under four
 
 To frame the thesis within broader software architecture theory, the synchronization mechanisms evaluated here are contrasted against alternative paradigms in concurrent systems design:
 
-*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor prevents the continuation from unmounting during blocking operations, pinning the carrier thread.
+*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor prevents the continuation from unmounting during blocking operations, pinning the carrier thread ([OpenJDK JDK 21 source: `continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)):
+
+    ```cpp
+    // OpenJDK HotSpot C++ (JDK 21): src/hotspot/share/runtime/continuationFreeze.cpp
+    freeze_result ContinuationFreeze::can_freeze() {
+        if (_target->held_monitor_count() > 0) {
+            // Target virtual thread holds an intrinsic ObjectMonitor on its call stack
+            return freeze_pinned_monitor; // UNMOUNTING REJECTED -> CARRIER PINNED
+        }
+        return freeze_ok;
+    }
+    ```
+
+    Because `can_freeze()` rejects unmounting, the virtual thread cannot yield its continuation frames to the heap. It is forced to invoke `VirtualThread.parkOnCarrierThread()`, keeping the physical OS carrier thread blocked in kernel sleep for the duration of the blocking operation.
 *   **Explicit Locks (`ReentrantLock`):** Implemented in user-space Java via `AbstractQueuedSynchronizer` (AQS). Waiting threads park via `LockSupport.park()`, which delegates to `VirtualThread.park()`, cleanly unmounting the virtual thread continuation and yielding the carrier thread back to the scheduler. However, `ReentrantLock` defaults to a `NonfairSync` implementation wherein newly arriving threads attempt a direct Compare-And-Swap (CAS) to acquire the lock before queuing. Under intense contention, this barging behavior causes queue overtaking, dramatically expanding latency standard deviation ($\approx 16\text{--}30\text{ ms}$ for `ReentrantLock` vs. $\le 7.4\text{ ms}$ for `synchronized`, [`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L111)).
 *   **Actor and Message-Passing Architectures (e.g., Erlang, Akka):** Rather than sharing mutable state behind mutual exclusion locks, actor models enforce single-threaded isolation per actor and communicate via asynchronous mailboxes. Java's design choice with Project Loom intentionally rejected the colored-function and mailbox overhead of actor frameworks, choosing instead to preserve the traditional synchronous blocking imperative style.
 *   **Database-Mediated and Optimistic Locking:** Techniques such as multiversion concurrency control (MVCC) or optimistic offline locks (`@Version`) push contention resolution into the storage engine. While highly scalable for distributed architectures, in-memory transactional systems frequently require process-level mutual exclusion to serialize hardware access, cash registers, or local ledger writes.

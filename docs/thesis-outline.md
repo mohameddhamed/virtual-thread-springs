@@ -241,6 +241,7 @@ The complete current result map is `docs/research-synthesis.md`.
 - [Java SE 21 API: `ReentrantLock`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/locks/ReentrantLock.html)
 - [OpenJDK JDK 21 source: `ReentrantLock.java`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/util/concurrent/locks/ReentrantLock.java)
 - [OpenJDK JDK 21 source: `VirtualThread.java`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/java.base/share/classes/java/lang/VirtualThread.java)
+- [OpenJDK JDK 21 HotSpot source: `continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)
 - [Doug Lea: A Java Fork/Join Framework (ACM Java Grande 2000)](https://doi.org/10.1145/337449.337465)
 - [JEP 491: Synchronize Virtual Threads without Pinning](https://openjdk.org/jeps/491)
 - [Virtual Threads Best Practices](https://loom.openjdk.org/)

@@ -144,7 +144,7 @@ final class VirtualThread extends BaseVirtualThread {
 }
 ```
 
-2.  **Carrier Threads:** A carrier thread is a standard OS platform thread that provides CPU execution cycles for a virtual thread. The virtual thread is temporarily **mounted** onto a carrier thread to execute instructions. From the perspective of Java code executing within the virtual thread, the identity of the carrier thread is invisible; calling `Thread.currentThread()` returns the virtual thread instance itself.
+2.  **Carrier Threads:** A carrier thread is a standard OS platform thread that provides CPU execution time for a virtual thread. The virtual thread is temporarily **mounted** onto a carrier thread to execute its Java code. From the perspective of Java code executing within the virtual thread, the identity of the carrier thread is invisible; calling `Thread.currentThread()` returns the virtual thread instance itself.
 3.  **The Dedicated ForkJoinPool Scheduler:** Virtual threads are scheduled onto carrier threads by a dedicated, private `ForkJoinPool` instance encapsulated within `java.lang.VirtualThread.DEFAULT_SCHEDULER`.
     *   **Architecture and Work-Stealing Mechanics:** Originally developed by Doug Lea (JSR 166), `ForkJoinPool` is a specialized `ExecutorService` built upon a **work-stealing algorithm**. Rather than having all threads contend for tasks on a single global blocking queue (the primary scalability bottleneck of traditional `ThreadPoolExecutor`), every worker thread maintains its own private double-ended queue (deque). A worker executes tasks from its own deque; when its queue becomes empty, it "steals" tasks from the tail of another worker's deque, drastically reducing lock contention and cross-core bus synchronization.
     *   **Asynchronous FIFO Mode:** In Project Loom's scheduler, the pool is initialized with `asyncMode = true`. Rather than executing tasks in recursive divide-and-conquer LIFO (Last-In, First-Out) order, worker queues process unparked virtual threads in FIFO (First-In, First-Out) order. This provides fair message-passing latency and prevents task starvation when handling high volumes of independent web requests.
@@ -189,14 +189,37 @@ The defining capability of a virtual thread is its ability to **unmount** from i
 +-----------------------------------------------------------------------------------+
 ```
 
-1.  **Mounting:** The `ForkJoinPool` scheduler assigns a runnable virtual thread to an idle carrier worker thread. HotSpot copies or points the execution frame to the carrier's native execution stack.
-2.  **Execution:** The virtual thread executes normal Java bytecode instructions directly on physical CPU hardware.
+1.  **Mounting:** The `ForkJoinPool` scheduler assigns a runnable virtual thread to an idle carrier worker thread. The carrier then executes the virtual thread's Java code; the virtual thread is not permanently tied to that carrier or to any particular OS thread ([JEP 444](https://openjdk.org/jeps/444#Description)).
+2.  **Execution:** The carrier platform thread runs the virtual thread's Java code. The JVM interprets or JIT-compiles the bytecode into machine instructions, which the carrier executes on a processor core ([JEP 444](https://openjdk.org/jeps/444#Description)).
 3.  **Continuation Yield:** When the virtual thread invokes a non-native blocking operation within the standard Java Class Library (such as `SocketInputStream.read()`, `Thread.sleep()`, or `LockSupport.park()`), the underlying implementation calls `Continuation.yield()`.
-4.  **Freezing Frames to Heap:** HotSpot's continuation subsystem freezes the virtual thread's active execution stack frames from the carrier thread's physical stack, packing them into `StackChunk` objects allocated directly on the garbage-collected Java heap.
+4.  **Freezing Frames to Heap:** HotSpot saves the virtual thread's active Java execution frames in heap-backed `StackChunk` objects. This removes the virtual thread's Java execution state from the carrier's current stack so that the carrier can be reused.
 5.  **Unmounting:** The virtual thread transitions to the `PARKED` state. The carrier thread is released immediately back to the `ForkJoinPool` work-stealing queue, free to execute other runnable virtual threads.
 6.  **Poller Notification and Thawing:** When the blocking condition resolves (e.g., the OS kernel notifies the JVM's background network poller thread via `epoll`/`kqueue` that data is ready on the socket), the runtime unparks the continuation. The virtual thread is placed back into the `ForkJoinPool` queue, mounts onto an available carrier thread (which need not be the same carrier thread that originally hosted it), thaws its stack frames from the heap, and resumes execution seamlessly.
 
-### 2.2.3 Memory Footprint and Stack Chunk Management
+### 2.2.3 Why Network Waiting Does Not Normally Hold a Carrier
+
+The background network poller is a small JVM service that watches network sockets while virtual threads are waiting for data. It is not a separate application thread for every request.
+
+The sequence is:
+
+1. A virtual thread asks to read from a socket.
+2. If no data is ready, the JVM records that the virtual thread is waiting and parks it.
+3. The carrier is released and can run another virtual thread.
+4. When data arrives, the poller notices it and makes the waiting virtual thread runnable again.
+5. The scheduler later runs it on an available carrier, which then continues the read.
+
+In simple terms, the virtual thread waits while the carrier goes back to work:
+
+```text
+Virtual thread:  waiting for network data ────────────────┐
+                                                         │ data arrives
+Carrier:         runs other virtual threads              ▼
+Virtual thread:  runnable again ──> resumes on a carrier
+```
+
+This mechanism is why supported Java network I/O can appear blocking in application code without blocking the carrier platform thread. It should not be generalized to every blocking operation: native calls, some file operations, and Java 21 monitor pinning follow different paths ([JEP 444](https://openjdk.org/jeps/444#Using-virtual-threads-vs.-platform-threads)).
+
+### 2.2.4 Memory Footprint and Stack Chunk Management
 
 In contrast to platform threads, which allocate a static 1 MB stack off-heap, virtual threads manage stack memory dynamically within the Java heap:
 *   **Initial Overhead:** A newly created virtual thread requires less than 1 KB of heap memory.
@@ -228,7 +251,7 @@ bool ContinuationFreeze::can_freeze() {
 }
 ```
 
-The underlying reason is an ownership and continuation-bookkeeping constraint, not simply an inability to copy C++ pointers. In Java 21, monitor ownership was associated with the carrier platform thread rather than independently with the virtual thread. If the virtual thread were unmounted while holding the monitor, another virtual thread could later run on that carrier and be mistaken for the monitor owner, allowing incorrect re-entry or release and violating mutual exclusion. HotSpot therefore conservatively rejects continuation freezing while an intrinsic monitor is held ([JEP 491](https://openjdk.org/jeps/491#The-reason-for-pinning)).
+The underlying reason is an ownership and continuation-bookkeeping constraint, not simply an inability to copy native HotSpot monitor bookkeeping (internal C++ data structures and pointers used to track monitor state). In Java 21, monitor ownership was associated with the carrier platform thread rather than independently with the virtual thread. If the virtual thread were unmounted while holding the monitor, another virtual thread could later run on that carrier and be mistaken for the monitor owner, allowing incorrect re-entry or release and violating mutual exclusion. HotSpot therefore conservatively rejects continuation freezing while an intrinsic monitor is held ([JEP 491](https://openjdk.org/jeps/491#The-reason-for-pinning)).
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -261,7 +284,7 @@ The underlying reason is an ownership and continuation-bookkeeping constraint, n
 When a virtual thread executes a blocking operation inside a `synchronized` block on Java 21, it **pins** its underlying OS carrier thread:
 *   The virtual thread cannot detach from its carrier.
 *   The carrier thread is forced to remain physically attached to the virtual thread, blocking in the operating system kernel for the duration of the delay.
-*   While pinned, the carrier thread cannot return to the `ForkJoinPool` scheduler to execute other virtual threads.
+*   While pinned, the carrier thread remains occupied by the blocked virtual thread. It is therefore unavailable to the scheduler for running other virtual threads. The scheduler may still have other carrier workers, but with only one carrier, all other runnable virtual threads must wait.
 
 If an application possesses a limited number of carrier threads (e.g., in single-carrier stress benchmarks or 1-vCPU containerized cloud environments), a single pinned virtual thread starves the entire carrier pool. All other virtual threads waiting in the `ForkJoinPool` queue stall, causing overall system throughput to collapse and response times to inflate dramatically.
 
@@ -287,7 +310,7 @@ JEP 491 rearchitected `ObjectMonitor` locking so that acquiring, holding, or wai
 2.  When a virtual thread encounters monitor contention or blocks (e.g., `Thread.sleep()`) inside a `synchronized` block on Java 24, HotSpot evacuates the continuation frames to the heap and unmounts the virtual thread, freeing the carrier thread for other work.
 3.  In this research, empirical validation on JDK 24.0.2 (`Stratum 2`, Table 5.5) confirmed that under the exact identical workload that produced 110 pinning events on Java 21, Java 24 recorded **exactly 0 `jdk.VirtualThreadPinned` events** (`CLM-RQ1-06`).
 
-The Java 21 limitation should not be reduced to the claim that HotSpot merely lacked a mechanism for copying arbitrary C++ memory addresses. Java 21 could already freeze and relocate managed continuation frames and their Java references. The critical incompatibility was the identity recorded by the monitor implementation: ownership was associated with the carrier platform thread rather than independently with the virtual thread. If a virtual thread holding a monitor were unmounted and its carrier immediately mounted another virtual thread, the JVM could observe that second virtual thread as running on the monitor-owning carrier. It could then incorrectly permit monitor re-entry or release, violating mutual exclusion. Java 21 therefore conservatively rejected continuation freezing while a monitor was held. JEP 491 changed the monitor and mount/unmount bookkeeping so that monitor ownership follows the virtual thread across carriers. This is a runtime ownership redesign, not merely a larger or safer heap-copy operation ([JEP 491](https://openjdk.org/jeps/491#Description)).
+The Java 21 limitation should not be reduced to the claim that HotSpot merely lacked a mechanism for copying arbitrary native runtime addresses (internal C++ pointers used by HotSpot's monitor bookkeeping, not ordinary Java object references). Java 21 could already freeze and relocate managed continuation frames and their Java references. The critical incompatibility was the identity recorded by the monitor implementation: ownership was associated with the carrier platform thread rather than independently with the virtual thread. If a virtual thread holding a monitor were unmounted and its carrier immediately mounted another virtual thread, the JVM could observe that second virtual thread as running on the monitor-owning carrier. It could then incorrectly permit monitor re-entry or release, violating mutual exclusion. Java 21 therefore conservatively rejected continuation freezing while a monitor was held. JEP 491 changed the monitor and mount/unmount bookkeeping so that monitor ownership follows the virtual thread across carriers. This is a runtime ownership redesign, not merely a larger or safer heap-copy operation ([JEP 491](https://openjdk.org/jeps/491#Description)).
 
 ### 2.4.2 Ineligibility of JEP 491 for Java 21 LTS Backporting
 
@@ -300,7 +323,7 @@ A critical architectural reality for enterprise software engineering is that **J
 
 Software architects must recognize that even on Java 24 and later runtimes, JEP 491 did **not** eliminate all forms of carrier pinning (`CHK-JDK-09`):
 1.  **Class Initialization Locks (`<clinit>`):** Class loading and static class initialization hold internal JVM class loader monitors. Blocking inside a static initializer continues to pin the carrier thread across all JDK versions (Java 21 through Java 25+) (`CHK-JDK-17`).
-2.  **Native Stack Frames:** If a virtual thread invokes a C function via JNI or Foreign Function & Memory (FFM) APIs, native machine stack frames are pushed onto the carrier stack. The presence of native frames permanently prevents continuation freezing, pinning the carrier thread regardless of JDK version.
+2.  **Native Stack Frames:** If a virtual thread invokes a C function via JNI or Foreign Function & Memory (FFM) APIs, native machine stack frames (compiled C/C++ call frames allocated directly on the operating system thread's physical stack, which the JVM runtime cannot safely serialize or relocate to the heap) are pushed onto the carrier stack. The presence of native frames permanently prevents continuation freezing, pinning the carrier thread regardless of JDK version.
 
 ### 2.4.4 The Evolutionary Path to Java 25 LTS (JEP 506 Scoped Values)
 
@@ -375,7 +398,18 @@ A widespread misconception regarding Project Loom is that *all* Java blocking I/
 1.  **Network Socket I/O (Unmounts Cleanly):** Modern operating systems provide asynchronous readiness multiplexers for network sockets (`epoll` on Linux, `kqueue` on macOS, I/O Completion Ports on Windows). HotSpot integrates a background network poller thread that monitors socket readiness. When a virtual thread executes a socket read or write that cannot proceed immediately, it unmounts cleanly to the heap.
 2.  **Regular File Descriptor I/O (Blocks Carrier Threads):** In standard POSIX operating systems (Linux and macOS), regular disk file descriptors are fundamentally incompatible with `epoll` and `kqueue`; the OS kernel always reports regular files as immediately "ready," even though actual read/write operations block waiting on physical NVMe/SATA disk controller I/O. True asynchronous file I/O requires newer kernel interfaces (such as Linux `io_uring`), which are not integrated into Java 21 Virtual Threads.
 
-Consequently, when a virtual thread performs regular file I/O via `java.io` or `java.nio.channels.FileChannelImpl`, **it physically blocks the carrier thread**. HotSpot mitigates this carrier blockage using `ForkJoinPool.ManagedBlocker`, dynamically expanding carrier thread count up to `maxPoolSize` (`CHK-JDK-18`). If an application executes intensive synchronous file logging or disk cache operations under virtual threads, carrier thread proliferation can exhaust operating system thread limits, as demonstrated in real-world rollbacks such as dotCMS PR #36900 (`CHK-JDK-19`).
+Consequently, when a virtual thread performs regular file I/O via `java.io` or `java.nio.channels.FileChannelImpl`, **the operation may block its carrier thread**. For the specific JDK file-I/O path that uses `ForkJoinPool.ManagedBlocker`, the scheduler can compensate by temporarily adding carrier workers, up to `maxPoolSize`. This is a separate, explicitly managed compensation path; it does not mean that the scheduler compensates for monitor pinning, JNI/native blocking, or arbitrary carrier exhaustion ([JEP 444](https://openjdk.org/jeps/444)). Intensive synchronous file logging or disk-cache operations can still create many carrier threads and increase operating-system resource pressure (`CHK-JDK-18`).
+
+### Table 2.3: Different Responses to Blocking
+
+| Blocking situation | What happens to the virtual thread | What happens to the carrier | Scheduler response |
+| :--- | :--- | :--- | :--- |
+| Supported network I/O | Virtual thread unmounts and waits for socket readiness | Carrier is released | No extra carrier is needed |
+| Managed blocking, such as the JDK's regular-file I/O path | Virtual thread remains associated with the blocking operation | Carrier may be captured temporarily | `ForkJoinPool.ManagedBlocker` allows temporary carrier expansion up to `maxPoolSize` |
+| Java 21 monitor pinning | Virtual thread cannot unmount while blocked inside `synchronized` | Carrier remains occupied | **No compensation for pinning** |
+| JNI or foreign-function blocking | Virtual thread cannot unmount during the native call | Carrier remains occupied | **No compensation for native pinning** |
+
+The first two rows are often confused with the last two. JEP 444 states that some JDK blocking operations compensate by temporarily expanding scheduler parallelism, but explicitly states that the scheduler does not compensate for pinning. The `ManagedBlocker` API describes this as an opt-in mechanism for operations that may need additional workers; it is not a general response to every blocked carrier ([JEP 444](https://openjdk.org/jeps/444), [`ForkJoinPool.ManagedBlocker`](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ForkJoinPool.ManagedBlocker.html)).
 
 ### 2.6.2 Relational Database Persistence and HikariCP Architecture
 
@@ -406,10 +440,15 @@ Auditing third-party driver dependencies is therefore an essential prerequisite 
 
 ### 2.7.1 The Role of ThreadLocal in Enterprise Spring Frameworks
 
-Enterprise Spring applications make extensive use of `ThreadLocal` storage for implicit per-request context management:
-*   `SecurityContextHolder`: Stores the authenticated user identity and security credentials.
-*   `RequestContextHolder`: Exposes HTTP request attributes to arbitrary service beans.
-*   `TransactionSynchronizationManager`: Tracks active JDBC transactions and connection bindings.
+These are not three different kinds of `ThreadLocal`. They are Spring holder or manager APIs that provide different kinds of context, usually using thread-bound storage internally:
+
+| Spring component | What it represents | Relationship to thread-bound storage |
+| :--- | :--- | :--- |
+| `SecurityContextHolder` | The current `SecurityContext`, including the authenticated principal and authorities | By default, Spring Security stores it through a `ThreadLocal`-based strategy ([Spring Security documentation](https://docs.spring.io/spring-security/reference/servlet/authentication/architecture.html#servlet-authentication-securitycontextholder)) |
+| `RequestContextHolder` | The current HTTP request's `RequestAttributes` | Binds the request attributes to the current thread; it can optionally use inheritable thread-bound storage ([Spring Framework API](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/context/request/RequestContextHolder.html)) |
+| `TransactionSynchronizationManager` | Transaction metadata, synchronizations, and resources such as JDBC connections | Maintains transaction state and resource bindings per thread; transaction managers are responsible for binding and clearing them ([Spring Framework API](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/transaction/support/TransactionSynchronizationManager.html)) |
+
+The relationship is therefore: **`ThreadLocal` is a storage mechanism; these Spring components are semantic holders or managers built around that mechanism.** They do not all store the same object, and they do not normally wrap one another. Application code can access the current security context, request, or transaction without passing each value through every method parameter, because the relevant component looks it up for the current thread.
 
 ### 2.7.2 The Memory Scaling Hazard Under Ephemeral Concurrency (`CLM-RQ2-07`)
 
@@ -546,7 +585,7 @@ No concurrency architecture can exceed this physical ceiling.
 
 ### 2.10.2 The Request Decomposition Model
 
-To resolve Copilot Note #5 and establish what benchmark harnesses can and cannot measure, this dissertation establishes the **Request Decomposition Model**:
+To distinguish carrier-pinning effects from application-level serialization, and to make explicit what a benchmark harness can and cannot measure, this section defines the **Request Decomposition Model**:
 
 $$T_{\text{request}} = T_{\text{queue}} + T_{\text{critical}} + T_{\text{independent}} + T_{\text{overhead}}$$
 
@@ -595,7 +634,7 @@ The empirical benchmarks in this research operate strictly in a **closed-loop re
 
 To situate this dissertation within the broader scientific literature, this section critically analyzes the closest empirical studies evaluating Project Loom, reactive programming, and JVM concurrency:
 
-### Table 2.3: Comparative Synthesis of Closest Empirical Literature
+### Table 2.4: Comparative Synthesis of Closest Empirical Literature
 
 | Study / Citation | Evaluated System & Runtime | Primary Contribution | Critical Methodological Limitation Relative to This Thesis |
 | :--- | :--- | :--- | :--- |
