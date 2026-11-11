@@ -24,6 +24,8 @@ BUILD_APP=true
 LOCK_MODE="reentrant-lock"
 VIRTUAL_THREADS_ENABLED="true"
 ENDPOINT="mixed"
+POOL_SIZE="${HIKARI_MAXIMUM_POOL_SIZE:-}"
+ORDERS_HOLD_CONNECTION="${DEMO_ORDERS_HOLD_CONNECTION_DURING_DELAY:-false}"
 
 sha256_file() {
   openssl dgst -sha256 "$1" | awk '{print $2}'
@@ -38,10 +40,18 @@ while [[ "$#" -gt 0 ]]; do
     --lock-mode) LOCK_MODE=$2; shift ;;
     --platform) VIRTUAL_THREADS_ENABLED="false" ;;
     --endpoint) ENDPOINT=$2; shift ;;
+    --pool-size) POOL_SIZE=$2; shift ;;
+    --hold-connection) ORDERS_HOLD_CONNECTION=true ;;
     *) echo "Unknown argument: $1"; exit 1 ;;
   esac
   shift
 done
+
+if [ -n "$POOL_SIZE" ]; then
+  export SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE="$POOL_SIZE"
+fi
+export DEMO_ORDERS_HOLD_CONNECTION_DURING_DELAY="$ORDERS_HOLD_CONNECTION"
+export MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE="health,metrics"
 
 case "$ENDPOINT" in
   mixed|orders|payments|products|cpu|native|native-short) ;;
@@ -118,7 +128,8 @@ cat > "$MANIFEST_FILE" <<EOF
   "warmup_rule": "8s application startup plus products health check; k6 ramp-up excluded from steady-state interpretation",
   "measurement_interval": "30s hold stage",
   "timeout": "k6/http default; inspect raw output for timeout samples",
-  "connection_pool_size": "Spring Boot/Hikari default; verify from runtime configuration before final thesis use",
+  "connection_pool_size": "${POOL_SIZE:-runtime-default}",
+  "orders_connection_treatment": "$ORDERS_HOLD_CONNECTION",
   "tomcat_max_threads_or_executor": "Spring Boot virtual-thread request executor",
   "jvm_flags": "-XX:StartFlightRecording=...,settings=profile,dumponexit=true -Djdk.tracePinnedThreads=full",
   "java_extra_options": "$JAVA_EXTRA_OPTS",
@@ -129,6 +140,8 @@ cat > "$MANIFEST_FILE" <<EOF
   "jfr_configuration": "profile; jdk.tracePinnedThreads=full",
   "telemetry_file": "",
   "telemetry_sha256": "",
+  "pool_telemetry_file": "",
+  "pool_telemetry_sha256": "",
   "result_files": [],
   "jfr_file": "",
   "jfr_sha256": "",
@@ -142,6 +155,8 @@ echo "🧾  Run manifest initialized: $MANIFEST_FILE"
 
 TELEMETRY_FILE="$RESULTS_DIR/telemetry-$TIMESTAMP.csv"
 echo "timestamp,pid,threads,cpu_percent" > "$TELEMETRY_FILE"
+POOL_TELEMETRY_FILE="$RESULTS_DIR/pool-telemetry-$TIMESTAMP.csv"
+echo "timestamp,active,idle,max,pending,acquire_seconds,timeout_count" > "$POOL_TELEMETRY_FILE"
 capture_telemetry() {
   while kill -0 "$APP_PID" 2>/dev/null; do
     now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -151,6 +166,25 @@ capture_telemetry() {
     fi
     cpu=$(ps -p "$APP_PID" -o %cpu= 2>/dev/null | tr -d ' ')
     printf '%s,%s,%s,%s\n' "$now" "$APP_PID" "${threads:-unknown}" "${cpu:-unknown}" >> "$TELEMETRY_FILE"
+    sleep 1
+  done
+}
+
+capture_pool_telemetry() {
+  while kill -0 "$APP_PID" 2>/dev/null; do
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    metric_value() {
+      curl -sf "$BASE_URL/actuator/metrics/$1" 2>/dev/null |
+        python3 -c 'import json,sys; data=json.load(sys.stdin); m={x.get("statistic"): x.get("value") for x in data.get("measurements",[])}; print(m.get("VALUE", m.get("TOTAL_TIME", m.get("COUNT", "unknown"))))' 2>/dev/null ||
+        printf 'unknown'
+    }
+    active=$(metric_value "hikaricp.connections.active")
+    idle=$(metric_value "hikaricp.connections.idle")
+    max=$(metric_value "hikaricp.connections.max")
+    pending=$(metric_value "hikaricp.connections.pending")
+    acquire=$(metric_value "hikaricp.connections.acquire")
+    timeout=$(metric_value "hikaricp.connections.timeout")
+    printf '%s,%s,%s,%s,%s,%s,%s\n' "$now" "$active" "$idle" "$max" "$pending" "$acquire" "$timeout" >> "$POOL_TELEMETRY_FILE"
     sleep 1
   done
 }
@@ -173,15 +207,26 @@ NATIVE_ARGS=()
 if [ "$ENDPOINT" = "native" ] || [ "$ENDPOINT" = "native-short" ]; then
   NATIVE_ARGS+=(--demo.native.enabled=true)
 fi
+SPRING_EXTRA_ARGS=()
+if [ -n "$POOL_SIZE" ]; then
+  SPRING_EXTRA_ARGS+=(--spring.datasource.hikari.maximum-pool-size="$POOL_SIZE")
+fi
+SPRING_EXTRA_ARGS+=(--demo.orders.hold-connection-during-delay="$ORDERS_HOLD_CONNECTION")
+SPRING_EXTRA_ARGS+=(--management.endpoints.web.exposure.include="health,metrics")
 $JAVA_CMD $JFR_OPTS $JAVA_EXTRA_OPTS -jar "$APP_JAR" \
   --spring.threads.virtual.enabled="$VIRTUAL_THREADS_ENABLED" \
   --demo.payment.lock-mode="$LOCK_MODE" \
-  "${NATIVE_ARGS[@]}" &
+  "${NATIVE_ARGS[@]}" \
+  "${SPRING_EXTRA_ARGS[@]}" &
 APP_PID=$!
 cleanup() {
   if [ -n "${TELEMETRY_PID:-}" ] && kill -0 "$TELEMETRY_PID" 2>/dev/null; then
     kill "$TELEMETRY_PID" 2>/dev/null || true
     wait "$TELEMETRY_PID" 2>/dev/null || true
+  fi
+  if [ -n "${POOL_TELEMETRY_PID:-}" ] && kill -0 "$POOL_TELEMETRY_PID" 2>/dev/null; then
+    kill "$POOL_TELEMETRY_PID" 2>/dev/null || true
+    wait "$POOL_TELEMETRY_PID" 2>/dev/null || true
   fi
   if kill -0 "$APP_PID" 2>/dev/null; then
     echo "🛑  Cleaning up app (PID $APP_PID)..."
@@ -205,7 +250,10 @@ fi
 echo "    ✅  App is up."
 capture_telemetry &
 TELEMETRY_PID=$!
+capture_pool_telemetry &
+POOL_TELEMETRY_PID=$!
 echo "    📈  Process telemetry started (PID $TELEMETRY_PID)"
+echo "    📊  Pool telemetry started (PID $POOL_TELEMETRY_PID)"
 
 # ─── Run benchmarks ──────────────────────────────────────────────────────────
 for VUS in "${VUS_LIST[@]}"; do
@@ -239,10 +287,19 @@ if kill -0 "$TELEMETRY_PID" 2>/dev/null; then
 fi
 echo "    📈  Process telemetry saved to: $TELEMETRY_FILE"
 
+if kill -0 "$POOL_TELEMETRY_PID" 2>/dev/null; then
+  kill "$POOL_TELEMETRY_PID" 2>/dev/null || true
+  wait "$POOL_TELEMETRY_PID" 2>/dev/null || true
+fi
+echo "    📊  Pool telemetry saved to: $POOL_TELEMETRY_FILE"
+
 TELEMETRY_SHA256=$(sha256_file "$TELEMETRY_FILE")
+POOL_TELEMETRY_SHA256=$(sha256_file "$POOL_TELEMETRY_FILE")
 MANIFEST_TMP=$(mktemp)
 sed -e "s#\"telemetry_file\": \"\"#\"telemetry_file\": \"$TELEMETRY_FILE\"#" \
     -e "s#\"telemetry_sha256\": \"\"#\"telemetry_sha256\": \"$TELEMETRY_SHA256\"#" \
+    -e "s#\"pool_telemetry_file\": \"\"#\"pool_telemetry_file\": \"$POOL_TELEMETRY_FILE\"#" \
+    -e "s#\"pool_telemetry_sha256\": \"\"#\"pool_telemetry_sha256\": \"$POOL_TELEMETRY_SHA256\"#" \
     "$MANIFEST_FILE" > "$MANIFEST_TMP"
 mv "$MANIFEST_TMP" "$MANIFEST_FILE"
 

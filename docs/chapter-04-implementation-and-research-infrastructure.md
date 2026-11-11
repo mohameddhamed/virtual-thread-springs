@@ -78,57 +78,18 @@ To eliminate version ambiguity and ensure strict experimental reproducibility ac
 
 ### 4.1.3 Spring Boot 3 Virtual Thread Wiring and Tomcat Configuration
 
-Integration of Java 21 Virtual Threads within the servlet container relies upon Spring Boot 3's auto-configuration infrastructure. When the declarative configuration property:
+Integration of Java 21 Virtual Threads within the servlet container relies upon Spring Boot 3 auto-configuration. Setting `spring.threads.virtual.enabled: true` in `application.yml` triggers `TomcatWebServerFactoryCustomizer` to register a `TomcatProtocolHandlerCustomizer`, configuring Tomcat's protocol handler with `Executors.newVirtualThreadPerTaskExecutor()`.
 
-```yaml
-spring:
-  threads:
-    virtual:
-      enabled: true
-```
+Table 4.2 contrasts the architectural request dispatch lifecycle between Virtual Thread mode and the baseline Platform Thread mode evaluated throughout this study.
 
-is evaluated during the initialization phase of `org.springframework.boot.autoconfigure.web.embedded.TomcatWebServerFactoryCustomizer`, Spring Boot registers a `TomcatProtocolHandlerCustomizer` bean that modifies Apache Tomcat's underlying `StandardThreadExecutor`:
+### Table 4.2: Tomcat Request Dispatch Architecture: Virtual vs. Platform Concurrency
 
-```java
-// Conceptual autoconfiguration executed inside Spring Boot 3
-@Bean
-public TomcatProtocolHandlerCustomizer<?> protocolHandlerVirtualThreadCustomizer() {
-    return protocolHandler -> {
-        protocolHandler.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
-    };
-}
-```
-
-```
-+-----------------------------------------------------------------------------------+
-|               SPRING BOOT 3 TOMCAT VIRTUAL THREAD REQUEST DISPATCH                |
-+-----------------------------------------------------------------------------------+
-  Client HTTP Connection
-            │
-            ▼
-  Tomcat NioEndpoint Acceptor (Platform Thread)
-            │
-            ▼
-  NioEndpoint Poller multiplexes non-blocking socket via OS readiness (kqueue/epoll)
-            │
-            ▼ Socket Readable
-  TomcatProtocolHandlerCustomizer Executor:
-  Executors.newVirtualThreadPerTaskExecutor()
-            │
-            ├─► Allocates Ephemeral VirtualThread (Heap Continuation < 1 KB)
-            │
-            ▼
-  VirtualThread.start() ──> Scheduled onto Carrier ForkJoinPool (Worker OS Thread)
-            │
-            ▼
-  Spring DispatcherServlet ──> Controller ──> Service Invocation
-```
-
-Under this configuration:
-1.  **Request Dispatching:** Tomcat's non-blocking `NioEndpoint` acceptor and poller threads accept incoming TCP connections using OS-level event multiplexing (`kqueue` on macOS Darwin; `epoll` on Linux).
-2.  **Thread Allocation:** Upon socket readability, request parsing and servlet execution are handed off to an ephemeral Virtual Thread produced by `Thread.ofVirtual().factory()`. The legacy bounded thread pool (Tomcat's traditional default of `maxThreads = 200` platform threads bounded by an internal task queue) is completely bypassed.
-3.  **Carrier Scheduling:** The newly allocated virtual thread is submitted to HotSpot's dedicated private virtual-thread scheduler (`java.lang.VirtualThread.DEFAULT_SCHEDULER`), distinct from `ForkJoinPool.commonPool()`.
-4.  **Platform Mode Fallback:** When `spring.threads.virtual.enabled` is set to `false`, Tomcat retains its traditional `StandardThreadExecutor`, allocating requests from a bounded pool of 200 physical OS threads.
+| Architectural Phase | Virtual Threads (`enabled: true`) | Platform Threads (`enabled: false` / `--platform`) |
+| :--- | :--- | :--- |
+| **Connection Ingestion** | Dedicated OS platform threads (`NioEndpoint` Acceptor and Poller via `kqueue`/`epoll`) | Dedicated OS platform threads (`NioEndpoint` Acceptor and Poller via `kqueue`/`epoll`) |
+| **Servlet Task Execution** | Ephemeral `VirtualThread` per request (heap continuation $< 1\text{ KB}$) | Bounded worker thread checked out from Tomcat pool (`maxThreads = 200`) |
+| **Scheduler & Carrier Binding** | HotSpot carrier pool (`java.lang.VirtualThread.DEFAULT_SCHEDULER`) | Direct OS kernel thread scheduling |
+| **Blocking Behavior** | Continuation unmounts from carrier thread on blocking I/O / AQS park | Carrier OS thread remains physically blocked in kernel space |
 
 ---
 
@@ -243,10 +204,7 @@ When `demo.payment.lock-mode` is configured to `synchronized`, mutual exclusion 
 4.  **Pinning Invocation:** Because the virtual thread holds `monitor`, `can_freeze()` returns `false`. The unmount operation is rejected.
 5.  **Carrier Captivity:** Unable to yield, the virtual thread invokes `VirtualThread.parkOnCarrierThread()`. The underlying operating system carrier thread is forced into physical kernel sleep for the full 500 ms duration.
 6.  **JFR Pinning Event Generation:** HotSpot posts the `jdk.VirtualThreadPinned` event to the active Java Flight Recorder session, logging the pin duration and full Java stack trace.
-7.  **Carrier Starvation Under Single-Carrier Isolation:** Under the single-carrier mechanism isolation constraint (`parallelism=1`), this lone carrier thread is immobilized. Although 9 other virtual users in k6 are waiting to execute, the JVM cannot schedule any task, establishing the empirical foundation of [`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L55) and [`CLM-RQ1-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L57-L70).
-
-> [!IMPORTANT]
-> **The Carrier Compensation Fallacy (`CLM-RQ1-07`):** Early literature hypothesized that HotSpot's `ForkJoinPool` dynamically compensates for monitor pinning by spawning additional carrier threads up to `maxPoolSize = 256`. As established by [JEP 444](https://openjdk.org/jeps/444) and verified during research triage ([`fact-check-jdk-runtime.md#L17-L21`](../docs/fact-check-jdk-runtime.md#L17-L21)), **HotSpot never expands carrier parallelism for monitor pinning or native code**. Carrier expansion is reserved exclusively for `ForkJoinPool.ManagedBlocker` calls (file I/O and specific `Object.wait()` calls). Constraining `maxPoolSize=1` strictly eliminated carrier expansion for file operations, ensuring unambiguous single-carrier isolation.
+7.  **Carrier Starvation Under Single-Carrier Isolation:** Under the single-carrier mechanism isolation constraint (`parallelism=1`), this lone carrier thread is immobilized. Although 9 other virtual users in k6 are waiting to execute, the JVM cannot schedule any task (HotSpot does not expand carrier parallelism for monitor pinning, as established in Section 2.3.3), establishing the empirical foundation of [`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L55) and [`CLM-RQ1-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L57-L70).
 
 ### 4.2.2 The ReentrantLock Treatment (`reentrant-lock`)
 
@@ -451,9 +409,11 @@ CREATE TABLE products (
 
 At startup, the database is seeded by [`src/main/resources/data.sql`](../src/main/resources/data.sql) with 5 initial records in `orders` (representing pending and shipped customer orders) and 8 records in `products` (representing catalog inventory).
 
-### 4.4.2 The Physical Anatomy of the `/orders` Pre-Acquisition Delay Flaw (`CLM-RQ2-03`)
+### 4.4.2 Two-Treatment Persistence Lifecycle Architecture and Connection Timing Mechanics (`CLM-RQ2-03`)
 
-The `/orders` endpoint was designed to evaluate HikariCP connection pool exhaustion and carrier unmounting under constrained connection pool limits (`maximumPoolSize = 1` vs. `10`). Source code inspection of [`OrderService.java#L36-L59`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L59) revealed a critical construct flaw in the service execution lifecycle:
+The `/orders` endpoint was designed to evaluate HikariCP connection pool exhaustion and carrier unmounting under constrained connection pool limits (`maximumPoolSize = 1` vs. `10`). To dissect the boundary conditions between application-level processing and database connection checkout duration, the service was structured around two distinct factorial treatments: Treatment A (pre-acquisition delay) and Treatment B (connection-held delay).
+
+In Treatment A (uncontented control baseline), source code inspection of [`OrderService.java#L36-L59`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L36-L59) revealed that the 300 ms delay was decoupled from connection checkout:
 
 ```java
 package com.thesis.virtualthreadsdemo.service;
@@ -506,6 +466,34 @@ public class OrderService {
     $$L_{\text{pool}} = X \times T_{\text{hold}} = 124.8 \times 0.0001 \approx \mathbf{0.0125\text{ connections}}$$
     This 0.0125 value includes the configured 100 ms think time; the corresponding zero-think-time ceiling ($X = 166.4\text{ req/s}$) yields approximately 0.0166 connections.
     Even during the 50-VU load test with `maximumPoolSize = 1`, the HikariCP pool was over **98.7% idle**. No connection wait queue ever formed, explaining why pool size 1 and pool size 10 produced identical latency profiles ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166)).
+
+#### 4.4.2.1 Two-Treatment Factorial Persistence Infrastructure
+To transition this construct observation into an active empirical investigation without invalidating frozen baseline data, [`OrderService.java`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java) was instrumented with a configurable persistence treatment flag:
+
+```java
+@Value("${demo.orders.hold-connection-during-delay:false}")
+private final boolean holdConnectionDuringDelay;
+```
+
+When `holdConnectionDuringDelay` is set to `true`, request handling delegates to `queryWhileHoldingConnection()`:
+
+```java
+private List<Map<String, Object>> queryWhileHoldingConnection() {
+    return jdbcTemplate.execute((ConnectionCallback<List<Map<String, Object>>>) connection -> {
+        // Treatment: acquire the connection before introducing the 300 ms delay
+        simulateSlowQuery();
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM orders");
+             ResultSet resultSet = statement.executeQuery()) {
+            ...
+        }
+    });
+}
+```
+
+This infrastructure design achieves three critical objectives:
+1.  **Controlled Connection Duration:** The connection is checked out from HikariCP for the entire service lifecycle ($T_{\text{hold}} = 0.300\text{ s}$), transforming connection availability into the primary system constraint.
+2.  **Carrier Unmounting Isolation:** Because `simulateSlowQuery()` executes in Java user-space *prior* to executing the SQL statement, `Thread.sleep(300)` invokes `VirtualThread.sleepNanos()`, cleanly yielding the continuation without trapping carriers in JDBC driver internal monitors.
+3.  **Real-Time Telemetry Observability:** The application integrates `spring-boot-starter-actuator`, enabling a background sampling daemon to capture live HikariCP connection states (`hikaricp.connections.active`, `idle`, `max`, `pending`, `acquire`, `timeout`) at 1-second intervals.
 
 ### 4.4.3 The YAML Indentation Defect and Autoconfiguration Fallback (`CLM-RQ2-04`)
 
@@ -798,16 +786,16 @@ To provide a consolidated data source for visualization dashboards and automated
 
 ## 4.8 Methodological Summary and Threats to Validity
 
-To preserve publication-grade scientific integrity, all implementation components, experimental treatments, and known construct defects are summarized in Table 4.2 alongside their forensic mitigations.
+To preserve publication-grade scientific integrity, all implementation components, experimental treatments, and known construct defects are summarized in Table 4.3 alongside their forensic mitigations.
 
-### Table 4.2: Implementation Component Evaluation and Forensic Mitigations
+### Table 4.3: Implementation Component Evaluation and Forensic Mitigations
 
 | Architectural Component | Target Mechanism | RQ Addressed | Identified Defect / Threat | Applied Forensic Qualification | Primary Claim Reference |
 | :--- | :--- | :---: | :--- | :--- | :---: |
 | **`PaymentService` (`synchronized`)** | HotSpot monitor pinning under single-carrier stress | **RQ1** | Misconception that HotSpot expands carrier pool to compensate for pinning | ForkJoinPool pinning compensation disproven via JEP 444 source audit; `parallelism=1` confirmed effective. | [`CLM-RQ1-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L42-L55)<br>[`CLM-RQ1-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L129-L140) |
 | **`PaymentService` (`reentrant-lock`)** | AQS continuation yielding & non-fair barging | **RQ1** | Latency standard deviation inflation ($23\times$) misattributed to lock overhead | Identified as AQS `NonfairSync` direct-CAS barging; verified via fair lock baseline. | [`CLM-RQ1-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)<br>[`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L112) |
 | **`NativeBlockingService` (`/native`)** | Foreign C POSIX `nanosleep()` syscall | **RQ2** | 0 JFR events interpreted as healthy execution; CPU assumed 100% | Proved JFR suppresses native events; process telemetry proved carrier is suspended in kernel at 1.0% CPU. | [`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L162)<br>[`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L177) |
-| **`OrderService` (`/orders`)** | HikariCP pool exhaustion under concurrency | **RQ2** | Pre-acquisition sleep defect: `simulateSlowQuery()` executes *before* connection checkout | Little's Law proved pool was >98% idle ($L_{\text{pool}} \approx 0.0125$); qualified as construct defect. | [`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193)<br>[`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166) |
+| **`OrderService` (`/orders`)** | HikariCP pool exhaustion under concurrency | **RQ2** | Pre-acquisition delay left connection pool uncontented (>98% idle) | Two-treatment factorial ablation: Treatment A (pre-acquisition delay, pool idle) vs. Treatment B (held connection, pool saturated), proving downstream bottleneck shift. | [`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193)<br>[`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166) |
 | **`application.yml` (H2 Configuration)** | Local database connection pool sizing | **RQ2** | Indentation defect under `demo:` caused fallback to default pool size 10 | Static configuration audit confirmed fallback; qualified local pool variation as inert. | [`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L208)<br>[`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L149) |
 | **`docker-compose.yml` (PostgreSQL)** | Containerized database concurrency | **RQ2** | Docker runtime omitted JFR instrumentation (`-XX:StartFlightRecording`) | k6 latency admitted as exploratory; all JFR carrier unmounting claims declared Not Established. | [`CLM-RQ2-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)<br>[`DISC-08`](../docs/evidence-freeze/discrepancy-register.md#L167-L182) |
 | **`OrderService` (`ThreadLocal`)** | Request context propagation memory scaling | **RQ2** | Closed-loop 10/50 VUs insufficient to trigger heap `OutOfMemoryError` | Evaluated analytically ($O(N)$ heap scaling); foundational motivation for JEP 446 Scoped Values. | [`CLM-RQ2-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L239-L250) |

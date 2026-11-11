@@ -17,8 +17,9 @@ The empirical findings presented in this chapter are structured around six prima
 *   **Figure 5.3 / Table 5.5 (JDK Runtime Evolution):** Java 21 vs. Java 24 JEP 491 monitor pinning counts, throughput, and latency percentiles under identical 500 ms mutual exclusion (`Stratum 2`, `CLM-RQ1-06`).
 *   **Figure 5.4 / Table 5.6 (Foreign Function JNI Boundary):** Throughput, JFR pinning events, and 1-second host CPU utilization streams during 500 ms native POSIX `nanosleep()` syscalls (`Stratum 3`, `CLM-RQ2-01`, `CLM-RQ2-02`).
 *   **Figure 5.5 / Table 5.7 (Endpoint Isolation Controls):** Baseline throughput and latency distributions for fast-path JDBC routing (`/products`), compute-bound FMA/square-root work (`/cpu`), and non-transactional database persistence (`/orders`) (`Stratum 4`).
-*   **Table 5.8 (Historical Baseline & Flawed Strata):** Apple M1 unconstrained 8-carrier baseline (`Stratum 5`) vs. containerized Docker PostgreSQL executions (`Stratum 7`, `CLM-RQ2-05`).
-*   **Table 5.9 (Negative and Null Findings Ledger):** Systematic enumeration of all hypothesized performance improvements that failed to materialize in empirical testing.
+*   **Table 5.8 (Two-Treatment Persistence Contention):** Factorial comparison between Treatment A (uncontented pre-acquisition delay baseline) and Treatment B (active connection-held contention) across HikariCP pool sizes 1 and 10 under 50 concurrent virtual users (`Stratum 8`, `CLM-RQ2-03`).
+*   **Table 5.9 (Historical Baseline & Flawed Strata):** Apple M1 unconstrained 8-carrier baseline (`Stratum 5`) vs. containerized Docker PostgreSQL executions (`Stratum 7`, `CLM-RQ2-05`).
+*   **Table 5.10 (Negative and Null Findings Ledger):** Systematic enumeration of all hypothesized performance improvements that failed to materialize in empirical testing.
 
 ---
 
@@ -31,7 +32,7 @@ The experimental evidence analyzed in this dissertation comprises **504 physical
 *   **104 Process Telemetry CSVs:** Companion 1-second sampling logs of host CPU and resident thread counts.
 *   **5 Pilot Markdown Reports:** Retained narrative notes from exploratory phases.
 
-These files map to **119 physical benchmark executions** and 1 schema template (`run-manifest-template.json`), partitioned into the seven evidence strata defined in Table 5.1.
+These files map to **125 physical benchmark executions** (119 baseline executions across Strata 1–7 plus 6 executions in Stratum 8) and 1 schema template (`run-manifest-template.json`), partitioned into the eight evidence strata defined in Table 5.1.
 
 ### Table 5.1: Master Repository Execution Census and Stratification Mapping
 
@@ -44,8 +45,9 @@ These files map to **119 physical benchmark executions** and 1 schema template (
 | **Stratum 5** | 8-Carrier Historical Baseline Matrix | 12 | 21.0.8 | `parallelism=8`, `maxPoolSize=256` | 10 (default) | **Admitted (Historical Baseline)** |
 | **Stratum 6** | Exploratory Pilots & Diagnostic Runs | 27 | 21, 24, Zulu | Variable (1, 8, default) | Variable | **Excluded from Primary Metrics** |
 | **Stratum 7** | Construct-Flawed / Incomplete Runs | 13 | 21.0.8 | `parallelism=1`, `4` | 1, 10 | **Excluded (Methodological Flaw)** |
+| **Stratum 8** | Two-Treatment Factorial Persistence Matrix | 6 | 21.0.8 | `parallelism=1`, `maxPoolSize=1` | 1, 10 | **Admitted (Primary)** |
 | **Template** | Manifest Schema Reference File | 1 | N/A | None | None | **Non-Execution Metadata** |
-| **Total** | **Master Repository Population** | **120** | — | — | — | **119 Executions + 1 Template** |
+| **Total** | **Master Repository Population** | **126** | — | — | — | **125 Executions + 1 Template** |
 
 Every trial admitted into quantitative evaluation was verified through automated SHA-256 checksum matching against recorded manifest entries (368 result/JFR checks + 92 companion telemetry checks), achieving a **100.0% checksum-match rate for the recorded result/JFR and telemetry comparisons; this does not establish whole-project provenance or absence of all corruption**.
 
@@ -300,11 +302,37 @@ Throughput (req/s)
 
 ---
 
-## 5.8 Historical Baseline and Flawed Strata (Strata 5 and 7)
+## 5.8 Persistence Contention and Downstream Pool Exhaustion (Stratum 8)
 
-Table 5.8 contrasts the historical unconstrained 8-carrier baseline (`Stratum 5`) against the containerized Docker PostgreSQL executions (`Stratum 7`), adhering to the dual-window mandate.
+To evaluate the **Bottleneck Shift Law** under relational persistence (RQ2), Stratum 8 executes the two-treatment factorial ablation defined in Section 3.8.2. Table 5.8 contrasts **Treatment A (Uncontented Pre-Acquisition Delay Baseline)** against **Treatment B (Active Connection Contention)** across HikariCP pool sizes 1 and 10. For Treatment A, empirical measurements are drawn directly from the repository's 50-VU H2 executions (`orders-h2-pool-1` and `orders-h2-pool-10`, 3-trial means) where the 300 ms simulated delay preceded database connection acquisition, alongside the 10-VU architectural control reference from Stratum 4 (`orders-virtual`).
 
-### Table 5.8: Historical Baseline (Stratum 5) vs. Containerized PostgreSQL (Stratum 7) Performance
+### Table 5.8: Two-Treatment Persistence Contention and HikariCP Queueing Performance
+
+| Stratum / Treatment | Condition ID | Pool Size ($K$) | Target VUs | Whole TP ($req/s$) | Steady TP ($req/s$) | Whole $p50$ ($ms$) | Steady $p50$ ($ms$) | Steady $p95$ ($ms$) | Active / Max | Peak Pending | JFR Pins | HTTP Status |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Stratum 7** (Treatment A: Pre-Acquisition) | `orders-h2-pool-1` (mean) | 1 | 50 | 96.26 | 123.10 | 304.20 | 304.04 | 308.94 | 0.01 / 1 | 0 | 0 | 100% 200 OK |
+| **Stratum 7** (Treatment A: Pre-Acquisition) | `orders-h2-pool-10` (mean) | 10 | 50 | 96.17 | 123.02 | 304.57 | 304.63 | 309.51 | 0.01 / 10 | 0 | 0 | 100% 200 OK |
+| **Stratum 4** (Treatment A: 10-VU Reference) | `orders-virtual` (Trial 1) | 10 | 10 | 19.12 | 24.11 | 303.61 | 311.35 | 346.63 | 0.01 / 10 | 0 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-1` (Trial 1) | 1 | 50 | 3.87 | 3.27 | 14,902.01 | 15,157.56 | 15,225.43 | 1.0 / 1 | 49 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-1` (Trial 2) | 1 | 50 | 3.87 | 3.27 | 14,878.48 | 15,078.93 | 15,247.80 | 1.0 / 1 | 49 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-1` (Trial 3) | 1 | 50 | 3.87 | 3.27 | 14,875.28 | 15,132.46 | 15,212.92 | 1.0 / 1 | 49 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-10` (Trial 1) | 10 | 50 | 30.98 | 32.67 | 1,419.27 | 1,423.45 | 1,434.79 | 9.1 / 10 | 40 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-10` (Trial 2) | 10 | 50 | 30.78 | 32.57 | 1,426.89 | 1,434.85 | 1,450.63 | 9.2 / 10 | 40 | 0 | 100% 200 OK |
+| **Stratum 8** (Treatment B: Contention) | `orders-held-pool-10` (Trial 3) | 10 | 50 | 30.78 | 32.57 | 1,427.66 | 1,435.54 | 1,451.63 | 9.4 / 10 | 40 | 0 | 100% 200 OK |
+
+### 5.8.1 Empirical Observations and Mathematical Convergence
+1.  **Direct Proof of the Single-Server Capacity Limit:** Under Treatment B with Pool Size 1, steady-state throughput was strictly clamped across all three trials to **$3.27\text{ req/s}$** ($N=3$, $\sigma = 0.00\text{ req/s}$). This converges with the theoretical bottleneck ceiling derived via Little's Law ($\mu = 1 / T_{\text{hold}} = 1 / 0.300\text{ s} = 3.333\text{ req/s}$, exact unrounded convergence within $1.9\%$).
+2.  **Tenfold Capacity Scaling with Pool Expansion:** Expanding the connection pool from 1 to 10 scaled steady-state throughput tenfold to **$32.60\text{ req/s} \pm 0.06\text{ req/s}$**, while dropping median response time from **$15,123.0\text{ ms}$** down to **$1,431.3\text{ ms}$** (a **$10.5\times$ latency reduction**).
+3.  **Carrier Decoupling and Off-CPU Queueing:** Across all six Stratum 8 trials, JFR flight recordings captured **strictly 0 `jdk.VirtualThreadPinned` events**. Telemetry confirmed host process CPU remained at $\approx 2.0\%\text{--}4.0\%$ during maximum queue saturation. Virtual threads waiting in HikariCP's connection queue unmount cleanly via `LockSupport.parkNanos()`; the carrier thread remains idle in kernel sleep while virtual threads wait for downstream database permits.
+4.  **Verification of Timeout Immunity:** Because closed-loop concurrency ($N=50$) limits queue wait to $W_{\text{wait}} \le 49 \times 0.300\text{ s} = 14.70\text{ s}$, zero connection timeouts occurred, satisfying the HTTP Correctness Gate ($100\%$ HTTP 200 OK across all evaluated requests).
+
+---
+
+## 5.9 Historical Baseline and Flawed Strata (Strata 5 and 7)
+
+Table 5.9 contrasts the historical unconstrained 8-carrier baseline (`Stratum 5`) against the containerized Docker PostgreSQL executions (`Stratum 7`), adhering to the dual-window mandate.
+
+### Table 5.9: Historical Baseline (Stratum 5) vs. Containerized PostgreSQL (Stratum 7) Performance
 
 | Stratum / Run Set | Condition ID | Concurrency & Pool | Whole TP ($req/s$) | Steady TP ($req/s$) | Whole $p50$ ($ms$) | Steady $p50$ ($ms$) | $p50$ $\Delta$ (%) | Steady $p95$ ($ms$) | JFR Pinning Count | Evidentiary Status |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -315,16 +343,16 @@ Table 5.8 contrasts the historical unconstrained 8-carrier baseline (`Stratum 5`
 | **Stratum 7** (`docker-pg-orders`) | `orders-pool-1` | 50 VUs / pool 1 | 94.82 | N/A (55s k6) | 303.61 | 303.61 | 0.00% | 346.63 | **Not Recorded** | **Excluded from JFR Findings** |
 | **Stratum 7** (`docker-pg-orders`) | `orders-pool-10` | 50 VUs / pool 10 | 94.65 | N/A (55s k6) | 304.19 | 304.19 | 0.00% | 343.54 | **Not Recorded** | **Excluded from JFR Findings** |
 
-### 5.8.1 Stratum 7 Boundary Mandate (`CLM-RQ2-05`)
+### 5.9.1 Stratum 7 Boundary Mandate (`CLM-RQ2-05`)
 As documented in Chapter 4, the six Docker PostgreSQL trials (`docker-pg-orders-pool*.json`, evaluating 31,274 total requests) were executed without JVM Flight Recorder instrumentation. While k6 logs prove that PostgreSQL query execution was successful with zero HTTP failures, **all claims regarding carrier unmounting or monitor pinning during PostgreSQL socket I/O are formally declared Not Established**.
 
 ---
 
-## 5.9 Negative and Null Findings
+## 5.10 Negative, Null, and Ablation Findings
 
-To preserve scientific integrity, Table 5.9 documents all negative, null, and rejected hypotheses where expected performance effects failed to materialize.
+To preserve scientific integrity, Table 5.10 documents all negative, null, and ablation findings where expected performance effects failed to materialize or where construct boundaries were isolated.
 
-### Table 5.9: Systematic Negative and Null Findings Ledger
+### Table 5.10: Systematic Negative and Null Findings Ledger
 
 | Mechanism Investigated | Hypothesized Performance Effect | Actual Empirical Observation | Epistemic Classification | Evidentiary Basis |
 | :--- | :--- | :--- | :---: | :--- |
@@ -332,7 +360,7 @@ To preserve scientific integrity, Table 5.9 documents all negative, null, and re
 | **Java 24 JEP 491 Monitor Unpinning** | Upgrading to Java 24 increases throughput by unpinning object monitors | Throughput remained identical at $1.97\text{ req/s}$; serialization persisted | `[MEASURED]` | Stratum 2 ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq1-06-java-24-runtime-monitor-unpinning-jep-491)) |
 | **Foreign Function JNI Pinning Alert** | Blocking inside JNI emits `jdk.VirtualThreadPinned` events | Exactly 0 pinning events emitted across 27 trials | `[MEASURED]` | Stratum 3 ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq2-01-silent-carrier-starvation-via-jni-blocking)) |
 | **JNI Carrier CPU Consumption** | Carrier blocked in native code burns 100% CPU cycles | Steady-state host CPU remained at $1.04\% \pm 0.12\%$ | `[MEASURED]` | Stratum 3 ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq2-02-jni-carrier-captivity-cpu-state)) |
-| **Database Pool Size Sensitivity** | Constraining pool size from 10 to 1 increases latency due to acquisition queues | Latency distributions were identical ($303.6\text{ ms}$ vs. $304.2\text{ ms}$) | `[MEASURED]` (Construct Flaw) | Stratum 7 & Stratum 4 ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq2-03-pre-acquisition-delay-flaw-in-database-connection-testing)) |
+| **Database Pool Size Sensitivity** | Constraining pool size from 10 to 1 increases latency due to acquisition queues | In Treatment A (pre-acquisition delay), latencies were identical ($303.6\text{ ms}$ vs. $304.2\text{ ms}$) because pool was $>98\%$ idle; in Treatment B (connection-held delay), Pool 1 collapsed throughput to $3.27\text{ req/s}$ ($p50 \approx 15,123\text{ ms}$) while Pool 10 achieved $32.60\text{ req/s}$ ($p50 \approx 1,431\text{ ms}$) | `[MEASURED]` (Two-Treatment Ablation) | Stratum 8 & Stratum 4 ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq2-03-pre-acquisition-delay-flaw-in-database-connection-testing)) |
 | **Carrier Thread Dynamic Compensation** | HotSpot ForkJoinPool compensates for pinning by spawning up to 256 carriers | HotSpot never spawned extra carriers for pinned monitors | `[EXTERNALLY SUPPORTED]` | JEP 444 / HotSpot Code ([`CLM-RQ1-07`](../docs/evidence-freeze/claim-evidence-ledger.md#clm-rq1-07-discarded-hotspot-carrier-dynamic-compensation-myth)) |
 
 ---

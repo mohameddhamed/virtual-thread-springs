@@ -1,8 +1,14 @@
 package com.thesis.virtualthreadsdemo.service;
 
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,9 +34,13 @@ public class OrderService {
     private static final ThreadLocal<String> REQUEST_CONTEXT = new ThreadLocal<>();
 
     private final JdbcTemplate jdbcTemplate;
+    private final boolean holdConnectionDuringDelay;
 
-    public OrderService(JdbcTemplate jdbcTemplate) {
+    public OrderService(
+            JdbcTemplate jdbcTemplate,
+            @Value("${demo.orders.hold-connection-during-delay:false}") boolean holdConnectionDuringDelay) {
         this.jdbcTemplate = jdbcTemplate;
+        this.holdConnectionDuringDelay = holdConnectionDuringDelay;
     }
 
     public List<Map<String, Object>> getOrders() {
@@ -38,7 +48,11 @@ public class OrderService {
         REQUEST_CONTEXT.set("user-request-" + Thread.currentThread().getName());
 
         try {
-            // Simulate a slow database query (e.g. unindexed table scan)
+            if (holdConnectionDuringDelay) {
+                return queryWhileHoldingConnection();
+            }
+
+            // Control treatment: the delay occurs before JDBC connection checkout.
             simulateSlowQuery();
             return jdbcTemplate.queryForList("SELECT * FROM orders");
         } finally {
@@ -46,6 +60,27 @@ public class OrderService {
             // (in real apps this is often forgotten — that's the bug)
             REQUEST_CONTEXT.remove();
         }
+    }
+
+    private List<Map<String, Object>> queryWhileHoldingConnection() {
+        return jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<List<Map<String, Object>>>) connection -> {
+            // Treatment: acquire the connection before introducing the delay.
+            simulateSlowQuery();
+            try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM orders");
+                 ResultSet resultSet = statement.executeQuery()) {
+                ResultSetMetaData metadata = resultSet.getMetaData();
+                int columnCount = metadata.getColumnCount();
+                List<Map<String, Object>> rows = new ArrayList<>();
+                while (resultSet.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int column = 1; column <= columnCount; column++) {
+                        row.put(metadata.getColumnLabel(column), resultSet.getObject(column));
+                    }
+                    rows.add(row);
+                }
+                return rows;
+            }
+        });
     }
 
     private void simulateSlowQuery() {

@@ -12,7 +12,7 @@
 
 To prevent narrative inflation and ensure defensibility during thesis examination, every statement destined for the thesis is governed by a two-dimensional qualification framework:
 1. **The Epistemic Classification (5 Categories):** Defines the epistemological nature of the claim (how the claim is established).
-2. **The Repository Evidence Stratum (7 Strata):** Identifies the exact experimental population from which empirical data originates, adhering strictly to the ratified Adjudication Charter.
+2. **The Repository Evidence Stratum (8 Strata):** Identifies the exact experimental population from which empirical data originates, adhering strictly to the ratified Adjudication Charter and Stratum 8 extension.
 
 ### 1.1 The Five Epistemic Categories
 * **`[MEASURED]`**: Directly observed and quantified via instrumented benchmark telemetry, raw k6 JSON lines, or JFR event streams from valid repository executions.
@@ -21,8 +21,8 @@ To prevent narrative inflation and ensure defensibility during thesis examinatio
 * **`[EXTERNALLY SUPPORTED]`**: Established by official OpenJDK JEPs, HotSpot source code, vendor specifications, RFCs, or peer-reviewed literature, rather than local project measurements.
 * **`[NOT ESTABLISHED]`**: Hypotheses, common beliefs, or pilot questions that local experimental evidence cannot substantiate or which local evidence actively refutes.
 
-### 1.2 The Seven Evidence Strata (Adjudication Charter Section 6)
-All 119 physical executions (+1 schema template) in the repository are strictly partitioned into seven non-overlapping strata:
+### 1.2 The Eight Evidence Strata (Adjudication Charter Section 6 & Stratum 8 Extension)
+All 125 physical executions (+1 schema template) in the repository are strictly partitioned into eight non-overlapping strata:
 * **Stratum 1 (12 executions)**: Java 21 Primary Experimental Synchronization Matrix (`java21-primary-matrix` [6] + `java21-primary-repeat` [6]). Mechanism isolation under `parallelism=1`.
 * **Stratum 2 (10 executions)**: Java 24 & Java 25 Runtime Comparison Experiments (`java24-sync-repeat` [3] + `java24-lock-repeat` [3] + `spring-java24-sync-boundary` [2] + `spring-java25-sync-boundary` [2]).
 * **Stratum 3 (27 executions)**: Multi-JDK Native JNI Boundary Matrix (`native-boundary-20261008-repeated`, 9 runs each on JDK 21, 24, 25-ea).
@@ -30,6 +30,7 @@ All 119 physical executions (+1 schema template) in the repository are strictly 
 * **Stratum 5 (12 executions)**: Stratified 8-Carrier Historical Baseline Matrix (`java21-synchronization-20261008-repeated`). Apple M1 unconstrained 8-carrier baseline.
 * **Stratum 6 (27 executions)**: Exploratory, Pilot, and Standalone Diagnostic Executions (8 lock/semaphore pilots, 1 Zulu baseline check, 17 historical Oct 8 pilots, and 1 standalone CPU control).
 * **Stratum 7 (13 executions)**: Excluded, Defective, or Construct-Flawed Executions (6 H2 pool sensitivity, 6 Docker PostgreSQL, and 1 aborted run 142557).
+* **Stratum 8 (6 executions)**: Two-Treatment Factorial Relational Persistence Ablation (`java21-orders-persistence-contention`, 3 Pool 1 trials + 3 Pool 10 trials under 50 VUs with Actuator pool telemetry and JFR recording).
 
 ---
 
@@ -176,19 +177,23 @@ All 119 physical executions (+1 schema template) in the repository are strictly 
 
 ---
 
-### `CLM-RQ2-03`: Pre-Acquisition Delay Flaw in Database Connection Testing
-* **Exact Proposition:** In the `/orders` benchmark, `simulateSlowQuery()` (`Thread.sleep(300)`) executed prior to `jdbcTemplate.queryForList(...)`, resulting in connection checkout durations of $< 0.1\text{ ms}$; consequently, the experiment tested virtual thread sleep unmounting rather than database connection pool contention or exhaustion.
+### `CLM-RQ2-03`: Two-Treatment Factorial Relational Persistence Ablation & Downstream Bottleneck Shift Law
+* **Exact Proposition:** In relational database access under virtual threads:
+  1. *Treatment A (Control Baseline, Strata 4 & 7):* When delay occurs prior to JDBC acquisition ($T_{\text{hold}} < 0.1\text{ ms}$), the connection pool is $>98\%$ idle ($L_{\text{pool}} \approx 0.0125$), testing virtual thread sleep unmounting rather than pool contention.
+  2. *Treatment B (Active Contention, Stratum 8):* When connection is held across blocking delay via `ConnectionCallback` ($T_{\text{hold}} = 0.300\text{ s}$), carrier threads unmount cleanly without pinning (strictly 0 `jdk.VirtualThreadPinned` events in JFR; idle carrier CPU $2\%\text{--}8\%$), but application throughput is strictly capped by pool size and Little's Law ($X_{\text{max}} = K / T_{\text{hold}}$). Pool size 1 caps throughput at $3.27\text{ req/s}$ across all three trials ($\sigma = 0.00\text{ req/s}$) with $p50 = 15,123.0\text{ ms}$; pool size 10 scales throughput $9.97\times$ to $32.60\text{ req/s} \pm 0.06\text{ req/s}$ with $p50 = 1,431.3\text{ ms}$, queueing 40–49 virtual threads with 0 timeouts.
 * **Epistemic Class:** `[MEASURED]` + `[DERIVED]` + `[INTERPRETED]`
-* **Evidence Stratum:** **Stratum 4** (`java21-endpoint-isolation`) & **Stratum 7** (`h2-pool-sensitivity`, `docker-pg-orders`).
-* **Experimental Conditions:** Local H2 & Docker PostgreSQL, 50 VUs, HikariCP max pool sizes 1 vs. 10.
+* **Evidence Stratum:** **Stratum 4**, **Stratum 7** (Treatment A) & **Stratum 8** (Treatment B).
+* **Experimental Conditions:** Local H2 & Docker PostgreSQL for Treatment A; Local H2, 50 VUs, HikariCP max pool sizes 1 vs. 10 with companion JFR and Actuator pool telemetry for Treatment B.
 * **Raw Evidence Artifacts:**
-  * Source Code: `src/main/java/.../OrderService.java#L40-L48`
-  * Load Results: `results/run-10vus-20261015-143319.json`, `results/docker-pg-orders-pool1-trial1.json`
-  * Forensic Report: `docs/evidence-freeze/forensic-investigations.md#L145-L185`
-* **Analysis & Verification:** Code audit confirms lack of `@Transactional`. Little's Law derivation ($L_{\text{pool}} = X \times T_{\text{hold}} = 166.4 \times 0.0001\text{s} \approx 0.0166\text{ connections}$) proves the connection pool was over 98% idle even at pool size 1.
-* **Boundaries & Limitations:** Derived estimate from request throughput and query execution time under stated assumptions, not direct HikariCP internal pool JMX telemetry.
-* **Thesis Destination:** Chapter 4 (Section 4.3), Chapter 5 (Section 5.6), Chapter 6 (Section 6.2.2).
-* **Admission Decision:** **Admit with Mandatory Construct Flaw Qualification.**
+  * Source Code: `src/main/java/.../OrderService.java` (`holdConnectionDuringDelay`), `pom.xml` (`spring-boot-starter-actuator`)
+  * Run manifests: `results/run-manifest-20261110-160949.json`, `run-manifest-20261110-161109.json`, `run-manifest-20261110-161227.json` (Pool 1); `results/run-manifest-20261110-161344.json`, `run-manifest-20261110-161451.json`, `run-manifest-20261110-161559.json` (Pool 10)
+  * JFR recordings: `results/jfr/recording-20261110-160949.jfr` through `recording-20261110-161559.jfr` (6 binary recordings)
+  * Telemetry: `results/pool-telemetry-20261110-*.csv` and `results/telemetry-20261110-*.csv` (6 pool telemetry CSVs, 6 process telemetry CSVs)
+  * Forensic Report: `docs/evidence-freeze/forensic-investigations.md` & `docs/evidence-freeze/discrepancy-register.md#DISC-07`
+* **Analysis & Verification:** Little's Law theoretical capacity $\mu = K / T_{\text{hold}} = 1 / 0.300 = 3.33\text{ req/s}$ for Pool 1 and $33.33\text{ req/s}$ for Pool 10 matches empirical throughput ($3.27\text{ req/s}$ and $32.60\text{ req/s}$). Zero JFR pinning events confirm virtual threads unmount cleanly via `LockSupport.parkNanos()` in HikariCP 6.x `ConcurrentBag`.
+* **Boundaries & Limitations:** Closed-loop concurrency ($N=50\text{ VUs}$, $Z=0.100\text{ s}$) with in-process HikariCP 6.x and embedded H2. Open-loop arrival bursts and multi-node distributed database scaling require target calibration.
+* **Thesis Destination:** Chapter 1 (Section 1.3.2), Chapter 3 (Section 3.8.2), Chapter 4 (Section 4.4.2), Chapter 5 (Section 5.8), Chapter 6 (Section 6.2.2), Chapter 7 (Section 7.3 Rule 3), Chapter 8 (Section 8.2), Chapter 9 (Section 9.1.2).
+* **Admission Decision:** **Admitted as Two-Treatment Factorial Finding (Ablation Control + Active Persistence Contention).**
 
 ---
 
@@ -345,11 +350,11 @@ All 119 physical executions (+1 schema template) in the repository are strictly 
 ---
 
 ### `CLM-MIG-03`: The Connection Pool Sizing Fallacy
-* **Exact Proposition:** Migrating to virtual threads does not permit unbounded database connection pool expansion; physical database connection limits are governed by database server hardware (CPU, disk I/O, lock contention), and virtual threads awaiting connection checkout must be bounded via HikariCP queue timeouts to prevent server-side connection collapse.
-* **Epistemic Class:** `[EXTERNALLY SUPPORTED]` + `[INTERPRETED]` (from `CLM-RQ2-03`)
-* **Evidence Stratum:** External Best Practice & HikariCP Architecture.
-* **Thesis Destination:** Chapter 7 (Section 7.3).
-* **Admission Decision:** **Admit as Core Migration Guideline.**
+* **Exact Proposition:** Migrating to virtual threads does not permit unbounded database connection pool expansion; physical database connection limits are governed by database server hardware (CPU, disk I/O, lock contention). Unpinning carrier threads only prevents runtime carrier exhaustion, shifting queue formation into the connection pool ($X_{\text{max}} = K / T_{\text{hold}}$). Engineering teams must bound concurrency with application semaphores and calibrate acquisition timeouts.
+* **Epistemic Class:** `[MEASURED]` + `[EXTERNALLY SUPPORTED]` + `[INTERPRETED]` (empirically validated in Stratum 8 via `CLM-RQ2-03`)
+* **Evidence Stratum:** Stratum 8 & External Best Practice.
+* **Thesis Destination:** Chapter 7 (Section 7.3 Rule 3).
+* **Admission Decision:** **Admitted as Empirically Validated Core Migration Guideline.**
 
 ---
 
@@ -375,7 +380,7 @@ All 119 physical executions (+1 schema template) in the repository are strictly 
 | `CLM-RQ1-07` | `[EXT_SUPP]`+`[INTERP]` | External / Spec | HotSpot never compensated pinning with extra carriers | **Admitted (Corrective)** |
 | `CLM-RQ2-01` | `[MEASURED]`+`[INTERPRETED]` | Stratum 3 | JNI `nanosleep` starves carrier; 0 JFR pinning events | **Admitted (Primary)** |
 | `CLM-RQ2-02` | `[MEASURED]` | Stratum 3 | Steady-state JNI CPU is ~1.0%, not 100% | **Admitted (Corrective)** |
-| `CLM-RQ2-03` | `[MEASURED]`+`[DERIVED]` | Stratum 4 & 7 | `/orders` sleep occurs pre-checkout; pool was unexercised | **Admitted (Construct Flaw)** |
+| `CLM-RQ2-03` | `[MEASURED]`+`[DERIVED]` | Stratum 4, 7 & 8 | Two-treatment persistence ablation: carrier unpinning verified; TP capped by pool size ($X_{\text{max}} = K / T_{\text{hold}}$) | **Admitted (Two-Treatment Empirical)** |
 | `CLM-RQ2-04` | `[MEASURED]`+`[EXT_SUPP]` | Config Audit | `demo.datasource` indentation defect; H2 defaulted | **Admitted (Defect Qual.)** |
 | `CLM-RQ2-05` | `[MEASURED]`+`[NOT_EST]` | Stratum 7 | Docker PG k6 runs admitted; PG JFR pinning unestablished | **Admitted (Bounded k6)** |
 | `CLM-RQ2-06` | `[EXT_SUPP]`+`[MEASURED]` | Maven Audit | PostgreSQL driver 42.7.10 exceeds safe 42.6.0 threshold | **Admitted (Spec/Audit)** |
@@ -387,7 +392,7 @@ All 119 physical executions (+1 schema template) in the repository are strictly 
 | `CLM-METH-05` | `[DERIVED]`+`[EXT_SUPP]` | k6 Workload | Closed-loop Little's Law caps 10-VU throughput at 2 req/s | **Admitted (Baseline)** |
 | `CLM-MIG-01` | `[INTERPRETED]` | Guidance | Mutex refactoring rule: unpinning $\neq$ throughput gain | **Admitted (Guideline)** |
 | `CLM-MIG-02` | `[INTERPRETED]` | Guidance | JNI isolation rule: isolate native blocking from carriers | **Admitted (Guideline)** |
-| `CLM-MIG-03` | `[EXT_SUPP]`+`[INTERP]` | Guidance | Connection pool fallacy: VT does not allow unbounded DB pool | **Admitted (Guideline)** |
+| `CLM-MIG-03` | `[MEASURED]`+`[EXT_SUPP]` | Stratum 8 & Guidance | Connection pool fallacy: unpinning shifts queue to pool; bound via semaphores | **Admitted (Validated Guideline)** |
 | `CLM-MIG-04` | `[INTERPRETED]` | Guidance | JFR production monitoring rule: complement with carrier metrics | **Admitted (Guideline)** |
 
 ---

@@ -29,6 +29,9 @@ class ApplicationBehaviorTests {
     @Autowired
     private PaymentService paymentService;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @Test
     void smokeEndpointsReturnExpectedResponses() throws Exception {
         mockMvc.perform(get("/orders"))
@@ -52,6 +55,14 @@ class ApplicationBehaviorTests {
     void nativeEndpointIsDisabledByDefault() throws Exception {
         mockMvc.perform(get("/native"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void ordersReturnsSeededRowsWhenHoldingConnectionDuringDelay() {
+        com.thesis.virtualthreadsdemo.service.OrderService service =
+                new com.thesis.virtualthreadsdemo.service.OrderService(jdbcTemplate, true);
+        List<java.util.Map<String, Object>> orders = service.getOrders();
+        assertThat(orders).hasSize(5);
     }
 
     @Test

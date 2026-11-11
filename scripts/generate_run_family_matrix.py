@@ -129,9 +129,12 @@ def parse_manifests(norm_manifests: set[str]) -> list[dict]:
 
         # Database engine and pool size
         db_engine = "h2"
-        if condition_id == "orders-h2-pool-1":
+        manifest_pool = str(data.get("connection_pool_size") or "").strip()
+        if manifest_pool in ("1", "10", "20", "5"):
+            pool_size = manifest_pool
+        elif condition_id.endswith("-pool-1") or condition_id == "orders-h2-pool-1":
             pool_size = "1"
-        elif condition_id == "orders-h2-pool-10":
+        elif condition_id.endswith("-pool-10") or condition_id == "orders-h2-pool-10":
             pool_size = "10"
         else:
             pool_size = "10 (default)"
@@ -320,7 +323,7 @@ def write_csv(records: list[dict], path: Path) -> None:
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=columns)
+        writer = csv.DictWriter(f, fieldnames=columns, lineterminator="\n")
         writer.writeheader()
         for r in records:
             filtered = {col: r[col] for col in columns}

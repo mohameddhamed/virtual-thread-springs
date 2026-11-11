@@ -13,12 +13,12 @@
 This report documents the exhaustive configuration audit of all benchmark manifests (`results/run-manifest-*.json`), raw k6 execution streams, and telemetry/JFR recordings generated throughout the MSc thesis research (*Migrating Spring Boot MVC Systems to Java 21 Virtual Threads: Architecture, Risks, and Engineering Guidelines*).
 
 ### Key Audit Metrics
-- **Total Manifest Files Parsed:** 113 manifests (112 process execution manifests + 1 reference template).
-- **Total Benchmark Executions Tabulated:** 120 runs (113 manifests + 6 unmanifested Docker Compose PostgreSQL runs + 1 standalone Oct 8 CPU control artifact).
+- **Total Manifest Files Parsed:** 121 manifests (112 process execution manifests + 1 reference template).
+- **Total Benchmark Executions Tabulated:** 128 runs (113 manifests + 6 unmanifested Docker Compose PostgreSQL runs + 1 standalone Oct 8 CPU control artifact).
 - **Normalized Dashboard Records:** 76 runs (75 manifest trials + 1 CPU control artifact verified in `src/main/resources/static/data/normalized-evidence.json`).
 - **Primary Git Commits:** `5f9936c` (2026-10-08, 57 manifests), `1ccb617` (2026-10-15, 54 manifests + 6 Docker runs), `a9bd454` (2026-10-26, 1 manifest).
 - **Carrier Concurrency Divergences:**
-  - **1-Carrier (`parallelism=1`, `maxPoolSize=1`):** 95 runs (Primary matrix, JNI boundary, endpoint isolation, CPU controls, JDK 24/25 GA comparisons).
+  - **1-Carrier (`parallelism=1`, `maxPoolSize=1`):** 103 runs (Primary matrix, JNI boundary, endpoint isolation, CPU controls, JDK 24/25 GA comparisons).
   - **8-Carrier / Default (`parallelism=8`, `maxPoolSize=256`):** 18 runs (Oct 8 repeated synchronization matrix and historical exploratory pilots).
   - **4-Carrier (`parallelism=4`, `maxPoolSize=4`):** 6 runs (H2 connection pool sensitivity matrix).
 
@@ -208,7 +208,7 @@ return jdbcTemplate.queryForList("SELECT * FROM orders"); // Connection checked 
 ## 5. Artifact Verification & Provenance Summary
 
 An automated verification check was conducted across all artifacts referenced in the matrix:
-- **Manifests On Disk:** 113 / 113 verified.
+- **Manifests On Disk:** 121 / 121 verified.
 - **Raw k6 Result Files On Disk:** Verified 100% presence for all 76 normalized evidence runs and 6 Docker PostgreSQL runs.
 - **JFR Recordings On Disk:** Verified presence for all 75 normalized manifest runs.
 - **Cryptographic Consistency:** 100% SHA-256 match against `normalized-evidence.json` for all normalized records.

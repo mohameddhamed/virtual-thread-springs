@@ -73,7 +73,7 @@ To operationalize these research questions into testable empirical statements, e
 *   **Hypothesis $H_{1.5}$ (Runtime Evolution):** On Java 24 (with JEP 491), object monitor contention no longer pins virtual threads to carrier threads during cooperative blocking, emitting zero JFR pinning events under workloads that pinned on Java 21 ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L114-L126)).
 *   **Hypothesis $H_{2.1}$ (Silent Carrier Starvation via JNI):** Native C function invocations via JNI executing blocking system calls (`nanosleep`) hold the OS carrier thread captive in `_thread_in_native`, completely bypassing HotSpot continuation freeze logic and starving the scheduler without emitting JFR pinning events ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L160), [`DISC-03`](../docs/evidence-freeze/discrepancy-register.md#L81-L97)).
 *   **Hypothesis $H_{2.2}$ (Carrier CPU State during Native Sleep):** In the tested macOS direct-JNI `nanosleep()` path, carrier occupation occurs in a Darwin/Mach wait state and consumes little active processor time (JVM process CPU approximately 1%), rather than busy-spinning ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176), [`DISC-02`](../docs/evidence-freeze/discrepancy-register.md#L63-L79)).
-*   **Hypothesis $H_{2.3}$ (Connection Pool Checkout Contention):** Relational persistence under high concurrency shifts bottlenecks from web server threads to HikariCP connection checkout queues; however, if simulated latency executes before connection checkout, the pool remains unexercised regardless of pool sizing ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)).
+*   **Hypothesis $H_{2.3}$ (Persistence Contention and the Bottleneck Shift Law):** In relational persistence under high virtual-thread concurrency, system throughput is physically bounded by HikariCP pool capacity and connection hold duration ($X_{\text{max}} = K / T_{\text{hold}}$). When simulated latency occurs prior to connection checkout (Treatment A: uncontented baseline), connection occupancy is negligible ($L_{\text{pool}} \approx 0.0125$) and pool sizing is inconsequential; conversely, when connections are held actively during service time (Treatment B: active persistence contention), a pool size of 1 enforces a single-server bottleneck ($3.33\text{ req/s}$), queueing all remaining virtual threads in HikariCP without carrier pinning, while expanding pool size to 10 scales throughput proportionally to $\approx 33.3\text{ req/s}$ ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)).
 
 ### Table 3.1: Operational Construct and Evidentiary Mapping Matrix
 
@@ -84,7 +84,7 @@ To operationalize these research questions into testable empirical statements, e
 | **RQ1: AQS Lock Dispersion** | Virtual Threads + `ReentrantLock` (`payments-reentrant-lock`) | Virtual Threads + `synchronized` (`payments-synchronized`) | Standard deviation ($\sigma$) and range ($\Delta$) of latency ($ms$) across trials | Recalculated metrics CSV, k6 point metrics | AQS direct-CAS barging confirmed if `ReentrantLock` dispersion exceeds `synchronized` by $> 5\times$ | Derived from $N=3$ process repetitions; qualitative signature of barging, not asymptotic proof ([`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L111)) |
 | **RQ1: Runtime Evolution** | Java 24 Virtual Threads + `synchronized` (JEP 491) | Java 21 Virtual Threads + `synchronized` | JFR Pinning Count, Throughput ($req/s$) | JFR binary recordings on JDK 24.0.2 | JEP 491 monitor unpinning confirmed if JFR pinning events drop from 110 to 0 | Unpinning does not bypass Amdahl's Law; serialization persists at $\approx 1.97\text{ req/s}$ ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L114-L126)) |
 | **RQ2: Native JNI Boundary** | JNI 500 ms `nanosleep()` (`/native`) | Pure Java 500 ms `Thread.sleep()` (`/payments/no-lock`) | Throughput ($req/s$), JFR Pinning Count, Process %CPU | k6 JSONL streams, JFR recordings, Telemetry CSVs | Carrier capture confirmed if throughput drops to $1.97\text{ req/s}$; observability gap confirmed if JFR pinning $= 0$ | POSIX `nanosleep` is kernel sleep, not busy CPU; JFR detects unmount failures, not OS stalls ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L160), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176)) |
-| **RQ2: Database Pool Contention** | HikariCP pool size 1 (`maximumPoolSize=1`) | HikariCP pool size 10 (`maximumPoolSize=10`) | Latency distribution ($ms$), pool acquisition errors | k6 JSONL streams (`docker-pg-orders`, `h2-pool`) | Pool saturation confirmed if pool size 1 induces queue acquisition delays or timeouts | Pre-acquisition sleep defect in `OrderService` executed delay before connection checkout ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192)) |
+| **RQ2: Persistence Contention** | Treatment B: Connection-held delay (`orders-held-pool-1`) | Treatment A: Pre-acquisition delay (`orders-control-pool-1`) & Pool 10 baseline | Throughput ($req/s$), Latency ($ms$), HikariCP active/pending connections | k6 JSONL streams, Hikari pool telemetry CSV, JFR recordings | Pool saturation confirmed if pool size 1 caps throughput to $\mu = 1/0.300 = 3.33\text{ req/s}$ and spikes pending queue to 49 while JFR pinning remains 0 | Dual-window reporting required ($15\text{s}\text{--}45\text{s}$ hold window); closed-loop 50 VUs bounds queue wait to $14.7\text{ s} < 30\text{ s}$ ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192)) |
 | **RQ2: Observability & Diagnostics** | Diagnostic No-Lock (`payments-no-lock`) | Virtual Threads + `synchronized` | Throughput ($req/s$), Latency ($ms$) | k6 JSONL streams, JFR event streams | Theoretical ceiling established if throughput reaches concurrency limit without serialization | Unsynchronized concurrent modification represents unsafe state; upper bound only ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L86-L98)) |
 
 ---
@@ -208,10 +208,11 @@ The primary experimental treatment evaluates the `/payments` endpoint under four
 
 To frame the thesis within broader software architecture theory, the synchronization mechanisms evaluated here are contrasted against alternative paradigms in concurrent systems design:
 
-*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor prevents the continuation from unmounting during blocking operations, pinning the carrier thread ([OpenJDK JDK 21 source: `continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)):
+*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor couples the user-mode stack to the physical OS carrier thread, preventing the continuation from unmounting during blocking operations ([OpenJDK JDK 21 source: `continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)):
 
     ```cpp
     // OpenJDK HotSpot C++ (JDK 21): src/hotspot/share/runtime/continuationFreeze.cpp
+    // https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp
     freeze_result ContinuationFreeze::can_freeze() {
         if (_target->held_monitor_count() > 0) {
             // Target virtual thread holds an intrinsic ObjectMonitor on its call stack
@@ -221,7 +222,7 @@ To frame the thesis within broader software architecture theory, the synchroniza
     }
     ```
 
-    Because `can_freeze()` rejects unmounting, the virtual thread cannot yield its continuation frames to the heap. It is forced to invoke `VirtualThread.parkOnCarrierThread()`, keeping the physical OS carrier thread blocked in kernel sleep for the duration of the blocking operation.
+    Therefore, HotSpot's `continuationFreeze.cpp` evaluates `held_monitor_count() > 0` and returns `can_freeze() = false` (`freeze_pinned_monitor`). That is what physically traps the continuation on the carrier stack: unable to unmount, the virtual thread invokes `VirtualThread.parkOnCarrierThread()`, keeping the physical OS carrier thread blocked in kernel sleep for the duration of the blocking operation.
 *   **Explicit Locks (`ReentrantLock`):** Implemented in user-space Java via `AbstractQueuedSynchronizer` (AQS). Waiting threads park via `LockSupport.park()`, which delegates to `VirtualThread.park()`, cleanly unmounting the virtual thread continuation and yielding the carrier thread back to the scheduler. However, `ReentrantLock` defaults to a `NonfairSync` implementation wherein newly arriving threads attempt a direct Compare-And-Swap (CAS) to acquire the lock before queuing. Under intense contention, this barging behavior causes queue overtaking, dramatically expanding latency standard deviation ($\approx 16\text{--}30\text{ ms}$ for `ReentrantLock` vs. $\le 7.4\text{ ms}$ for `synchronized`, [`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L111)).
 *   **Actor and Message-Passing Architectures (e.g., Erlang, Akka):** Rather than sharing mutable state behind mutual exclusion locks, actor models enforce single-threaded isolation per actor and communicate via asynchronous mailboxes. Java's design choice with Project Loom intentionally rejected the colored-function and mailbox overhead of actor frameworks, choosing instead to preserve the traditional synchronous blocking imperative style.
 *   **Database-Mediated and Optimistic Locking:** Techniques such as multiversion concurrency control (MVCC) or optimistic offline locks (`@Version`) push contention resolution into the storage engine. While highly scalable for distributed architectures, in-memory transactional systems frequently require process-level mutual exclusion to serialize hardware access, cash registers, or local ledger writes.
@@ -230,11 +231,11 @@ To frame the thesis within broader software architecture theory, the synchroniza
 
 ## 3.7 Experimental Run Families and Evidence Strata
 
-To ensure that historical, pilot, and flawed runs are not conflated with verified experimental conditions, the repository's 119 physical executions (+1 schema template) are partitioned into the seven non-overlapping strata established in the Adjudication Charter ([`referee-review-adjudication.md`](../docs/evidence-freeze/referee-review-adjudication.md#L298-L466)):
+To ensure that historical, pilot, and flawed runs are not conflated with verified experimental conditions, the repository's 125 physical executions (+1 schema template) are partitioned into the eight non-overlapping strata established in the Adjudication Charter and Stratum 8 extension ([`referee-review-adjudication.md`](../docs/evidence-freeze/referee-review-adjudication.md#L298-L466)):
 
 ```
 +---------------------------------------------------------------------------------------------------+
-|                        MASTER REPOSITORY POPULATION CENSUS (120 RECORDS)                          |
+|                        MASTER REPOSITORY POPULATION CENSUS (126 RECORDS)                          |
 +---------------------------------------------------------------------------------------------------+
   STRATUM 1: Java 21 Primary Synchronization Matrix (12 runs) ──────> [ADMITTED: PRIMARY FINDINGS]
   STRATUM 2: Java 24/25 Runtime Comparison Matrix (10 runs)   ──────> [ADMITTED: SUPPORTING FINDINGS]
@@ -243,7 +244,8 @@ To ensure that historical, pilot, and flawed runs are not conflated with verifie
   STRATUM 5: 8-Carrier Historical Baseline Matrix (12 runs)   ──────> [ADMITTED: HISTORICAL BASELINE]
   STRATUM 6: Exploratory Pilots & Diagnostic Runs (27 runs)   ──────> [QUARANTINED: EXCLUDED FROM METRICS]
   STRATUM 7: Construct-Flawed / Defective Runs (13 runs)      ──────> [QUARANTINED: METHODOLOGICAL FLAW]
-  ROW 120:   Manifest Schema Template (1 template)            ──────> [NON-EXECUTION METADATA]
+  STRATUM 8: Two-Treatment Persistence Ablation (6 runs)      ──────> [ADMITTED: PERSISTENCE FINDINGS]
+  ROW 126:   Manifest Schema Template (1 template)            ──────> [NON-EXECUTION METADATA]
 +---------------------------------------------------------------------------------------------------+
 ```
 
@@ -254,12 +256,13 @@ To ensure that historical, pilot, and flawed runs are not conflated with verifie
 | **Stratum 1** | Java 21 Primary Synchronization Matrix | 12 | 21.0.8 | `parallelism=1`, `maxPoolSize=1` | 10 (default) | **Admitted (Primary)** | Core `/payments` synchronization comparisons (`CLM-RQ1-01` to `CLM-RQ1-05`) |
 | **Stratum 2** | Java 24/25 Runtime Comparison Matrix | 10 | 24.0.2, 25-ea | `parallelism=1`, `maxPoolSize=1` | 10 (default) | **Admitted (Supporting)** | Verification of JEP 491 object monitor unpinning across JDK releases (`CLM-RQ1-06`) |
 | **Stratum 3** | Multi-JDK Native JNI Boundary Matrix | 27 | 21.0.8, 24, 25 | `parallelism=1`, `maxPoolSize=1` | 10 (default) | **Admitted (Primary)** | $3 \times 3 \times 3$ factorial matrix evaluating native POSIX `nanosleep()` (`CLM-RQ2-01`, `CLM-RQ2-02`) |
-| **Stratum 4** | Supporting Architectural Controls | 18 | 21.0.8 | `parallelism=1`, `maxPoolSize=1` | 10 (default) | **Admitted (Supporting)** | Endpoints `/orders`, `/products`, and `/cpu` controls (`CLM-RQ2-03`) |
+| **Stratum 4** | Supporting Architectural Controls | 18 | 21.0.8 | `parallelism=1`, `maxPoolSize=1` | 10 (default) | **Admitted (Supporting)** | Endpoints `/orders` (Treatment A control), `/products`, and `/cpu` controls (`CLM-RQ2-03`) |
 | **Stratum 5** | 8-Carrier Historical Baseline Matrix | 12 | 21.0.8 | `parallelism=8`, `maxPoolSize=256` | 10 (default) | **Admitted (Baseline)** | Unconstrained Apple M1 8-carrier historical baseline (`CLM-METH-02`) |
 | **Stratum 6** | Exploratory Pilots & Diagnostic Runs | 27 | 21, 24, Zulu | Variable (1, 8, default) | Variable | **Excluded from Primary** | Lock/semaphore pilots, Zulu check, and standalone unmanifested CPU control |
 | **Stratum 7** | Construct-Flawed / Incomplete Runs | 13 | 21.0.8 | `parallelism=1`, `4` | 1, 10 | **Excluded (Method Flaw)** | Pre-query sleep runs (H2, Docker PG) and aborted execution 142557 |
+| **Stratum 8** | Two-Treatment Persistence Contention | 6 | 21.0.12.1 | `parallelism=1`, `maxPoolSize=1` | 1, 10 | **Admitted (Primary)** | Connection-held persistence contention, pool queueing, and carrier unmounting (`CLM-RQ2-03`) |
 | **Template** | Schema Reference ([`run-manifest-template.json`](../results/run-manifest-template.json)) | 1 | N/A | None | None | **Non-Execution Metadata** | Reference schema template defining run manifest format |
-| **Total** | **Master Repository Population** | **120** | — | — | — | **119 Executions + 1 Template** | Master evidence population across 504 physical disk files ([`DISC-04`](../docs/evidence-freeze/discrepancy-register.md#L99-L115)) |
+| **Total** | **Master Repository Population** | **126** | — | — | — | **125 Executions + 1 Template** | Master evidence population across physical disk files ([`DISC-04`](../docs/evidence-freeze/discrepancy-register.md#L99-L115)) |
 
 ---
 
@@ -274,7 +277,22 @@ Total execution duration is exactly 55 seconds per trial.
 
 ### 3.8.1 Closed-Loop and Open-Loop Workload Formalization
 
-In a **closed-loop** workload model, a fixed population of Virtual Users ($N$) submits an HTTP request, waits synchronously for the response, and immediately upon receipt generates the subsequent request (100 ms think-time, $Z = 0.100 s$).
+This subsection establishes what the selected workload can—and cannot—show.
+The primary experiments use a closed-loop workload to isolate runtime
+mechanisms under a controlled number of concurrent clients. The mathematical
+model below provides an expected relationship between client population,
+throughput, and response time. It is therefore used as a derived interpretive
+model, not as a replacement for the measured k6 results. The model also makes
+explicit why the closed-loop protocol cannot be used to claim behaviour under
+an arbitrary external arrival rate.
+
+In a **closed-loop** workload model, a fixed population of virtual users ($N$)
+submits an HTTP request, waits synchronously for the response, and then,
+following a 100 ms think-time ($Z = 0.100\text{ s}$), generates the next
+request. Consequently, a slow response keeps a user occupied for longer and
+reduces the rate at which that user can submit subsequent requests. This
+feedback is the defining property of the workload used in the primary
+mechanism-isolation experiments.
 
 ```
 +-----------------------------------------------------------------------------------+
@@ -287,42 +305,103 @@ In a **closed-loop** workload model, a fixed population of Virtual Users ($N$) s
   +------------------+       HTTP Response       +--------------------------------+
      ▲                                                          │
      └──────── Client waits synchronously before next call ─────┘
-     *Self-Throttling Dynamic*: The cycle time approaches 5,000 ms -> throughput approaches 2 req/s
+     *Self-throttling*: A longer response increases cycle time and reduces achieved throughput
 
   OPEN-LOOP MODEL (Contrasting Industrial Traffic):
   [Poisson Arrival Stream (lambda = 50 req/s)] ───────> [Server Capacity (mu = 2 req/s)]
                                                               │
                                                               ▼
-                                                   Queue explodes to infinity!
-                                                   (Catastrophic client timeout)
+                                                   Queue grows when lambda > mu
+                                                   (eventual timeout or rejection)
 +-----------------------------------------------------------------------------------+
 ```
 
-System throughput ($X$) and response time ($R$) are governed strictly by Little's Law for closed queueing networks (Little, 1961; [`CLM-METH-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L312-L322)):
+### 3.8.1 Closed-Loop Queueing and Bottleneck Formulations (`/payments`)
+
+For a stable closed workload, the interactive response-time law (the
+interactive response-time form of Little's Law) relates the number of users,
+throughput, response time, and think-time (Little, 1961; [`CLM-METH-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L312-L322)):
 
 $$N = X \times (R + Z) \implies R = \frac{N}{X} - Z$$
 
-When an endpoint executes a critical section protected by mutual exclusion, service rate is governed by the duration of the exclusive critical section. Let $T_{\text{serial}} = 500\text{ ms} = 0.500\text{ s}$. By Amdahl's Law (Amdahl, 1967) and operational single-server queueing bounds (Denning & Buzen, 1978), maximum theoretical saturation throughput ($X_{\text{max}}$) is strictly bounded by the reciprocal of service demand:
+Here, $N$ is the active virtual-user population, $X$ is the measured
+throughput in requests per second, $R$ is the mean HTTP response time excluding
+think-time, and $Z$ is the client delay between a response and the next
+request. The equation explains the self-throttling effect: if $R$ increases
+while $N$ and $Z$ remain fixed, the achieved throughput $X$ must decrease.
+
+The same model gives a conditional expectation for the serialized endpoint.
+When every request must spend $T_{\text{serial}} = 500\text{ ms} =
+0.500\text{ s}$ in one mutually exclusive critical section, that section
+alone requires 0.500 seconds of service per request. It therefore imposes the
+following bottleneck bound:
 
 $$X_{\text{max}} = \frac{1}{T_{\text{serial}}} = \frac{1}{0.500\text{ s}} = 2.000\text{ req/s}$$
 
-As client concurrency ($N = 10\text{ VUs}$) saturates the single serialized server, an internal request queue forms ($L_q \approx N - 1 = 9\text{ requests}$). Equilibrium mean response time expands according to:
+This is not a universal capacity claim for the whole application. It is a
+derived upper bound for the tested treatment, assuming that the critical
+section is the dominant serialized service demand and that requests complete
+correctly. Other work outside the critical section, runtime overhead, and
+measurement-window effects can only reduce the observed throughput.
+
+For illustration, if $N = 10$ users continuously contend for this bottleneck,
+the idealized saturated cycle time is:
 
 $$R + Z = \frac{N}{X_{\text{max}}} = \frac{10}{2.000\text{ req/s}} = 5.000\text{ s}$$
 
-With the script's $Z=0.100\text{ s}$ think time, the corresponding response-time estimate is $R\approx4.900\text{ s}$. The 5.000 s value is the closed-loop cycle time.
+With the script's $Z=0.100\text{ s}$ think-time, the corresponding derived
+response-time estimate is:
 
-Under closed-loop generation, the client self-throttles because each VU waits for the response and then the script sleeps for 100 ms. Closed-loop workloads therefore cannot generate arbitrary offered arrival rates; they establish a bounded cycle-time relationship.
+$$R = 5.000\text{ s} - 0.100\text{ s} = 4.900\text{ s}$$
 
-An **open-loop** arrival-rate workload (e.g., dispatching Poisson arrivals at a fixed rate $\lambda$ independent of server completion) would reveal queue divergence and catastrophic latency explosion when $\lambda > X_{\text{max}}$. However, for the specific research goal of **mechanism isolation**—verifying whether carrier unmounting occurs during lock wait without risking client-side memory collapse—the closed-loop saturation model is methodologically superior, reproducible, and mathematically tractable.
+The 5.000-second value is the complete closed-loop cycle time; the
+4.900-second value is the corresponding response-time component. These values
+are analytical expectations for the idealized bottleneck model and must not be
+presented as measured results unless the trial data independently confirms
+them.
 
-### 3.8.2 Mathematical Derivation of Database Pool Contention (`/orders`)
+An **open-loop** workload would instead dispatch requests at a specified
+arrival rate $\lambda$, independently of whether earlier requests had
+completed. It would therefore answer a different question: how queue length,
+latency, errors, or timeouts evolve when offered load exceeds the service
+capacity ($\lambda > X_{\text{max}}$). Such a protocol is useful for capacity
+and overload analysis, but it is not required to answer the primary
+mechanism-isolation question. The closed-loop protocol was selected because it
+keeps the active client population bounded and reproducible while the study
+examines carrier availability, monitor pinning, and serialized service.
 
-In the `/orders` endpoint, `OrderService.simulateSlowQuery()` executed `Thread.sleep(300)` *prior* to calling `jdbcTemplate.queryForList(...)` ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)).
+Accordingly, the primary workload supports claims about the measured behaviour
+of the tested closed-loop system and about the mechanisms observed within that
+controlled population. It does not establish an arbitrary-arrival-rate
+capacity ceiling or production overload behaviour. Those claims would require
+a separately controlled open-loop experiment with its own arrival-rate,
+timeout, queue, and error metrics.
 
-The query execution time was measured at $T_{\text{query}} < 0.1\text{ ms} = 0.0001\text{ s}$. Under 50 VUs, the benchmark did not instrument HikariCP acquisition, active, or pending metrics. Because the 300 ms delay occurred before checkout, the experiment cannot establish pool occupancy or exhaustion:
+### 3.8.2 Two-Treatment Relational Persistence Design: Uncoordinated Delay vs. Held Connection Contention (`/orders`)
 
-The source ordering establishes only that the experiment did not hold a connection during the artificial delay. Pool saturation and occupancy remain unmeasured, so the result should be treated as a construct-validity limitation rather than a measured pool utilization result.
+To evaluate how virtual threads interact with finite downstream relational resources, the research program establishes a **Two-Treatment Factorial Design** on the `/orders` endpoint ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)). Rather than treating connection checkout as an unexamined constant, the design contrasts two distinct transaction lifecycles:
+
+1.  **Treatment A (Uncontented Baseline Control — Pre-Acquisition Delay):**
+    In this historical baseline, `OrderService.simulateSlowQuery()` executes its 300 ms simulated delay (`Thread.sleep(300)`) *before* acquiring a database connection from HikariCP. The subsequent SQL query (`SELECT * FROM orders`) executes in less than $0.1\text{ ms}$ ($T_{\text{hold}} < 0.0001\text{ s}$).
+    Applying Little's Law to the connection pool under 50 closed-loop virtual users with 100 ms think-time ($X \approx 124.8\text{ req/s}$), the average connection occupancy ($L_{\text{pool}}$) is:
+
+    $$L_{\text{pool}} = X \times T_{\text{hold}} \approx 124.8 \times 0.0001 \approx \mathbf{0.0125\text{ connections}}$$
+
+    Because connections are released in fractions of a millisecond, the pool remains over 98% idle, and no connection queue forms. This isolates pure virtual-thread sleep unmounting, explaining why pool sizes of 1 and 10 produce identical latency profiles ($\sim 304\text{ ms}$).
+
+2.  **Treatment B (Active Persistence Contention — Held Connection Delay):**
+    To deliberately exercise connection pool queueing and test the **Bottleneck Shift Law**, `OrderService.queryWhileHoldingConnection()` acquires a physical JDBC connection from HikariCP *prior* to introducing the 300 ms simulated service demand via `ConnectionCallback`. The connection remains checked out for the entire duration ($T_{\text{hold}} = 0.300\text{ s}$).
+    Under Operational Queueing Theory, this imposes hard capacity ceilings:
+    *   **Pool Size 1 ($K = 1$):** System capacity is strictly throttled to a single-server queue:
+        $$X_{\text{max}} = \frac{K}{T_{\text{hold}}} = \frac{1}{0.300\text{ s}} \approx \mathbf{3.333\text{ req/s}}$$
+        Because 50 closed-loop VUs cannot queue more than $N - 1 = 49$ requests, the maximum queue wait time is bounded:
+        $$W_{\text{wait}} \le (50 - 1) \times 0.300\text{ s} = \mathbf{14.70\text{ s}}$$
+        Crucially, because $14.70\text{ s} < 30.00\text{ s}$, **zero connection checkout timeouts (`SQLTransientConnectionException`) occur**, allowing the system to achieve 100% HTTP 200 correctness while operating at 100% pool saturation.
+    *   **Pool Size 10 ($K = 10$):** Capacity scales tenfold:
+        $$X_{\text{max}} = \frac{10}{0.300\text{ s}} \approx \mathbf{33.333\text{ req/s}}$$
+        Queue wait drops to $W_{\text{wait}} \approx \frac{50 - 10}{10} \times 0.300\text{ s} \approx \mathbf{1.20\text{ s}}$, delivering a dramatic latency reduction.
+
+By contrasting Treatment A against Treatment B with dedicated HikariCP Actuator telemetry (`hikaricp.connections.active`, `pending`, `acquire`), the design empirically decouples thread-allocation efficiency from downstream persistence bottlenecks.
 
 ---
 
@@ -493,7 +572,7 @@ To ensure that thesis conclusions strictly respect experimental boundaries, clai
 | `ReentrantLock` eliminates carrier pinning | `[MEASURED]` | Stratum 1 | Exactly 0 JFR events under `profile.jfc` | Admitted, qualified by 20 ms threshold ([`CLM-RQ1-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)) |
 | Unpinning does not improve serialized throughput | `[MEASURED]` + `[INTERPRETED]` | Stratum 1 | Throughput identical at $1.96\text{ req/s}$ ($<0.3\%$ delta) | Admitted as primary thesis contribution ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L86-L98)) |
 | JNI `nanosleep` consumes 100% carrier CPU | `[NOT ESTABLISHED]` | Stratum 3 | Telemetry proves steady-state CPU is ~1.0% | **Refuted and purged** ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176), [`DISC-02`](../docs/evidence-freeze/discrepancy-register.md#L63-L79)) |
-| `/orders` proved HikariCP pool saturation | `[NOT ESTABLISHED]` | Stratum 4 & 7 | Sleep delay executed before connection checkout | **Disqualified as construct flaw** ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)) |
+| Persistence contention collapses throughput without pinning | `[MEASURED]` + `[DERIVED]` | Stratum 8 & Stratum 4 | Pool 1 collapses to $3.27\text{ req/s}$ ($49$ pending waiters) while Pool 10 achieves $32.60\text{ req/s}$ with 0 JFR pinning events | **Admitted via Two-Treatment Persistence Ablation** ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192)) |
 | PostgreSQL unmounts cleanly during socket I/O | `[EXTERNALLY SUPPORTED]` | External Spec | Resolved driver 42.7.10 refactored internal locks | Admitted via external literature only ([`CLM-RQ2-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L226-L236)) |
 
 ---
@@ -506,7 +585,7 @@ The experimental design is evaluated against the validity framework established 
 
 | Threat Category | Specific Methodological Risk | Potential Evidentiary Impact | Applied Mitigation / Research Boundary |
 | :--- | :--- | :--- | :--- |
-| **Construct Validity** | Pre-acquisition sleep delay in `/orders` ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)) | Connection was never held during 300 ms sleep; pool was never saturated | Reclassified experiment as sleep unmounting rather than connection pool contention. Pool utilization ($1.66\%$) derived via Little's Law. |
+| **Construct Validity** | Pre-acquisition delay construct boundary in `/orders` ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)) | Delay outside checkout left pool $>98\%$ idle ($L \approx 0.0125$) | Resolved via two-treatment factorial ablation: Treatment A establishes unheld baseline; Treatment B actively holds connection, validating Little's Law and the Bottleneck Shift Law. |
 | **Construct Validity** | `application.yml` indentation nesting defect ([`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L207), [`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L148)) | Custom pool settings under `demo:` ignored; H2 defaulted to pool size 10 | Explicitly disclosed in Chapter 4; local H2 runs characterized as default autoconfiguration baselines. |
 | **Measurement Validity** | JFR 20 ms event threshold in `profile.jfc` ([`CLM-METH-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L299-L310), [`DISC-09`](../docs/evidence-freeze/discrepancy-register.md#L184-L198)) | Sub-20ms monitor pinning events are filtered from flight recordings | All "zero pinning" claims bounded to $\ge 20\text{ ms}$; theoretical unmounting validated via AQS code inspection. |
 | **Measurement Validity** | Process-level telemetry averaging ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176), [`DISC-02`](../docs/evidence-freeze/discrepancy-register.md#L63-L79)) | `ps -p %cpu=` measures total JVM process rather than single OS carrier thread | Established that steady-state JVM CPU is ~1%, proving carrier was sleeping in kernel, not spinning. |
