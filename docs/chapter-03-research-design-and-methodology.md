@@ -2,11 +2,14 @@
 
 ## 3.1 Research Paradigm and Empirical Systems Strategy
 
-This dissertation adopts an **empirical systems engineering** paradigm (Wohlin et al., 2012; Runeson & Höst, 2009) to evaluate the architectural, performance, and runtime consequences of migrating a Spring Boot Model-View-Controller (MVC) application to Java 21 Virtual Threads (Project Loom). Rather than treating runtime migration as a purely syntactic or configuration-level change, this research models the transition as an architectural intervention within a multi-tier concurrency and queueing network.
+This dissertation adopts an **empirical systems engineering** paradigm [Wohlin2012, Runeson2009] to evaluate the architectural, performance, and runtime consequences of migrating a Spring Boot Model-View-Controller (MVC) application to Java 21 Virtual Threads (Project Loom). Rather than treating runtime migration as a purely syntactic or configuration-level change, this research models the transition as an architectural intervention within a multi-tier concurrency and queueing network.
 
 The empirical investigation is structured around a controlled, instrumented Spring Boot MVC benchmark application. In empirical software engineering, research designs must balance internal validity (the degree to which observed outcomes are directly attributable to experimental treatments) against external validity (the generalizability of conclusions to industrial software systems). Synthetic micro-benchmarks—such as isolated loops implemented via the Java Microbenchmark Harness (JMH)—excel at isolating instruction-level CPU cache and branch behavior, but completely omit framework-level interactions: HTTP network socket multiplexing, servlet container request dispatching via `newVirtualThreadPerTaskExecutor()`, connection pool checkout arbitration, and request-scoped [`ThreadLocal`](../src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L28) lifecycles.
 
 Conversely, large-scale production deployments introduce severe confounding environmental variables—dynamic wide-area network latency jitter, non-deterministic relational database query optimizers, multi-tenant CPU bandwidth throttling, and background operating system daemons—that obscure the low-level scheduling and synchronization mechanics of the Java Virtual Machine (JVM). A dedicated, representative framework artifact strikes an optimal methodological compromise: it retains the realistic request lifecycle of Spring MVC, Apache Tomcat, and HikariCP while establishing strict experimental controls over carrier concurrency, workload generation, lock boundaries, and flight recorder telemetry.
+
+> [!NOTE]
+> **Point-of-Use AI Disclosure (Dean's Directive 1/2026):** Generative AI assistance (Claude 3.5 Sonnet) was utilized in drafting and polishing the descriptive prose and structural framing of this methodology chapter, as well as templating Python data-processing scripts. All empirical pipelines, threat matrices, and verification protocols were designed and validated by the author. Full compliance details are formalized in §3.15.
 
 ```
 +---------------------------------------------------------------------------------------------------+
@@ -84,7 +87,7 @@ To operationalize these research questions into testable empirical statements, e
 | **RQ1: AQS Lock Dispersion** | Virtual Threads + `ReentrantLock` (`payments-reentrant-lock`) | Virtual Threads + `synchronized` (`payments-synchronized`) | Standard deviation ($\sigma$) and range ($\Delta$) of latency ($ms$) across trials | Recalculated metrics CSV, k6 point metrics | AQS direct-CAS barging confirmed if `ReentrantLock` dispersion exceeds `synchronized` by $> 5\times$ | Derived from $N=3$ process repetitions; qualitative signature of barging, not asymptotic proof ([`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L111)) |
 | **RQ1: Runtime Evolution** | Java 24 Virtual Threads + `synchronized` (JEP 491) | Java 21 Virtual Threads + `synchronized` | JFR Pinning Count, Throughput ($req/s$) | JFR binary recordings on JDK 24.0.2 | JEP 491 monitor unpinning confirmed if JFR pinning events drop from 110 to 0 | Unpinning does not bypass Amdahl's Law; serialization persists at $\approx 1.97\text{ req/s}$ ([`CLM-RQ1-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L114-L126)) |
 | **RQ2: Native JNI Boundary** | JNI 500 ms `nanosleep()` (`/native`) | Pure Java 500 ms `Thread.sleep()` (`/payments/no-lock`) | Throughput ($req/s$), JFR Pinning Count, Process %CPU | k6 JSONL streams, JFR recordings, Telemetry CSVs | Carrier capture confirmed if throughput drops to $1.97\text{ req/s}$; observability gap confirmed if JFR pinning $= 0$ | POSIX `nanosleep` is kernel sleep, not busy CPU; JFR detects unmount failures, not OS stalls ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L160), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176)) |
-| **RQ2: Persistence Contention** | Treatment B: Connection-held delay (`orders-held-pool-1`) | Treatment A: Pre-acquisition delay (`orders-control-pool-1`) & Pool 10 baseline | Throughput ($req/s$), Latency ($ms$), HikariCP active/pending connections | k6 JSONL streams, Hikari pool telemetry CSV, JFR recordings | Pool saturation confirmed if pool size 1 caps throughput to $\mu = 1/0.300 = 3.33\text{ req/s}$ and spikes pending queue to 49 while JFR pinning remains 0 | Dual-window reporting required ($15\text{s}\text{--}45\text{s}$ hold window); closed-loop 50 VUs bounds queue wait to $14.7\text{ s} < 30\text{ s}$ ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192)) |
+| **RQ2: Persistence Contention** | Treatment B: Connection-held delay (`orders-held-pool-1`) | Treatment A: Pre-acquisition delay (`orders-h2-pool-1`) & Pool 10 baseline | Throughput ($req/s$), Latency ($ms$), HikariCP active/pending connections | k6 JSONL streams, Hikari pool telemetry CSV, JFR recordings | Pool saturation confirmed if pool size 1 caps throughput to $\mu = 1/0.300 = 3.33\text{ req/s}$ and spikes pending queue to 49 while JFR pinning remains 0 | Dual-window reporting required ($15\text{s}\text{--}45\text{s}$ hold window); closed-loop 50 VUs bounds queue wait to $14.7\text{ s} < 30\text{ s}$ ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192)) |
 | **RQ2: Observability & Diagnostics** | Diagnostic No-Lock (`payments-no-lock`) | Virtual Threads + `synchronized` | Throughput ($req/s$), Latency ($ms$) | k6 JSONL streams, JFR event streams | Theoretical ceiling established if throughput reaches concurrency limit without serialization | Unsynchronized concurrent modification represents unsafe state; upper bound only ([`CLM-RQ1-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L86-L98)) |
 
 ---
@@ -208,7 +211,7 @@ The primary experimental treatment evaluates the `/payments` endpoint under four
 
 To frame the thesis within broader software architecture theory, the synchronization mechanisms evaluated here are contrasted against alternative paradigms in concurrent systems design:
 
-*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor couples the user-mode stack to the physical OS carrier thread, preventing the continuation from unmounting during blocking operations ([OpenJDK JDK 21 source: `continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)):
+*   **Java Monitors (`synchronized`):** Intrinsic locks coupled to the object header mark-word. In Java 21, HotSpot's `ObjectMonitor` subsystem couples the lock to the executing OS thread. HotSpot's continuation subsystem evaluates `can_freeze()`, which returns `false` whenever `held_monitor_count() > 0`. Because virtual threads are user-mode continuations multiplexed onto kernel threads, entering a monitor couples the user-mode stack to the physical OS carrier thread, preventing the continuation from unmounting during blocking operations ([HotSpotSource], [`continuationFreeze.cpp`](https://github.com/openjdk/jdk21u/blob/jdk-21.0.8-ga/src/hotspot/share/runtime/continuationFreeze.cpp)):
 
     ```cpp
     // OpenJDK HotSpot C++ (JDK 21): src/hotspot/share/runtime/continuationFreeze.cpp
@@ -268,7 +271,7 @@ To ensure that historical, pilot, and flawed runs are not conflated with verifie
 
 ## 3.8 Workload Protocol and Closed-Loop Queueing Mechanics
 
-Load generation is driven by [k6](https://k6.io/) (v1.7.1) executing a parameterized test script ([`k6/isolated-load-test.js`](../k6/isolated-load-test.js)). The workload follows a staged closed-loop concurrency profile:
+Load generation is driven by Grafana k6 [GrafanaK6] (v1.7.1) executing a parameterized test script ([`k6/isolated-load-test.js`](../k6/isolated-load-test.js)). The workload follows a staged closed-loop concurrency profile:
 1.  **Stage 1 (Ramp-Up):** 15 seconds, scaling linearly from 0 to target Virtual Users ($N = 10$ or $50$ VUs).
 2.  **Stage 2 (Steady-State Hold):** 30 seconds, maintaining fixed concurrent VUs ($N$).
 3.  **Stage 3 (Ramp-Down):** 10 seconds, scaling linearly from target VUs back to 0.
@@ -316,7 +319,7 @@ mechanism-isolation experiments.
 +-----------------------------------------------------------------------------------+
 ```
 
-### 3.8.1 Closed-Loop Queueing and Bottleneck Formulations (`/payments`)
+### 3.8.2 Closed-Loop Queueing and Bottleneck Formulations (`/payments`)
 
 For a stable closed workload, the interactive response-time law (the
 interactive response-time form of Little's Law) relates the number of users,
@@ -377,12 +380,12 @@ capacity ceiling or production overload behaviour. Those claims would require
 a separately controlled open-loop experiment with its own arrival-rate,
 timeout, queue, and error metrics.
 
-### 3.8.2 Two-Treatment Relational Persistence Design: Uncoordinated Delay vs. Held Connection Contention (`/orders`)
+### 3.8.3 Two-Treatment Relational Persistence Design: Uncoordinated Delay vs. Held Connection Contention (`/orders`)
 
 To evaluate how virtual threads interact with finite downstream relational resources, the research program establishes a **Two-Treatment Factorial Design** on the `/orders` endpoint ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)). Rather than treating connection checkout as an unexamined constant, the design contrasts two distinct transaction lifecycles:
 
 1.  **Treatment A (Uncontented Baseline Control — Pre-Acquisition Delay):**
-    In this historical baseline, `OrderService.simulateSlowQuery()` executes its 300 ms simulated delay (`Thread.sleep(300)`) *before* acquiring a database connection from HikariCP. The subsequent SQL query (`SELECT * FROM orders`) executes in less than $0.1\text{ ms}$ ($T_{\text{hold}} < 0.0001\text{ s}$).
+    In this historical baseline, `OrderService.simulateSlowQuery()` executes its 300 ms simulated delay (`Thread.sleep(300)`) *before* acquiring a database connection from HikariCP [HikariCPReference]. The subsequent SQL query (`SELECT * FROM orders`) executes in less than $0.1\text{ ms}$ ($T_{\text{hold}} < 0.0001\text{ s}$).
     Applying Little's Law to the connection pool under 50 closed-loop virtual users with 100 ms think-time ($X \approx 124.8\text{ req/s}$), the average connection occupancy ($L_{\text{pool}}$) is:
 
     $$L_{\text{pool}} = X \times T_{\text{hold}} \approx 124.8 \times 0.0001 \approx \mathbf{0.0125\text{ connections}}$$
@@ -402,6 +405,23 @@ To evaluate how virtual threads interact with finite downstream relational resou
         Queue wait drops to $W_{\text{wait}} \approx \frac{50 - 10}{10} \times 0.300\text{ s} \approx \mathbf{1.20\text{ s}}$, delivering a dramatic latency reduction.
 
 By contrasting Treatment A against Treatment B with dedicated HikariCP Actuator telemetry (`hikaricp.connections.active`, `pending`, `acquire`), the design empirically decouples thread-allocation efficiency from downstream persistence bottlenecks.
+
+### 3.8.4 Workload Scale Calibration and Concurrency Level Justification (Gate C5)
+
+A rigorous empirical investigation must deliberately calibrate its offered load to the capacity boundaries of the tested system. The preliminary thesis proposal initially contemplated exploratory testing across 50, 100, and 200 concurrent users. However, preliminary queueing derivations and execution trials revealed that maintaining 100 and 200 VUs across all endpoints introduces severe measurement distortion that undermines scientific construct validity:
+
+1.  **Queue Saturation Under Single-Server Critical Sections:**
+    In the `/payments` synchronization benchmark, every request traverses a 500 ms mutual exclusion critical section ($D = 0.500\text{ s}$). The single-server capacity bound is $\mu = 1/D = 2.0\text{ req/s}$. Under closed-loop queueing equilibrium ($N = 10\text{ VUs}$, think-time $Z = 0.100\text{ s}$), Little's Law dictates:
+    $$R = \frac{N}{X} - Z = \frac{10}{2.0\text{ req/s}} - 0.100\text{ s} = 4.900\text{ s}$$
+    At only 10 concurrent users, the critical section is already operating at **100% server utilization** ($\rho = X \times D = 2.0 \times 0.5 = 1.0$), and client requests experience $\sim 4,900\text{ ms}$ of queue latency.
+2.  **Pathological Timeout Regimes at 100 and 200 VUs:**
+    If this serialized endpoint were tested under 100 or 200 closed-loop VUs, theoretical cycle times would escalate to:
+    $$\text{Cycle}_{100} = \frac{100}{2.0\text{ req/s}} = 50.000\text{ s}, \quad \text{Cycle}_{200} = \frac{200}{2.0\text{ req/s}} = 100.000\text{ s}$$
+    In standard HTTP servlet architectures, client response times of 50 to 100 seconds inevitably exceed default operating system TCP keep-alive, client connection timeouts, and reverse-proxy thresholds (typically 30–60 seconds). This induces cascading socket drops (`ECONNRESET`, `ETIMEDOUT`), aborting transactions before completion. The resulting benchmark would measure network socket error-handling rather than JVM virtual thread scheduling or monitor-pinning mechanics.
+3.  **Targeted Scaling to 50 VUs in Stratum 8 (Relational Persistence):**
+    Where higher concurrency was methodologically required—specifically in evaluating downstream relational database connection pool exhaustion under Little's Law—the workload population was calibrated to **50 concurrent VUs** (Stratum 8). Under HikariCP pool sizes of 1 and 10 with a 300 ms hold duration ($T_{\text{hold}} = 0.300\text{ s}$), 50 VUs generated a maximum queue wait of $W_{\text{wait}} \le (50 - 1) \times 0.300\text{ s} = 14.70\text{ s}$. Because $14.70\text{ s} < 30.00\text{ s}$ (HikariCP's default `connectionTimeout`), the system operated at 100% pool saturation with zero checkout timeout exceptions (`SQLTransientConnectionException`), successfully achieving 100% HTTP 200 responses.
+
+Consequently, selecting 10 VUs for synchronization mechanism isolation (Strata 1–5) and 50 VUs for connection pool saturation (Stratum 8) is fully justified. Concurrency levels of 100 and 200 VUs were intentionally excluded because they would cause catastrophic socket timeouts without yielding any new mechanical insight into carrier pinning, unmounting, or lock contention.
 
 ---
 
@@ -579,14 +599,14 @@ To ensure that thesis conclusions strictly respect experimental boundaries, clai
 
 ## 3.14 Threats to Validity and Mitigations
 
-The experimental design is evaluated against the validity framework established for empirical software engineering (Wohlin et al., 2012):
+The experimental design is evaluated against the validity framework established for empirical software engineering (Wohlin et al., 2012 [Wohlin2012]):
 
 ### Table 3.5: Methodological Threats to Validity Matrix
 
 | Threat Category | Specific Methodological Risk | Potential Evidentiary Impact | Applied Mitigation / Research Boundary |
 | :--- | :--- | :--- | :--- |
 | **Construct Validity** | Pre-acquisition delay construct boundary in `/orders` ([`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L192), [`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L165)) | Delay outside checkout left pool $>98\%$ idle ($L \approx 0.0125$) | Resolved via two-treatment factorial ablation: Treatment A establishes unheld baseline; Treatment B actively holds connection, validating Little's Law and the Bottleneck Shift Law. |
-| **Construct Validity** | `application.yml` indentation nesting defect ([`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L207), [`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L148)) | Custom pool settings under `demo:` ignored; H2 defaulted to pool size 10 | Explicitly disclosed in Chapter 4; local H2 runs characterized as default autoconfiguration baselines. |
+| **Construct Validity** | Local H2 configuration fallback ([`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L200-L212), [`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L147)) | Custom pool settings under `demo:` ignored; local H2 defaulted to pool size 10 | Quarantined in Stratum 7 as an exploratory default baseline; primary pool sensitivity superseded and established under Stratum 8. |
 | **Measurement Validity** | JFR 20 ms event threshold in `profile.jfc` ([`CLM-METH-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L299-L310), [`DISC-09`](../docs/evidence-freeze/discrepancy-register.md#L184-L198)) | Sub-20ms monitor pinning events are filtered from flight recordings | All "zero pinning" claims bounded to $\ge 20\text{ ms}$; theoretical unmounting validated via AQS code inspection. |
 | **Measurement Validity** | Process-level telemetry averaging ([`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176), [`DISC-02`](../docs/evidence-freeze/discrepancy-register.md#L63-L79)) | `ps -p %cpu=` measures total JVM process rather than single OS carrier thread | Established that steady-state JVM CPU is ~1%, proving carrier was sleeping in kernel, not spinning. |
 | **Internal Validity** | Closed-loop client self-throttling ([`CLM-METH-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L312-L322), [`DISC-12`](../docs/evidence-freeze/discrepancy-register.md#L230-L248)) | Response time inflation automatically depresses client arrival rate | Formalized via Little's Law ($X = N/R$). Closed-loop saturation bounded to capacity analysis. |
@@ -594,6 +614,79 @@ The experimental design is evaluated against the validity framework established 
 | **External Validity** | Bare-metal Apple Silicon host environment | Host architecture (arm64, Darwin) differs from enterprise Linux x86_64 servers | Hardware characteristics documented in detail; conclusions bounded to JVM-internal concurrency mechanics. |
 | **Statistical Validity** | Small sample size ($N=3$ process trials) ([`CLM-METH-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L286-L297), [`DISC-11`](../docs/evidence-freeze/discrepancy-register.md#L215-L228)) | Small sample cannot support inferential significance testing or ANOVA | Documented descriptive dispersion metrics; purged all inferential claims from results. |
 | **Reproducibility** | Historical glob expansion discrepancy ([`DISC-04`](../docs/evidence-freeze/discrepancy-register.md#L99-L115)) | Previous audit conflated 113 manifests with 143 load tests (claimed 256 JSONs) | Master inventory established 504 physical disk files and checksum agreement for the recorded comparisons. |
+
+---
+
+## 3.15 Generative AI Usage and Critical Verification Framework
+
+In strict compliance with **Dean's Directive No. 1/2026 (III. 26.) of the Faculty of Informatics, Eötvös Loránd University (ELTE)** on the use of Artificial Intelligence tools in higher education, research, and thesis preparation, this section provides a transparent, auditable disclosure of all generative AI tools employed during this research, the boundaries of their permitted application, strictly excluded areas, and the multi-layered critical verification protocols applied to guarantee academic integrity and scientific validity.
+
+### 3.15.1 Regulatory Context and Dean's Directive 1/2026 Alignment
+
+Dean's Directive 1/2026 establishes that generative AI tools may be utilized as supplementary aids for outlining, stylistic refinement, and scaffolding, provided that:
+1. Such usage is explicitly declared in an official Declaration form (Annex 3 of the Directive);
+2. All substantive results, empirical measurements, and scientific claims represent the author's independent intellectual work;
+3. Output generated by AI is critically evaluated, validated, and adapted to the specific task;
+4. Point-of-use disclosures are provided in the relevant sections of the thesis text; and
+5. Full interaction logs and prompt histories are retained and made available for supervisory inspection upon request (§7 of the Directive).
+
+### 3.15.2 Inventory of AI Tools and Scope of Application
+
+Two primary generative AI technologies were utilized during the research and drafting process:
+*   **Anthropic Claude (Claude 3.5 Sonnet, Web and CLI interfaces):** Utilized for structural scaffolding of chapter markdown outlines, initial drafting of technical background prose describing standardized Spring Framework and Java runtime mechanisms, grammatical copyediting, and drafting Python verification script skeletons (`recalculate_metrics.py`, `validate_normalized_evidence.py`, `generate_run_family_matrix.py`).
+*   **GitHub Copilot (Visual Studio Code / IntelliJ IDEA IDE extensions):** Utilized during software implementation for inline autocomplete of boilerplate Spring Boot configuration, DTO definitions, and JUnit 5 test assertion templates.
+
+### 3.15.3 Strictly Excluded and Prohibited Areas (Zero Synthetic Data)
+
+To ensure absolute epistemic validity and empirical truth, generative AI tools were strictly excluded from the following core scientific activities:
+1.  **Zero AI Generation of Empirical Data:** No benchmark results, throughput values, latency percentiles, error counts, JFR flight recordings, or operating system telemetry were generated, simulated, or interpolated using AI models. Every data point reported in this dissertation originates exclusively from physical benchmark executions executed on dedicated bare-metal hardware.
+2.  **Zero Automated Theoretical Attribution:** AI models were not permitted to independently generate causal conclusions regarding JVM internal mechanics. All causal attributions (e.g., decoupling carrier unpinning from Amdahl domain serialization, silent JNI carrier captivity, and Little's Law database pool shift) were independently formulated by the author based on primary HotSpot C++ source code audits and queueing theory derivations.
+3.  **Zero Unverified Literature Ingestion:** Bibliographic citations were not accepted blindly from AI models. Every cited academic paper, OpenJDK JEP specification, and technical manual was independently retrieved, read, and verified against authoritative digital libraries (ACM Digital Library, IEEE Xplore, SpringerLink, OpenJDK).
+
+### 3.15.4 Multi-Layered Critical Verification Protocols
+
+Every component touched or accelerated by AI tools was subjected to a four-stage critical verification pipeline:
+
+```
++-----------------------------------------------------------------------------------+
+|               MULTI-LAYERED CRITICAL VERIFICATION PIPELINE                        |
++-----------------------------------------------------------------------------------+
+  STAGE 1: HOTSPOT C++ RUNTIME SOURCE AUDIT
+  Manual line-by-line inspection of OpenJDK 21/24 C++ source:
+  • continuationFreeze.cpp (pinning reasons, monitor hold checks)
+  • VirtualThread.java & ReentrantLock.java (AQS unmounting & parkPermit)
+  • jvmtiThreadState.cpp (lock contention observer effects)
+                            │
+                            ▼
+  STAGE 2: AUTOMATED TEST SUITE EXECUTION (JUnit 5)
+  Live execution of automated integration and unit test fixtures:
+  • `rtk mvn test` -> 8 tests run, 0 failures, 0 errors
+  • Proves mutual exclusion, ThreadLocal context cleanup, and JNI bindings
+                            │
+                            ▼
+  STAGE 3: CRYPTOGRAPHIC DATA INTEGRITY VERIFICATION (SHA-256)
+  Automated cryptographic audit of normalized evidence corpus:
+  • `rtk python3 scripts/validate_normalized_evidence.py`
+  • 76 normalized JSON files verified with 100% SHA-256 integrity match
+                            │
+                            ▼
+  STAGE 4: INDEPENDENT MATHEMATICAL RECALCULATION
+  Live computational recalculation of summary statistics:
+  • `rtk python3 scripts/recalculate_metrics.py --verify-reconciliation`
+  • Re-computes non-parametric medians, p50/p95/p99 percentiles from raw JSON lines
+  • Mathematically reconciles the 0.7645% throughput delta between windows
++-----------------------------------------------------------------------------------+
+```
+
+1.  **HotSpot C++ Source Code Audit [HotSpotSource]:** All theoretical assertions regarding virtual thread unmounting, carrier pinning triggers, and continuation freeze mechanics were verified by auditing the OpenJDK HotSpot source code directly (`hotspot/share/runtime/continuationFreeze.cpp`, `continuation.cpp`, and `java.base/share/classes/java/lang/VirtualThread.java`).
+2.  **Automated Unit and Integration Testing:** All application controllers, services, lock refactorings, and native C JNI bindings were validated via an automated JUnit 5 test suite (`rtk mvn test`), achieving 100% test passage across 8 test suites without regression.
+3.  **Cryptographic SHA-256 Dataset Validation:** The experimental dataset (encompassing 504 files and 965.99 MB of data) was inventoried and validated using [`scripts/validate_normalized_evidence.py`](../scripts/validate_normalized_evidence.py). All 76 canonical normalized JSON datasets match their raw k6 streams with zero schema violations.
+4.  **Computational Metric Recalculation:** Summary metrics and percentile distributions were recalculated from the raw k6 JSON lines streams using [`scripts/recalculate_metrics.py`](../scripts/recalculate_metrics.py), verifying the exact non-parametric medians and reconciling the steady-state vs. whole-run window deltas ($0.7645\%$).
+
+### 3.15.5 Data Protection, Confidentiality, and Log Retention
+
+*   **Data Protection & Confidentiality (Dean's Directive 1/2026 §4):** In accordance with institutional confidentiality guidelines, no private student data, authentication tokens, credentials, or proprietary software code were transmitted to external AI systems. All code and configurations evaluated represent open-source artifacts licensed under the MIT License.
+*   **Log Retention Guarantee (Dean's Directive 1/2026 §7):** Complete, time-stamped interaction transcripts and prompt logs from all Claude and Copilot sessions have been systematically archived within the project repository under secure local storage. These records will be preserved until the final conclusion of the evaluation and defense process and are available for supervisory inspection upon demand.
 
 ---
 

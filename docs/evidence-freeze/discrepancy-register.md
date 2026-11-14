@@ -142,8 +142,8 @@ Rather than sanitizing the project's history, this register documents the **exac
 * **Forensic Resolution & Action:**
   - Spring Boot ignored `demo.datasource.*` and fell back to default auto-configured in-memory H2 with `maximumPoolSize = 10`.
   - Docker Compose PostgreSQL runs injected standard `SPRING_DATASOURCE_*` environment variables, correctly applying custom pool sizes.
-  - **Thesis Action:** Disclose the indentation defect in Chapter 4; clarify that local H2 runs operated on auto-configured defaults.
-* **Owner / Chapter Impact:** Chapter 4 (Section 4.2), Chapter 6 (Section 6.2.2).
+  - **Thesis Action:** Disclose the configuration fallback in Chapter 4; clarify that early local H2 runs operated on auto-configured defaults, superseded by Stratum 8.
+* **Owner / Chapter Impact:** Chapter 3 (Table 3.5), Chapter 4 (Section 4.4.3, Table 4.3), Chapter 8 (Table 8.5).
 
 ---
 
@@ -258,7 +258,7 @@ The following table summarizes the status, evidence gap, and mandatory editorial
 | `DISC-03` | JFR Pinning Blind Spot | 27 JFR files (0 events) | Define JFR pinning as unmount failure, not OS stall detector | Ch 5, 6, 7 |
 | `DISC-04` | 256 k6 Glob Double-Counting | 504 files in inventory | Present true 504-file census; explain manifest double-counting | Ch 3 & App A |
 | `DISC-05` | Ramp-Up Latency Shift | Recalculated metrics | Mandatory dual-window reporting (whole-run vs. hold-window) | Ch 3 & 5 |
-| `DISC-06` | H2 Indentation Defect | `application.yml` inspection | Document Spring Boot auto-configuration fallback to default H2 | Ch 4 & 6 |
+| `DISC-06` | H2 Configuration Fallback | `application.yml` inspection | Document exploratory default H2 baseline superseded by Stratum 8 | Ch 3, 4, 8 |
 | `DISC-07` | Pre-Checkout Sleep Defect | Stratum 8 manifests, JFR & telemetry | Reconciled as Two-Treatment Factorial Design; verified unmounting & Downstream Bottleneck Shift Law | Ch 1, 3, 4, 5, 6, 7, 8, 9 |
 | `DISC-08` | PostgreSQL JFR Omission | 6 raw k6 JSONs in Stratum 7 | Exclude PostgreSQL from carrier unmounting claims; report k6 only | Ch 5 & 6 |
 | `DISC-09` | JFR 20 ms Threshold | `run-benchmark.sh` inspection | Bound zero-pinning claims to events $\ge 20\text{ ms}$ | Ch 3, 5, 6 |

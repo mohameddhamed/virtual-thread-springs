@@ -17,7 +17,7 @@ configuration.
 | Inter-request delay | `sleep(0.1)`, therefore `Z = 0.100 s` |
 | `/cpu` implementation | 5,000,000 iterations of `Math.fma` and `Math.sqrt` |
 | `/products` implementation | `JdbcTemplate.queryForList("SELECT * FROM products")`; not an in-memory static fast path |
-| `/orders` construct | 300 ms sleep occurs before JDBC connection checkout; pool saturation was not established |
+| `/orders` construct | Two-Treatment Factorial Design: Treatment A (pre-acquisition delay control; pool >98% idle) vs. Treatment B (connection-held contention; pool saturation established at Little's Law capacity ceiling $X = 3.27\text{ req/s}$) |
 | Evidence scope | 368 result/JFR checksum comparisons and 92 telemetry comparisons matched recorded hashes |
 
 Run-family differences in JDK, carrier count, database, pool configuration, and

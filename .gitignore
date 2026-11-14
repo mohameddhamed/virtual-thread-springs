@@ -34,6 +34,10 @@ build/
 .bloop/
 .metals/
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Supervisor-provided MSc audit skills and local consultation material
 ELTE_IK_MSc_Consultation_Checkpoint_Skills_Suite/
 elte-msc-thesis-30-point-audit/

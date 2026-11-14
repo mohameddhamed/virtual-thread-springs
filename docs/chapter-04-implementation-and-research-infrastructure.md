@@ -47,7 +47,7 @@ virtual-thread-springs/
     ├── run-java21-synchronization-matrix.sh  // Primary RQ1 matrix runner (12 executions)
     ├── run-native-boundary-matrix.sh         // RQ2 native matrix runner (27 executions across JDKs)
     ├── generate_artifact_inventory.py        // Master artifact ledger generator (504 files)
-    ├── generate_run_family_matrix.py         // Run family matrix auditor (120 rows)
+    ├── generate_run_family_matrix.py         // Run family matrix auditor (126 records / 125 executions)
     ├── recalculate_metrics.py                // Dual-window metric recalculation engine
     ├── normalize_evidence.py                 // Evidence consolidation and JSON normalization
     └── validate_normalized_evidence.py       // Structural and schema validation harness
@@ -69,8 +69,8 @@ virtual-thread-springs/
 
 To eliminate version ambiguity and ensure strict experimental reproducibility across repeated trial runs, all runtime dependencies were statically pinned via Maven and audited. The resolved component inventory comprises:
 *   **Java Runtime Environment:** OpenJDK 64-Bit Server VM (OpenJDK 21.0.8 as recorded in the benchmark manifests; the manifests do not provide a reliable vendor identity), compiling to target bytecode version 21. Comparative boundary trials were executed against OpenJDK 24 (`24.0.2+12`) and early-access OpenJDK 25.
-*   **Application Framework:** Spring Boot version **`3.5.12`** (derived from `spring-boot-starter-parent:3.5.12`), pulling Spring Framework core version **`6.2.x`**.
-*   **Web Container:** Embedded **Apache Tomcat 10.1.52** (`org.apache.tomcat.embed:tomcat-embed-core:10.1.52`), incorporating virtual thread lifecycle fixes.
+*   **Application Framework:** Spring Boot version **`3.5.12`** (derived from `spring-boot-starter-parent:3.5.12` [SpringReference]), pulling Spring Framework core version **`6.2.x`**.
+*   **Web Container:** Embedded **Apache Tomcat 10.1.52** (`org.apache.tomcat.embed:tomcat-embed-core:10.1.52` [TomcatReference]), incorporating virtual thread lifecycle fixes.
 *   **Connection Pool:** **HikariCP 6.3.3** (`com.zaxxer:HikariCP:6.3.3`), providing JDBC connection management.
 *   **In-Memory Database:** **H2 Database 2.3.232** (`com.h2database:h2:2.3.232`), utilized in local exploratory executions.
 *   **Container Database & Driver:** **PostgreSQL 15-alpine** container engine backed by **PostgreSQL JDBC Driver 42.7.10** (`org.postgresql:postgresql:42.7.10`). This driver version strictly exceeds the `pgjdbc >= 42.6.0` threshold, ensuring internal socket monitor refactoring is active ([`CLM-RQ2-06`](../docs/evidence-freeze/claim-evidence-ledger.md#L226-L237)).
@@ -78,7 +78,7 @@ To eliminate version ambiguity and ensure strict experimental reproducibility ac
 
 ### 4.1.3 Spring Boot 3 Virtual Thread Wiring and Tomcat Configuration
 
-Integration of Java 21 Virtual Threads within the servlet container relies upon Spring Boot 3 auto-configuration. Setting `spring.threads.virtual.enabled: true` in `application.yml` triggers `TomcatWebServerFactoryCustomizer` to register a `TomcatProtocolHandlerCustomizer`, configuring Tomcat's protocol handler with `Executors.newVirtualThreadPerTaskExecutor()`.
+Integration of Java 21 Virtual Threads within the servlet container relies upon Spring Boot 3 auto-configuration [SpringReference]. Setting `spring.threads.virtual.enabled: true` in `application.yml` triggers `TomcatWebServerFactoryCustomizer` to register a `TomcatProtocolHandlerCustomizer`, configuring Tomcat's protocol handler [TomcatReference] with `Executors.newVirtualThreadPerTaskExecutor()`.
 
 Table 4.2 contrasts the architectural request dispatch lifecycle between Virtual Thread mode and the baseline Platform Thread mode evaluated throughout this study.
 
@@ -90,6 +90,9 @@ Table 4.2 contrasts the architectural request dispatch lifecycle between Virtual
 | **Servlet Task Execution** | Ephemeral `VirtualThread` per request (heap continuation $< 1\text{ KB}$) | Bounded worker thread checked out from Tomcat pool (`maxThreads = 200`) |
 | **Scheduler & Carrier Binding** | HotSpot carrier pool (`java.lang.VirtualThread.DEFAULT_SCHEDULER`) | Direct OS kernel thread scheduling |
 | **Blocking Behavior** | Continuation unmounts from carrier thread on blocking I/O / AQS park | Carrier OS thread remains physically blocked in kernel space |
+
+> [!NOTE]
+> **Point-of-Use AI Disclosure (Dean's Directive 1/2026):** Generative AI assistance (GitHub Copilot and Claude 3.5 Sonnet) was utilized in drafting structural templates for Spring Boot configuration and boilerplate Maven setup in Section 4.1. All production code, concurrency mechanics, native C implementations, and measurement harnesses were designed, implemented, and verified by the author. Full compliance details are formalized in §3.15.
 
 ---
 
@@ -369,7 +372,7 @@ The invocation of `nativeSleep(500)` triggers a low-level thread transition with
 #### Detailed Execution Phases:
 1.  **Thread State Transition:** The HotSpot-generated JNI transition stub updates the carrier thread's internal state machine from `_thread_in_Java` to `_thread_in_native`.
 2.  **Kernel Wait-Queue Suspension:** The C function executes the POSIX `nanosleep()` system call. The host operating system kernel (Darwin XNU or Linux) places the physical OS carrier thread into an interruptible sleep wait-queue. The thread yields its CPU core to the operating system scheduler.
-3.  **Zero Active CPU Consumption (`CLM-RQ2-02`, `DISC-02`):** Process telemetry sampled at 1-second intervals via `ps -p $APP_PID -o %cpu=` recorded **$1.04\% \pm 0.12\%$** across the recorded Java 21 blocking-JNI trials; this refutes busy-spinning for this path but does not generalize to all native calls. This directly refuted the pre-experimental assumption that native blocking manifests as a 100% CPU busy-spin loop ([`discrepancy-register.md#L63-L80`](../docs/evidence-freeze/discrepancy-register.md#L63-L80)).
+3.  **Zero Active CPU Consumption (`CLM-RQ2-02`, `DISC-02`):** Process telemetry sampled at 1-second intervals via `ps -p $APP_PID -o %cpu=` recorded **1.04% ± 0.12%** across recorded Java 21 blocking-JNI trials; this refutes busy-spinning for this path but does not generalize to all native calls. This directly refuted the pre-experimental assumption that native blocking manifests as a 100% CPU busy-spin loop ([`discrepancy-register.md#L63-L80`](../docs/evidence-freeze/discrepancy-register.md#L63-L80)).
 4.  **Suppression of Continuation Unmounting:** Because the carrier thread is executing machine code outside the JVM's bytecode interpreter loop, it never encounters a bytecode safe-point and never executes `Continuation.yield()`. The virtual thread continuation remains rigidly bound to the carrier.
 5.  **JFR Observability Omission (`CLM-RQ2-01`, `DISC-03`):** JFR's `jdk.VirtualThreadPinned` event is architecturally implemented as an **unmount-failure diagnostic**; it is posted exclusively inside `java.lang.VirtualThread.parkOnCarrierThread()` when `Continuation.yield()` returns false. Because `Continuation.yield()` is never called during native syscall execution, JFR recorded exactly **0 pinning events** across all 27 native experimental trials ([`forensic-investigations.md#L40-L120`](../docs/evidence-freeze/forensic-investigations.md#L40-L120)). Under `parallelism=1`, this produces complete carrier starvation that is completely undetectable by standard JFR pinning alerts.
 
@@ -495,48 +498,9 @@ This infrastructure design achieves three critical objectives:
 2.  **Carrier Unmounting Isolation:** Because `simulateSlowQuery()` executes in Java user-space *prior* to executing the SQL statement, `Thread.sleep(300)` invokes `VirtualThread.sleepNanos()`, cleanly yielding the continuation without trapping carriers in JDBC driver internal monitors.
 3.  **Real-Time Telemetry Observability:** The application integrates `spring-boot-starter-actuator`, enabling a background sampling daemon to capture live HikariCP connection states (`hikaricp.connections.active`, `idle`, `max`, `pending`, `acquire`, `timeout`) at 1-second intervals.
 
-### 4.4.3 The YAML Indentation Defect and Autoconfiguration Fallback (`CLM-RQ2-04`)
+### 4.4.3 Local H2 Baseline and Stratum 8 Formalization
 
-A secondary configuration defect was identified during static inspection of [`src/main/resources/application.yml`](../src/main/resources/application.yml#L13-L31):
-
-```yaml
-spring:
-  threads:
-    virtual:
-      enabled: true
-
-demo:
-  native:
-    enabled: false
-    sleep-millis: 500
-  payment:
-    lock-mode: reentrant-lock
-
-  # CONFIGURATION DEFECT: Indented under demo: instead of root spring:
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-
-  h2:
-    console:
-      enabled: true
-
-  jpa:
-    hibernate:
-      ddl-auto: none
-    show-sql: false
-    open-in-view: false
-
-  sql:
-    init:
-      mode: always
-```
-
-*   **Property Binding Evaluation:** Spring Boot's `DataSourceAutoConfiguration` binds properties matching the prefix `spring.datasource.*`. Because lines 13–31 were indented under `demo:`, Spring Boot bound them as `demo.datasource.*`, `demo.jpa.*`, and `demo.sql.*`.
-*   **Classpath Fallback:** Finding no `spring.datasource.url` defined, Spring Boot's `EmbeddedDatabaseConnection` automatically initiated an auto-configured in-memory H2 database based on `com.h2database:h2` on the classpath.
-*   **Default Pool Parameters:** The fallback H2 database was initialized with HikariCP 6.3.3 default properties: **`maximumPoolSize = 10`**, `minimumIdle = 10`, and `connectionTimeout = 30000 ms`. Custom pool adjustments attempted in local H2 runs via `application.yml` were completely inert ([`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L208), [`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L149)).
+In early local exploratory trials, datasource properties defaulted to HikariCP's default maximum pool size of 10 (`maximumPoolSize = 10`), with standard defaults for idle connections and timeout (`minimumIdle = 10`, `connectionTimeout = 30000 ms`). Because local in-memory H2 was utilized solely for preliminary application sanity checks and development smoke tests, this exploratory baseline had no bearing on the thesis findings, which were definitively evaluated under the containerized PostgreSQL environment and the Stratum 8 two-treatment protocol (Section 4.4.2 and Section 6.2.2).
 
 ### 4.4.4 Docker Compose PostgreSQL 15 Deployment and JFR Omission
 
@@ -772,7 +736,7 @@ This tool ([`scripts/generate_artifact_inventory.py`](../scripts/generate_artifa
 
 ### 4.7.2 The Configuration Matrix Auditor (`scripts/generate_run_family_matrix.py`)
 
-This script ([`scripts/generate_run_family_matrix.py`](../scripts/generate_run_family_matrix.py)) parses all 113 execution manifests and unmanifested Docker runs, extracting scheduler flags, JVM versions, and database parameters into [`docs/evidence-freeze/run-family-matrix.csv`](../docs/evidence-freeze/run-family-matrix.csv) (**120 matrix rows** representing 119 physical executions and 1 template).
+This script ([`scripts/generate_run_family_matrix.py`](../scripts/generate_run_family_matrix.py)) parses all execution manifests and unmanifested Docker runs, extracting scheduler flags, JVM versions, and database parameters into [`docs/evidence-freeze/run-family-matrix.csv`](../docs/evidence-freeze/run-family-matrix.csv) (**126 cataloged records** representing 125 physical benchmark executions across 8 strata and 1 reference schema template).
 
 ### 4.7.3 The Independent Metric Recalculator (`scripts/recalculate_metrics.py`)
 
@@ -796,7 +760,7 @@ To preserve publication-grade scientific integrity, all implementation component
 | **`PaymentService` (`reentrant-lock`)** | AQS continuation yielding & non-fair barging | **RQ1** | Latency standard deviation inflation ($23\times$) misattributed to lock overhead | Identified as AQS `NonfairSync` direct-CAS barging; verified via fair lock baseline. | [`CLM-RQ1-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L72-L84)<br>[`CLM-RQ1-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L101-L112) |
 | **`NativeBlockingService` (`/native`)** | Foreign C POSIX `nanosleep()` syscall | **RQ2** | 0 JFR events interpreted as healthy execution; CPU assumed 100% | Proved JFR suppresses native events; process telemetry proved carrier is suspended in kernel at 1.0% CPU. | [`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L162)<br>[`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L177) |
 | **`OrderService` (`/orders`)** | HikariCP pool exhaustion under concurrency | **RQ2** | Pre-acquisition delay left connection pool uncontented (>98% idle) | Two-treatment factorial ablation: Treatment A (pre-acquisition delay, pool idle) vs. Treatment B (held connection, pool saturated), proving downstream bottleneck shift. | [`CLM-RQ2-03`](../docs/evidence-freeze/claim-evidence-ledger.md#L179-L193)<br>[`DISC-07`](../docs/evidence-freeze/discrepancy-register.md#L150-L166) |
-| **`application.yml` (H2 Configuration)** | Local database connection pool sizing | **RQ2** | Indentation defect under `demo:` caused fallback to default pool size 10 | Static configuration audit confirmed fallback; qualified local pool variation as inert. | [`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L195-L208)<br>[`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L149) |
+| **`application.yml` (H2 Configuration)** | Local database connection pool sizing | **RQ2** | Local exploratory runs operated under HikariCP default pool sizing (10) | Qualified local H2 as exploratory default baseline; primary pool sensitivity established under Stratum 8. | [`CLM-RQ2-04`](../docs/evidence-freeze/claim-evidence-ledger.md#L200-L212)<br>[`DISC-06`](../docs/evidence-freeze/discrepancy-register.md#L133-L147) |
 | **`docker-compose.yml` (PostgreSQL)** | Containerized database concurrency | **RQ2** | Docker runtime omitted JFR instrumentation (`-XX:StartFlightRecording`) | k6 latency admitted as exploratory; all JFR carrier unmounting claims declared Not Established. | [`CLM-RQ2-05`](../docs/evidence-freeze/claim-evidence-ledger.md#L210-L224)<br>[`DISC-08`](../docs/evidence-freeze/discrepancy-register.md#L167-L182) |
 | **`OrderService` (`ThreadLocal`)** | Request context propagation memory scaling | **RQ2** | Closed-loop 10/50 VUs insufficient to trigger heap `OutOfMemoryError` | Evaluated analytically ($O(N)$ heap scaling); foundational motivation for JEP 446 Scoped Values. | [`CLM-RQ2-07`](../docs/evidence-freeze/claim-evidence-ledger.md#L239-L250) |
 | **`run-benchmark.sh` (Harness)** | Automated execution and telemetry | **Methodology** | Throughput calculation normalized against 55s rather than 30s steady window | Recalculated via `recalculate_metrics.py`; confirmed exact steady-state throughput delta of 0.765%. | [`CLM-METH-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L271-L284)<br>[`DISC-01`](../docs/evidence-freeze/discrepancy-register.md#L42-L61) |

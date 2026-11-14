@@ -1,0 +1,14 @@
+interface:
+  display_name: ELTE IK TDK 50-Point Audit
+  short_description: Audit ELTE IK TDK papers with 50 Boolean checks.
+  default_prompt: Use $elte-ik-tdk-50-point-audit to audit this TDK paper and its
+    evidence against all 50 Boolean review items.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

@@ -1,6 +1,6 @@
 # Experimental Artifact Inventory & Cryptographic Audit Summary
 
-**Audit Timestamp:** 2026-11-02 18:22:55 UTC  
+**Audit Timestamp:** 2026-11-14 23:24:39 UTC  
 **Auditor Role:** Artifact Inventory Auditor (MSc Thesis Stage 1.1 — Workstream 1)  
 **Target Repository:** `/Users/mohamedhamed/Documents/virtual-thread-springs`  
 **Primary Deliverable (CSV Ledger):** [`docs/evidence-freeze/artifact-inventory.csv`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/docs/evidence-freeze/artifact-inventory.csv)  
@@ -16,15 +16,15 @@ This inventory audit establishes the authoritative physical and cryptographic ce
 
 | Metric Category | Count on Disk | Percentage of Repository Files |
 |---|:---:|:---:|
-| **Total Artifacts Enumerated on Disk** | **504** | **100.0%** |
-| Admitted in Normalized Dataset (`in_normalized_dataset = TRUE`) | **226** | **44.8%** |
-| Retained Non-Normalized Raw Materials (`in_normalized_dataset = FALSE`) | **278** | **55.2%** |
+| **Total Artifacts Enumerated on Disk** | **543** | **100.0%** |
+| Admitted in Normalized Dataset (`in_normalized_dataset = TRUE`) | **226** | **41.6%** |
+| Retained Non-Normalized Raw Materials (`in_normalized_dataset = FALSE`) | **317** | **58.4%** |
 | Normalized Trial Records in JSON Dataset | **76** | — |
 | Verified k6 Result Files on Disk for Normalized Records | **76 / 76** | **100.0%** |
 | Verified JFR Recording Files on Disk for Normalized Records | **75 / 75** | **100.0%** |
 | Verified Manifest Files on Disk for Normalized Records | **75 / 75** | **100.0%** |
 | Cryptographic Hash Match Rate (Normalized Records) | **151 / 151** | **100.0% (0 mismatches)** |
-| Cryptographic Hash Match Rate (Manifest References) | **217 / 217** | **100.0% (0 mismatches)** |
+| Cryptographic Hash Match Rate (Manifest References) | **229 / 229** | **100.0% (0 mismatches)** |
 
 ---
 
@@ -81,13 +81,13 @@ The table below breaks down all 504 experimental artifacts on disk by their phys
 
 | Artifact Type (`artifact_type`) | Count | Total Size (Bytes) | Total Size (Formatted) | Primary File Pattern / Location |
 |---|:---:|:---:|:---:|---|
-| `manifest_json` | 113 | 291,292 | ~284.5 KB | `results/run-manifest-*.json` |
-| `k6_json` | 150 | 774,805,675 | ~738.91 MB | `results/run-*.json`, `results/docker-pg-*.json`, `results/cpu-control-*.json` |
-| `jfr_binary` | 132 | 237,596,457 | ~226.59 MB | `results/jfr/*.jfr` |
-| `telemetry_csv` | 104 | 194,214 | ~189.7 KB | `results/telemetry-*.csv` |
+| `manifest_json` | 121 | 312,764 | ~305.4 KB | `results/run-manifest-*.json` |
+| `k6_json` | 157 | 796,513,773 | ~759.61 MB | `results/run-*.json`, `results/docker-pg-*.json`, `results/cpu-control-*.json` |
+| `jfr_binary` | 140 | 252,027,447 | ~240.35 MB | `results/jfr/*.jfr` |
+| `telemetry_csv` | 120 | 223,447 | ~218.2 KB | `results/telemetry-*.csv` |
 | `markdown_report` | 5 | 28,361 | ~27.7 KB | `results/*.md` |
 | `other` | 0 | 0 | 0 B | None |
-| **Total** | **504** | **1,012,915,999** | **~965.99 MB** | `results/**` |
+| **Total** | **543** | **1,049,105,792** | **~1000.51 MB** | `results/**` |
 
 ---
 
@@ -98,11 +98,11 @@ All 504 files have been categorized according to the thesis evidence freeze admi
 | Candidate Status (`candidate_status`) | Count | In Normalized Dataset? | Description & Scope |
 |---|:---:|:---:|---|
 | `admitted_normalized` | **226** | **TRUE (226)** | Directly admitted as part of the 76 trial records in `normalized-evidence.json` (75 manifests, 76 k6 JSONs, 75 JFRs). |
-| `historical_baseline` | **200** | **FALSE (200)** | Historical and exploratory runs linked to manifests but not admitted into normalized dataset (e.g. October 8 default 8-carrier runs, H2 pool sensitivity, lock/semaphore pilots, JDK 24/25 boundary runs, telemetry CSVs). |
+| `historical_baseline` | **239** | **FALSE (200)** | Historical and exploratory runs linked to manifests but not admitted into normalized dataset (e.g. October 8 default 8-carrier runs, H2 pool sensitivity, lock/semaphore pilots, JDK 24/25 boundary runs, telemetry CSVs). |
 | `diagnostic` | **12** | **FALSE (12)** | Standalone controls and tests outside normalized dataset (1 standalone CPU control JFR + 3 standalone Oct 8 no-lock diagnostic runs [11 files]). |
 | `exploratory_uninstrumented` | **9** | **FALSE (9)** | Runs lacking JFR or complete instrumentation (6 Docker PostgreSQL pool trials lacking JFR + 3 files from aborted run 142557). |
 | `unmapped` | **57** | **FALSE (57)** | Artifacts that do not link to any known manifest (32 April 2026 k6 JSONs, 19 April 2026 JFRs, 4 April narrative reports, 1 Oct 8 ISO JSON, 1 manifest template). |
-| **Total** | **504** | **226 TRUE / 278 FALSE** | **Complete Repository Population** |
+| **Total** | **543** | **226 TRUE / 278 FALSE** | **Complete Repository Population** |
 
 ---
 

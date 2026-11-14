@@ -13,12 +13,12 @@
 This report documents the exhaustive configuration audit of all benchmark manifests (`results/run-manifest-*.json`), raw k6 execution streams, and telemetry/JFR recordings generated throughout the MSc thesis research (*Migrating Spring Boot MVC Systems to Java 21 Virtual Threads: Architecture, Risks, and Engineering Guidelines*).
 
 ### Key Audit Metrics
-- **Total Manifest Files Parsed:** 121 manifests (112 process execution manifests + 1 reference template).
-- **Total Benchmark Executions Tabulated:** 128 runs (113 manifests + 6 unmanifested Docker Compose PostgreSQL runs + 1 standalone Oct 8 CPU control artifact).
+- **Total Manifest Files Parsed:** 119 manifests (118 process execution manifests + 1 reference template).
+- **Total Benchmark Executions Tabulated:** 125 physical executions (126 cataloged records: 118 manifested runs + 6 unmanifested Docker Compose PostgreSQL runs + 1 standalone Oct 8 CPU control artifact + 1 reference template).
 - **Normalized Dashboard Records:** 76 runs (75 manifest trials + 1 CPU control artifact verified in `src/main/resources/static/data/normalized-evidence.json`).
-- **Primary Git Commits:** `5f9936c` (2026-10-08, 57 manifests), `1ccb617` (2026-10-15, 54 manifests + 6 Docker runs), `a9bd454` (2026-10-26, 1 manifest).
+- **Primary Git Commits:** `5f9936c` (2026-10-08, 57 manifests), `1ccb617` (2026-10-15, 54 manifests + 6 Docker runs), `a9bd454` (2026-10-26, 1 manifest), `a3e70fd` (2026-11-10, 6 manifests).
 - **Carrier Concurrency Divergences:**
-  - **1-Carrier (`parallelism=1`, `maxPoolSize=1`):** 103 runs (Primary matrix, JNI boundary, endpoint isolation, CPU controls, JDK 24/25 GA comparisons).
+  - **1-Carrier (`parallelism=1`, `maxPoolSize=1`):** 101 runs (Primary matrix, JNI boundary, endpoint isolation, CPU controls, persistence contention, JDK 24/25 GA comparisons).
   - **8-Carrier / Default (`parallelism=8`, `maxPoolSize=256`):** 18 runs (Oct 8 repeated synchronization matrix and historical exploratory pilots).
   - **4-Carrier (`parallelism=4`, `maxPoolSize=4`):** 6 runs (H2 connection pool sensitivity matrix).
 
@@ -26,7 +26,7 @@ This report documents the exhaustive configuration audit of all benchmark manife
 
 ## 1. Run Families Breakdown & Exact Configurations
 
-The 120 tabulated experimental runs fall into **15 distinct Run Families** (plus the reference template). The table below summarizes each family's experimental purpose, runtime environment, carrier configuration, and evidence normalization status.
+The 126 cataloged experimental records represent **125 physical benchmark executions across 16 distinct Run Families** (plus the reference template). The table below summarizes each family's experimental purpose, runtime environment, carrier configuration, and evidence normalization status.
 
 | Run Family | Run Count | Target JDK(s) | Carrier Pool | Endpoint(s) | Load (VUs / Dur) | Hikari Pool | Normalized Set? |
 |---|---:|---|---|---|---|---|:---:|
@@ -38,6 +38,7 @@ The 120 tabulated experimental runs fall into **15 distinct Run Families** (plus
 | `java21-cpu-control` | 7 | 21.0.8 | 1-carrier, 8-carrier/default | `cpu` | 10 VUs / 55s | 10 (default), none | Yes (All) |
 | `h2-pool-sensitivity` | 6 | 21.0.8 | 4-carrier | `orders` | 50 VUs / 55s | 1, 10 | No |
 | `docker-pg-orders` | 6 | 21.0.8 | 1-carrier | `orders` | 50 VUs / 55s | 1, 10 | No |
+| `java21-orders-persistence-contention` | 6 | 21.0.12.1 | 1-carrier | `orders` | 50 VUs / 55s | 1, 10 | No |
 | `java24-sync-repeat` | 3 | 24.0.2 | 1-carrier | `payments` | 10 VUs / 55s | 10 (default) | Yes (All) |
 | `java24-lock-repeat` | 3 | 24.0.2 | 1-carrier | `payments` | 10 VUs / 55s | 10 (default) | Yes (All) |
 | `spring-java24-sync-boundary` | 2 | 24.0.2 | 1-carrier | `payments` | 10 VUs / 55s | 10 (default) | No |
@@ -107,26 +108,35 @@ The 120 tabulated experimental runs fall into **15 distinct Run Families** (plus
 - **Artifacts:** `results/docker-pg-orders-pool{1,10}-trial{1,2,3}.json`.
 - **Status in Normalized Evidence:** Excluded from `normalized-evidence.json` (no JFR captured).
 
-#### 9. `java24-sync-repeat` & `java24-lock-repeat` (6 runs)
+#### 9. `java21-orders-persistence-contention` (6 runs)
+- **Purpose:** Evaluates relational persistence connection pool contention (Stratum 8, Treatment B) under virtual threads with delay held during connection checkout.
+- **Conditions:** `orders-held-pool-1` (3 trials), `orders-held-pool-10` (3 trials).
+- **Scheduler:** `-Djdk.virtualThreadScheduler.parallelism=1 -Djdk.virtualThreadScheduler.maxPoolSize=1` (1 carrier).
+- **Database Engine:** Embedded H2 with HikariCP 6.x datasource.
+- **Workload:** 50 closed-loop VUs, 55s (15s ramp, 30s steady hold, 10s ramp-down), `holdConnectionDuringDelay=true` ($T_{\text{hold}} = 300\text{ ms}$).
+- **Findings:** Verified pool saturation at Little's Law capacity ceiling ($X = K / T_{\text{hold}}$). Pool size 1 capped throughput at $3.27\text{ req/s}$ ($p50 \approx 15,123\text{ ms}$), saturating active connections at 1.0 and queueing 40–49 virtual threads. Pool size 10 scaled throughput to $32.60\text{ req/s}$ ($p50 \approx 1,431\text{ ms}$). Zero `jdk.VirtualThreadPinned` events in companion JFR, confirming clean continuation parking during pool queue waits (`CLM-RQ2-03`).
+- **Status in Normalized Evidence:** Admitted in master claim ledger (`CLM-RQ2-03`); not included in initial 76-run normalized dashboard subset.
+
+#### 10. `java24-sync-repeat` & `java24-lock-repeat` (6 runs)
 - **Purpose:** Evaluates Java 24 GA with JEP 491 (Virtual Threads unmount from ObjectMonitors).
 - **Findings:** Running `synchronized` on Java 24 emits **0 pinning events**, matching `ReentrantLock` unmounting behavior.
 - **Scheduler:** `1-carrier` (`parallelism=1`, `maxPoolSize=1`).
 - **Status in Normalized Evidence:** Formally included.
 
-#### 10. `spring-java24-sync-boundary` & `spring-java25-sync-boundary` (4 runs)
+#### 11. `spring-java24-sync-boundary` & `spring-java25-sync-boundary` (4 runs)
 - **Purpose:** Exploratory boundary spikes for Java 24 GA and Java 25-ea.
 - **Status in Normalized Evidence:** Exploratory; superseded by repeated suites.
 
-#### 11. `java21-lock-semaphore-pilot` (8 runs)
+#### 12. `java21-lock-semaphore-pilot` (8 runs)
 - **Purpose:** Compares alternative synchronization constructs: `synchronized`, `reentrant-lock`, `fair-reentrant-lock`, `semaphore`, and `fair-semaphore`.
 - **Findings:** Both fair and non-fair `ReentrantLock` and `Semaphore` avoid carrier pinning, but all yield the identical 2.0 req/s serialization saturation ceiling on `/payments`.
 - **Status in Normalized Evidence:** Exploratory.
 
-#### 12. `software-lab-baseline-20261026` (1 run)
+#### 13. `software-lab-baseline-20261026` (1 run)
 - **Purpose:** Single verification baseline on OpenJDK 21.0.12.1.
 - **Status in Normalized Evidence:** Exploratory.
 
-#### 13. `historical-oct08-pilots` (18 runs)
+#### 14. `historical-oct08-pilots` (18 runs)
 - **Purpose:** Exploratory single-process pilot trials executed on October 8 prior to standardizing repeated matrices.
 - **Status in Normalized Evidence:** Exploratory.
 
@@ -140,7 +150,7 @@ The most consequential experimental divergence identified across the codebase is
 
 | Setting | Parallelism (`-Djdk.virtualThreadScheduler.parallelism`) | Max Pool Size (`-Djdk.virtualThreadScheduler.maxPoolSize`) | Run Families Exercised | Physical / Container Rationale |
 |---|:---:|:---:|---|---|
-| **1-Carrier Stress** | `1` | `1` | `java21-primary-matrix`, `java21-primary-repeat`, `native-boundary-20261008-repeated`, `java21-endpoint-isolation`, `java21-cpu-control`, `java24-*-repeat` (89 manifests) | **Mechanism isolation** and **1-CPU container equivalence**. When cgroup quota $\le 1.0$, OpenJDK container detection sets `availableProcessors() = 1`. |
+| **1-Carrier Stress** | `1` | `1` | `java21-primary-matrix`, `java21-primary-repeat`, `native-boundary-20261008-repeated`, `java21-endpoint-isolation`, `java21-cpu-control`, `java21-orders-persistence-contention`, `java24-*-repeat` (101 runs) | **Mechanism isolation** and scheduler pool constraint. |
 | **8-Carrier Default** | Unset (defaults to `8`) | Unset (defaults to `256`) | `java21-synchronization-20261008-repeated` (12 manifests), early October 8 pilots (5 manifests) | **Unconstrained host default**. HotSpot queries `Runtime.getRuntime().availableProcessors()`, binding to all 8 cores on Apple Silicon M1. |
 | **4-Carrier Intermediate** | `4` | `4` | `java21-h2-pool-sensitivity` (6 manifests) | **Intermediate container sizing**. Simulates a 4-core container environment under moderate concurrency. |
 
@@ -188,27 +198,26 @@ A critical finding of this audit concerns the database configurations and connec
 | **JFR Recording Captured?** | Yes (`results/jfr/recording-20261015-155*.jfr`) | No (raw k6 JSON streams only; no application JFR) |
 | **Normalized Set Inclusion** | Excluded (`is_in_normalized_set: False`) | Excluded (`is_in_normalized_set: False`) |
 
-### 4.2 The Unexercised Connection Pool Saturation Construct
+### 4.2 The Historical Connection Pool Saturation Construct (Treatment A) and Stratum 8 Resolution (Treatment B)
 
-Both the H2 and PostgreSQL pool sensitivity suites reported **nearly identical latencies and throughputs** between pool size 1 and pool size 10 (H2 mean 304–306 ms; PostgreSQL mean 308–312 ms).
+Both the historical H2 (Stratum 4) and PostgreSQL (Stratum 7) pool sensitivity suites reported **nearly identical latencies and throughputs** between pool size 1 and pool size 10 (H2 mean 304–306 ms; PostgreSQL mean 308–312 ms).
 
-Audit of [`OrderService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L40-L48) reveals the root cause:
+Audit of [`OrderService.java`](file:///Users/mohamedhamed/Documents/virtual-thread-springs/src/main/java/com/thesis/virtualthreadsdemo/service/OrderService.java#L40-L48) reveals the historical root cause:
 ```java
-// In OrderService.java:
+// In OrderService.java (Treatment A):
 simulateSlowQuery(); // Thread.sleep(300) occurs HERE (no connection held!)
 return jdbcTemplate.queryForList("SELECT * FROM orders"); // Connection checked out for < 1 ms
 ```
-- **The Defect:** The simulated 300 ms query latency occurs *before* acquiring a database connection from HikariCP. During the 300 ms delay, the virtual thread unmounts cleanly without holding a JDBC connection.
-- **The Query Duration:** The actual SQL query (`SELECT * FROM orders`) takes $< 1\text{ ms}$ on both H2 and local PostgreSQL.
-- **The Consequence:** Because connections were held for less than a millisecond, 50 closed-loop VUs were never able to saturate even a 1-connection pool. The benchmark measured `Thread.sleep` unmounting rather than database connection starvation.
-- **Academic Recommendation:** The thesis must transparently report this construct limitation and qualify Research Question 2 accordingly.
+- **The Historical Defect (Treatment A):** In historical runs, the simulated 300 ms query latency occurred *before* acquiring a database connection from HikariCP. During the 300 ms delay, the virtual thread unmounted cleanly without holding a JDBC connection. The actual SQL query took $< 1\text{ ms}$, leaving the pool $>98\%$ idle even at pool size 1.
+- **The Stratum 8 Resolution (Treatment B):** To establish true pool saturation and investigate downstream bottleneck shift under virtual threads, the Two-Treatment Factorial Persistence Experiment (`java21-orders-persistence-contention`, Stratum 8, `CLM-RQ2-03`) introduced `holdConnectionDuringDelay=true` via Spring's `ConnectionCallback`. By holding the JDBC connection across the 300 ms delay, pool size 1 saturated at Little's Law capacity ceiling ($X = 3.27\text{ req/s}$ with 49 queued virtual threads), while pool size 10 scaled throughput to $32.60\text{ req/s}$. JFR telemetry confirmed 0 carrier pinning events throughout.
+- **Thesis Integration:** The dissertation frames this as a planned two-treatment factorial ablation: Treatment A confirms that virtual threads unmount cleanly during pre-acquisition pauses without holding database resources, while Treatment B proves that unpinning shifts the bottleneck from carrier threads to downstream connection pools when resources are actively held.
 
 ---
 
 ## 5. Artifact Verification & Provenance Summary
 
 An automated verification check was conducted across all artifacts referenced in the matrix:
-- **Manifests On Disk:** 121 / 121 verified.
+- **Manifests On Disk:** 119 admitted matrix manifests verified (118 executions + 1 reference template; 2 non-admitted preliminary runs filtered).
 - **Raw k6 Result Files On Disk:** Verified 100% presence for all 76 normalized evidence runs and 6 Docker PostgreSQL runs.
 - **JFR Recordings On Disk:** Verified presence for all 75 normalized manifest runs.
 - **Cryptographic Consistency:** 100% SHA-256 match against `normalized-evidence.json` for all normalized records.

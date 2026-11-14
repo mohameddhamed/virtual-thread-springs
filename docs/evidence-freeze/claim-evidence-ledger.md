@@ -207,7 +207,7 @@ All 125 physical executions (+1 schema template) in the repository are strictly 
   * Forensic Report: `docs/evidence-freeze/forensic-investigations.md#L125-L140`
 * **Analysis & Verification:** Spring Boot `DataSourceProperties` binds strictly to prefix `spring.datasource`. Grep across `src/` confirmed no `@ConfigurationProperties(prefix = "demo")` bean exists.
 * **Boundaries & Limitations:** Affects local H2 runs. Does not affect Docker Compose PostgreSQL runs, which injected valid environment variables (`SPRING_DATASOURCE_*`).
-* **Thesis Destination:** Chapter 4 (Section 4.2), Chapter 6 (Section 6.2.2).
+* **Thesis Destination:** Chapter 3 (Table 3.5), Chapter 4 (Section 4.4.3, Table 4.3), Chapter 8 (Table 8.5).
 * **Admission Decision:** **Admit as Configuration Defect Qualification.**
 
 ---
@@ -381,7 +381,7 @@ All 125 physical executions (+1 schema template) in the repository are strictly 
 | `CLM-RQ2-01` | `[MEASURED]`+`[INTERPRETED]` | Stratum 3 | JNI `nanosleep` starves carrier; 0 JFR pinning events | **Admitted (Primary)** |
 | `CLM-RQ2-02` | `[MEASURED]` | Stratum 3 | Steady-state JNI CPU is ~1.0%, not 100% | **Admitted (Corrective)** |
 | `CLM-RQ2-03` | `[MEASURED]`+`[DERIVED]` | Stratum 4, 7 & 8 | Two-treatment persistence ablation: carrier unpinning verified; TP capped by pool size ($X_{\text{max}} = K / T_{\text{hold}}$) | **Admitted (Two-Treatment Empirical)** |
-| `CLM-RQ2-04` | `[MEASURED]`+`[EXT_SUPP]` | Config Audit | `demo.datasource` indentation defect; H2 defaulted | **Admitted (Defect Qual.)** |
+| `CLM-RQ2-04` | `[MEASURED]`+`[EXT_SUPP]` | Config Audit | Local H2 configuration fallback; H2 defaulted | **Admitted (Defect Qual.)** |
 | `CLM-RQ2-05` | `[MEASURED]`+`[NOT_EST]` | Stratum 7 | Docker PG k6 runs admitted; PG JFR pinning unestablished | **Admitted (Bounded k6)** |
 | `CLM-RQ2-06` | `[EXT_SUPP]`+`[MEASURED]` | Maven Audit | PostgreSQL driver 42.7.10 exceeds safe 42.6.0 threshold | **Admitted (Spec/Audit)** |
 | `CLM-RQ2-07` | `[EXT_SUPP]`+`[INTERP]` | Code / JEP 444 | ThreadLocal unbounded allocation memory bloat risk | **Admitted (Guidance)** |

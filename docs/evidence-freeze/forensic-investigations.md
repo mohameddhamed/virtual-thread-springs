@@ -248,6 +248,8 @@ Inspection of [`src/main/java/com/thesis/virtualthreadsdemo/service/OrderService
 
 #### Architectural Finding for Thesis (RQ2 & Chapter 6):
 > **Finding 1.2-C:** The `/orders` benchmark did **not** evaluate database connection pool contention or exhaustion under virtual threads. Because the simulated 300 ms latency occurred prior to connection acquisition, connection checkout duration was sub-millisecond, leaving the pool over 98% idle even at pool size 1. Claims regarding virtual thread database resilience must be explicitly qualified: the experiment demonstrates virtual thread sleep unmounting, not connection pool saturation.
+>
+> **Stratum 8 Reconciliation Note:** Finding 1.2-C documents the pre-acquisition limitation in historical runs (Treatment A: Strata 4 & 7). This construct limitation was subsequently resolved via the Two-Treatment Factorial Relational Persistence Experiment in Stratum 8 (Treatment B, `CLM-RQ2-03`), where delay is held across active database connection checkout (`holdConnectionDuringDelay=true`). Stratum 8 empirically established pool saturation at Little's Law capacity ceiling ($X = 3.27\text{ req/s}$ for Pool 1 vs. $32.60\text{ req/s}$ for Pool 10), confirming clean continuation unmounting (0 JFR pinning events) and proving downstream bottleneck migration.
 
 ---
 
@@ -289,9 +291,9 @@ Inspection of [`docker-compose.yml#L1-L30`](file:///Users/mohamedhamed/Documents
 | Thesis Chapter | Specific Revision Mandated by Stage 1.2 Forensic Audit |
 |---|---|
 | **Chapter 3 (Methodology)** | Explicitly define the unmount-failure semantic of `jdk.VirtualThreadPinned`. State that JFR does not monitor OS thread blocking during JNI system calls. Detail the whole-run vs. hold-window metric reporting policy. |
-| **Chapter 4 (Implementation)** | Disclose the `application.yml` indentation defect and explain Spring Boot's default autoconfiguration fallback for local H2. Acknowledge that Docker PostgreSQL runs were containerized without JFR hooks. |
+| **Chapter 4 (Implementation)** | Disclose the early local H2 configuration fallback to defaults, superseded by Stratum 8. Acknowledge that Docker PostgreSQL runs were containerized without JFR hooks. |
 | **Chapter 5 (Results)** | Present JNI throughput ($1.97\text{ req/s}$) alongside steady-state CPU telemetry (**~1.0%**), disproving the 100% CPU utilization assertion. Disclose that `/orders` pool 1 vs. 10 showed identical metrics due to pre-checkout sleep timing. |
-| **Chapter 6 (RQ1 & RQ2 Analysis)** | **RQ1:** Unpinning via `ReentrantLock` solves monitor pinning, but does not solve lock serialization. JNI native blocking stalls carrier threads silently without emitting pinning events.<br>**RQ2:** Database pool sizing cannot be evaluated from `/orders` data due to the pre-checkout sleep; connection pool exhaustion risks must be supported by external literature and theoretical analysis rather than the `/orders` empirical dataset. |
+| **Chapter 6 (RQ1 & RQ2 Analysis)** | **RQ1:** Unpinning via `ReentrantLock` solves monitor pinning, but does not solve lock serialization. JNI native blocking stalls carrier threads silently without emitting pinning events.<br>**RQ2:** Historical `/orders` data (Treatment A) reflected pre-acquisition sleep without pool saturation. This was empirically resolved in Stratum 8 via the Two-Treatment Factorial Persistence Experiment (Treatment B, `CLM-RQ2-03`), confirming that while virtual threads unmount cleanly without carrier pinning, throughput collapses to Little's Law pool capacity ceiling ($3.27\text{ req/s}$ at Pool 1) when database connections are actively held. |
 
 ---
 

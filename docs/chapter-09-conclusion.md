@@ -141,16 +141,22 @@ To preserve the epistemic integrity of this academic work, all conclusions prese
 
 ## 9.5 Thesis Abstracts
 
+> [!NOTE]
+> **Point-of-Use AI Disclosure (Dean's Directive 1/2026):** Generative AI assistance (Claude 3.5 Sonnet) was utilized in drafting and polishing the descriptive prose and Hungarian translation (*Kivonat*) of the thesis abstracts in Section 9.5. All technical findings, quantitative summaries, and conclusions were independently formulated and verified by the author. Full compliance details are formalized in Chapter 3 (§3.15) and the official Declaration.
+
 ### 9.5.1 Official English Abstract
 
 **Title:** Migrating Spring Boot MVC Systems to Java 21 Virtual Threads: Architecture, Risks, and Engineering Guidelines  
 **Author:** Hamed Mohamed (Neptun Code: `DG1EWF`)  
-**Supervising Academic:** Dr. Gregory Reynolds Morse  
+**Internal Faculty Supervisor:** Dr. habil. Tamás Kozsik (Associate Professor, Head of Department of Programming Languages and Compilers, ELTE)  
+**External Thesis Advisor / Research Supervisor:** Gregory Reynolds Morse (`morse@inf.elte.hu`, Lecturer and MSc in Computer Science, ELTE)  
+**Official Registration / Request Identifier:** `IK-ZVMSC_EN2_155` (Approved: 2026.10.27)  
 **Institution:** Faculty of Informatics, Eötvös Loránd University (ELTE), Budapest, Hungary  
 **Academic Degree / Track:** Master of Science (MSc) in Computer Science — Software Architecture Specialization  
-**Academic Year:** 2026/2027  
+**Final Examination Subjects:** *Project Management*, *Advanced Java programming*, *Scalable enterprise applications*  
+**Academic Term / Submission Period:** Autumn Semester 2026/2027  
 
-#### Abstract
+#### Full Master's Thesis Abstract
 This dissertation presents an empirical systems investigation into the architectural, performance, and operational implications of migrating enterprise Spring Boot Model-View-Controller (MVC) applications to Java 21 Virtual Threads (Project Loom, JEP 444). While virtual threads decouple Java threads from operating system kernel threads to eliminate web-tier thread pool exhaustion, this research investigates the *Schedulability Fallacy*: the widespread industrial misconception that user-mode thread multiplexing automatically resolves concurrency bottlenecks without regard to domain synchronization, queueing equilibrium, downstream resource constraints, or foreign-function boundaries.
 
 To evaluate these phenomena, a controlled Spring Boot 3.5.12 MVC demonstration application was developed and subjected to 125 physical benchmark executions across eight non-overlapping experimental strata (including the Two-Treatment Factorial Persistence design in Stratum 8). The experimental corpus—encompassing raw k6 JSON lines streams, Java Flight Recorder (JFR) binary event traces, and operating system telemetry—was forensically audited and cataloged; the recorded normalized comparisons were SHA-256 verified. Workloads were analyzed using a dual-window reporting standard that separates transient ramp-up artifacts from steady-state queueing equilibrium.
@@ -165,18 +171,38 @@ Based on these discoveries, this dissertation formalizes the *Three-Tier Concurr
 
 **Keywords:** Java 21, Virtual Threads, Project Loom, Spring Boot MVC, Thread Pinning, Java Flight Recorder, Amdahl's Law, Little's Law, Concurrency Engineering, Software Architecture.
 
+#### Official TDK / OTDK Structured Abstract (800–2,500 characters)
+
+> **Governing Call:** 38th National Scientific Students' Associations Conference (OTDK) Information and Communication Technology Section / ELTE IK TDK IT Science Section.  
+> **Character Count Verification:** 2,133 characters (satisfies 800–2,500 character requirement; all four sections $\ge 200$ characters).
+
+**1. Research Justification:**  
+Enterprise Java backend systems face escalating scalability demands, leading to widespread adoption of Java 21 Virtual Threads (Project Loom, JEP 444) under the belief that user-mode thread multiplexing effortlessly resolves concurrency bottlenecks. However, systems encounter the Schedulability Fallacy: decoupling threads from kernel resources does not eliminate application-level serialization, downstream connection pool limits, or carrier starvation during foreign calls. Without empirical profiling, migrations risk throughput collapse and database exhaustion.
+
+**2. Methods:**  
+To investigate these phenomena, a controlled Spring Boot 3.5.12 MVC application was instrumented and subjected to 125 benchmark executions across eight non-overlapping experimental strata, producing 504 cataloged artifacts (~966 MB) under SHA-256 verification. Workloads were driven using a closed-loop k6 harness evaluating single-carrier constraints (parallelism=1) and multi-carrier baselines. Multi-tier telemetry integrated continuous JFR event tracing, OS process accounting, and a dual-window steady-state analysis standard.
+
+**3. Student's Own Results:**  
+The author discovered that replacing synchronized with ReentrantLock eliminated all qualifying JFR pinning events (108 to 0) but yielded identical throughput (1.956 vs. 1.967 req/s), proving that carrier unpinning cannot circumvent Amdahl's serialization ceiling (mu ~ 2.0 req/s). Direct JNI blocking silently captured carrier threads in kernel wait states with low CPU (1.04%) and zero JFR events. Factorial persistence testing validated that virtual threads unmount cleanly, but throughput is strictly capped by pool size (X = K / T_hold).
+
+**4. Main Conclusions:**  
+Virtual thread adoption is not a passive configuration toggle, but a structural capacity migration. The author synthesized the Three-Tier Concurrency Taxonomy, five mandatory architectural rules, four correctness-preserving refactorings, and a migration decision tree. Key engineering mandates include enforcing perimeter bulkheads, replacing monitors before blocking operations, encapsulating native calls in bounded platform pools, and sizing connection pools against database engine capacity.
+
 ---
 
 ### 9.5.2 Magyar Nyelvű Kivonat (Official Hungarian Abstract)
 
 **Cím:** Spring Boot MVC Rendszerek Migrációja Java 21 Virtuális Szálakra: Architektúra, Kockázatok és Mérnöki Irányelvek  
 **Szerző:** Hamed Mohamed (Neptun-kód: `DG1EWF`)  
-**Témavezető:** Dr. Gregory Reynolds Morse  
+**Belső egyetemi témavezető:** Dr. habil. Kozsik Tamás (egyetemi docens, tanszékvezető, Programozási Nyelvek és Fordítóprogramok Tanszék, ELTE)  
+**Külső szakmai konzulens / Témavezető:** Gregory Reynolds Morse (`morse@inf.elte.hu`, mesteroktató és okleveles informatikus, ELTE)  
+**Hivatalos kérelem-azonosító:** `IK-ZVMSC_EN2_155` (Jóváhagyva: 2026.10.27)  
 **Intézmény:** Eötvös Loránd Tudományegyetem (ELTE), Informatikai Kar, Budapest, Magyarország  
 **Képzés / Szakirány:** Okleveles informatikus (MSc) — Szoftverarchitektúra szakirány  
-**Tanév:** 2026/2027  
+**Záróvizsga tantárgyak:** *Projektmenedzsment*, *Haladó Java programozás*, *Skálázható vállalati alkalmazások*  
+**Tanév / Félév:** 2026/2027. tanév, 1. (őszi) félév  
 
-#### Kivonat
+#### Teljes Diplomamunka Kivonat
 Jelen diplomamunka a Java 21 virtuális szálak (Project Loom, JEP 444) vállalati Spring Boot Model-View-Controller (MVC) alkalmazásokban történő bevezetésének architekturális, teljesítménybeli és üzemeltetési hatásait vizsgálja empirikus rendszerszintű megközelítéssel. Bár a virtuális szálak szétválasztják a Java szálakat az operációs rendszer kernelfelületű platformszálaitól – ezzel megszüntetve a webes konténerek szálkészlet-kimerülési korlátait –, a kutatás részletesen cáfolja az iparági *Ütemezhetőségi Tévedést* (Schedulability Fallacy). Ez a tévedés azon a hibás feltételezésen alapul, hogy a felhasználói szintű szálmultiplexelés automatikusan feloldja a párhuzamossági szűk keresztmetszeteket anélkül, hogy figyelembe venné a szinkronizációt, a sorbanállási egyensúlyt, a perzisztens adatbázis-erőforrások korlátait vagy a natív futási határokat.
 
 A jelenségek vizsgálatához egy Spring Boot 3.5.12 MVC demonstrációs alkalmazást fejlesztettünk, amelyet 125 fizikai mérésnek vetettünk alá nyolc, egymástól elkülönített kísérleti rétegben (beleértve a 8. réteg kétkezeléses faktoriális perzisztencia-vizsgálatát). A fő következtetések a megfelelően minősített, befogadott rétegekre támaszkodnak; a feltáró és konstrukciós hibával terhelt futásokat nem kezeltük egyenértékű bizonyítékként. A keletkezett adatbázis – amely nyers k6 terhelési naplókat, Java Flight Recorder (JFR) bináris eseményfájlokat és operációs rendszer telemetriát tartalmaz – teljes körű törvényszéki vizsgálaton esett át, és egy nyílt tudományos archívumban került rögzítésre; a normalizált összehasonlítások rögzített SHA-256 ellenőrzőösszegei egyeztek.
@@ -190,6 +216,23 @@ Az empirikus eredmények az alábbiakat igazolják:
 Ezen eredményekre építve a dolgozat felállítja a *Háromszintű Párhuzamossági Taxonómiát*, és egy mérvadó szoftverarchitektúrás migrációs keretrendszert biztosít, amely öt kötelező érvényű szabályt, négy helyességmegőrző refaktorálási mintát és egy determinisztikus döntési fát tartalmaz a gyakorló mérnökök számára.
 
 **Kulcsszavak:** Java 21, Virtuális Szálak, Project Loom, Spring Boot MVC, Szálrögzítés, Java Flight Recorder, Amdahl-törvény, Little-törvény, Párhuzamossági Architektúra, Szoftvermérnökség.
+
+#### Hivatalos TDK / OTDK Strukturált Kivonat (800–2500 karakter)
+
+> **Irányadó felhívás:** 38. Országos Tudományos Diákköri Konferencia (OTDK) Informatikatudományi Szekció / ELTE IK Kari TDK Konferencia.  
+> **Karakterszám-ellenőrzés:** 2189 karakter (megfelel a 800–2500 karakteres előírásnak; mind a négy szerkezeti egység $\ge 200$ karakter).
+
+**1. Kutatási indoklás:**  
+A vállalati Java rendszerek terhelésnövekedése miatt a fejlesztők széles körben vezetik be a Java 21 virtuális szálakat (Project Loom, JEP 444), bízva abban, hogy a szálmultiplexelés automatikusan felszámolja a szűk keresztmetszeteket. Ez az iparági Ütemezhetőségi Tévedés (Schedulability Fallacy) azonban elrejti, hogy a virtuális szálak nem oldják fel az alkalmazásszintű sorosítást, a kapcsolatkészlet korlátait és a natív hívások alatti hordozószál-kiéheztetést. Rendszerszintű elemzés nélkül a migrációk diagnosztikai vakfoltokhoz és teljesítményösszeomláshoz vezethetnek.
+
+**2. Módszertan:**  
+A jelenségek feltárására egy Spring Boot 3.5.12 MVC demonstrációs rendszert fejlesztettünk, amelyet 125 fizikai mérésnek vetettünk alá nyolc független kísérleti rétegben, 504 hitelesített fájlt (~966 MB) generálva SHA-256 ellenőrzés mellett. A zárt hurkú k6 terhelést egyetlen hordozószálra korlátozott (parallelism=1) és nyolcszálas környezetben vizsgáltuk. A többdimenziós telemetria folyamatos JFR eseménykövetést (jdk.VirtualThreadPinned), OS folyamatfigyelést és kétablakos tranziens/egyensúlyi kiértékelést alkalmazott.
+
+**3. A hallgató saját eredményei:**  
+A szerző önálló kutatása feltárta, hogy a synchronized kiváltása ReentrantLock primitívvel megszüntette a JFR rögzítési eseményeket (108-ról 0-ra), de az átvitel változatlan maradt (1.956 vs. 1.967 req/s), igazolva, hogy a hordozó felszabadítása nem lépi át az Amdahl-féle sorosítási plafont (mu ~ 2.0 req/s). A blokkoló JNI hívások némán lefoglalják a hordozószálat Mach várakozásban alacsony CPU (1.04%) és nulla JFR esemény mellett. A perzisztencia-kísérlet igazolta, hogy a szálak lekapcsolódnak, ám az átvitelt a készletméret köti gúzsba (X = K / T_hold).
+
+**4. Főbb következtetések:**  
+A virtuális szálak bevezetése nem egyszerű futtatókörnyezeti beállítás, hanem felelős kapacitástervezést igénylő architekturális migráció. A szerző felállította a Háromszintű Párhuzamossági Taxonómiát, öt kötelező érvényű tervezési szabályt, négy refaktorálási mintát és egy döntési fát. A legfontosabb mérnöki követelmények: a kérések explicit korlátozása (bulkheading), a blokkoló monitorok cseréje, a natív hívások elkülönített platform-szálkészletbe zárása, valamint a kapcsolatkészlet méretezése a háttérkapacitás alapján.
 
 ---
 

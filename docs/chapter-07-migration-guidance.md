@@ -4,11 +4,7 @@
 
 This chapter synthesizes the industrial motivation and problem statement of [Chapter 1: Introduction](../docs/chapter-01-introduction.md), the HotSpot runtime mechanics and literature foundations of [Chapter 2: Background and Related Work](../docs/chapter-02-background-and-related-work.md), the empirical systems methodology of [Chapter 3: Research Design and Methodology](../docs/chapter-03-research-design-and-methodology.md), the testbed and telemetry harness of [Chapter 4: Implementation and Research Infrastructure](../docs/chapter-04-implementation-and-research-infrastructure.md), the 125 benchmark executions (119 baseline runs across Strata 1–7 and 6 persistence runs in Stratum 8) of [Chapter 5: Experimental Results](../docs/chapter-05-experimental-results.md), and the queueing-theoretic derivations of [Chapter 6: Analysis and Answers to the Research Questions](../docs/chapter-06-analysis-and-answers-to-research-questions.md) into an evidence-bounded engineering migration framework. It provides software architects, principal engineers, and backend teams with actionable, correctness-preserving procedures for adopting Java 21 Virtual Threads within enterprise Spring Boot Model-View-Controller (MVC) systems.
 
-To maintain strict epistemic integrity, every guideline, refactoring pattern, and diagnostic rule in this chapter is explicitly classified into one of four evidential categories, fully traceable to the ratified [Claim-to-Evidence Ledger](../docs/evidence-freeze/claim-evidence-ledger.md):
-*   `[MEASURED]`: Grounded directly in empirical benchmark data from the 125 experimental executions conducted in this research.
-*   `[EXTERNALLY SUPPORTED]`: Derived from published OpenJDK Enhancement Proposals (JEPs), vendor defect trackers, or established queueing and systems literature.
-*   `[HEURISTIC / LITERATURE]`: Derived from established industry consensus, JVM engineering conventions, or literature benchmarks where specific micro-thresholds serve as operational heuristics.
-*   `[THEORETICAL / CONDITIONAL]`: Rooted in analytical mathematical projections, worst-case derivations, or capacity models that require application-specific calibration.
+To maintain strict epistemic integrity, every guideline, refactoring pattern, and diagnostic rule in this chapter is calibrated against the evidentiary framework established in [Chapter 3 (Section 3.13)](../docs/chapter-03-research-design-and-methodology.md#313-claim-admission-framework) and traceable to the [Claim-to-Evidence Ledger](../docs/evidence-freeze/claim-evidence-ledger.md) (`[MEASURED]`, `[EXTERNALLY SUPPORTED]`, `[HEURISTIC / LITERATURE]`, and `[THEORETICAL / CONDITIONAL]`).
 
 ### 7.1.1 Target System Characteristics
 This guidance is specifically designed for enterprise systems possessing the following architectural characteristics:
@@ -22,6 +18,9 @@ Before initiating a virtual thread migration, engineering teams must establish t
 *   **JDK Runtime Baseline:** Deployment on OpenJDK 21 LTS or later. If monitor pinning elimination is desired without code refactoring, OpenJDK 24 (with JEP 491) is required `[EXTERNALLY SUPPORTED]`. If permanent standard Scoped Values (without preview flags) are required, OpenJDK 25 LTS (with JEP 506) is required `[EXTERNALLY SUPPORTED]`.
 *   **Framework Baseline:** Spring Boot 3.2.0 or later (this study evaluated 3.5.12 in [`pom.xml`](../pom.xml)), ensuring native framework support for virtual thread dispatching via `spring.threads.virtual.enabled: true` in [`application.yml`](../src/main/resources/application.yml).
 *   **Observability Baseline:** Production or staging infrastructure equipped to capture Java Flight Recorder (JFR) event streams, JVM Flight Recorder streaming APIs, and operating system thread/process metrics.
+
+> [!NOTE]
+> **Point-of-Use AI Disclosure (Dean's Directive 1/2026):** Generative AI assistance (Claude 3.5 Sonnet) was utilized in drafting and formatting the checklist outlines and decision tree prose in this migration guide. All architectural rules, refactoring patterns, and diagnostic procedures were formulated, tested, and validated by the author based on empirical findings. Full compliance details are formalized in §3.15.
 
 ---
 
@@ -106,10 +105,15 @@ Based on the empirical findings of this research, five foundational architectura
 ### Rule 2: The Native JNI Isolation Rule ([`CLM-MIG-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L338-L344), [`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L161), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176)) `[MEASURED & INTERPRETED]`
 > **Rule 2:** *Offload foreign calls that can block for materially long or unpredictable periods to dedicated, bounded platform thread pools. Direct invocation is appropriate only after the operation's execution time and concurrency have been bounded and its implementation has been verified as non-blocking.*
 
-*   **Observability Blind Spot:** In the measured direct JNI path, where native code enters a blocking system call without calling back into Java (analyzed in [Section 6.2.1](../docs/chapter-06-analysis-and-answers-to-research-questions.md#621-risk-1-the-foreign-function-jni-silent-failure-mode-clm-rq2-01-clm-rq2-02)), the carrier thread blocks in the operating system kernel wait-queue while consuming near-zero CPU ($\sim 1\%$) and the recordings reported **zero `jdk.VirtualThreadPinned` events** ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L161), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176)) `[MEASURED]`. This is not a general claim that every native path produces zero events.
-*   **Conditional Offloading Policy:**
-    *   *Offload Required:* When foreign operations perform blocking system calls (`nanosleep`, blocking socket `read`/`write`, file I/O, or POSIX mutex acquisition) whose blocking duration or concurrent invocation volume risks carrier pool starvation.
-    *   *Direct Invocation Permitted After Verification:* For short, non-blocking native CPU operations (e.g., SIMD vectorized mathematical operations, in-memory cryptographic hashing, or zero-blocking JNI transitions like [`/native-short`](../src/main/java/com/thesis/virtualthreadsdemo/controller/NativeShortController.java)), direct invocation may be appropriate after bounding execution time and concurrency. A native call can be non-blocking yet still monopolize a carrier if it performs substantial CPU work, so "non-blocking" is not equivalent to "inexpensive."
+*   **Scope Clarification (Native Code vs. Standard Java):** Rule 2 applies **strictly to foreign native code (JNI and Panama FFM)**. It does *not* apply to standard Java blocking I/O (such as HTTP clients, Spring Data JDBC, Kafka, or `Thread.sleep()`), where direct invocation on virtual threads is the fundamental architectural paradigm. In pure Java, HotSpot unmounts virtual threads automatically during I/O blocks.
+*   **The Physical Barrier of Native Code:** HotSpot cannot freeze or unmount native C/C++ stack frames. When native code enters a blocking operating system call (e.g., POSIX `nanosleep`, blocking C socket I/O, or POSIX mutex wait), the underlying carrier OS thread is held captive in the OS kernel wait queue. In the measured direct JNI path without Java callbacks (analyzed in [Section 6.2.1](../docs/chapter-06-analysis-and-answers-to-research-questions.md#621-risk-1-the-foreign-function-jni-silent-failure-mode-clm-rq2-01-clm-rq2-02)), carrier threads consumed $\sim 1\%$ CPU while completely stalling the scheduler, yet JFR emitted **zero `jdk.VirtualThreadPinned` events** ([`CLM-RQ2-01`](../docs/evidence-freeze/claim-evidence-ledger.md#L148-L161), [`CLM-RQ2-02`](../docs/evidence-freeze/claim-evidence-ledger.md#L164-L176)) `[MEASURED]`.
+*   **Triage Matrix: Where Direct Invocation Works vs. Where Offloading is Required:**
+
+| Execution Category | Mechanism & Example | Invocation Strategy | Architectural Rationale |
+| :--- | :--- | :---: | :--- |
+| **Standard Java Blocking I/O** | `RestTemplate`, JDBC query, Kafka consumer, `ReentrantLock.lock()` | **Direct Invocation** | HotSpot unmounts virtual threads natively; carrier threads are immediately released to other tasks. |
+| **Fast In-Memory Native CPU Work** | SIMD vector math, in-memory cryptographic hashing, zstd compression, [`/native-short`](../src/main/java/com/thesis/virtualthreadsdemo/controller/NativeShortController.java) | **Direct Invocation** | Finishes in microseconds; no OS kernel blocking calls. Offloading to a pool would add unnecessary context-switching overhead. |
+| **Blocking Foreign / Native Operations** | POSIX `nanosleep()` ([`/native-sleep`](../src/main/java/com/thesis/virtualthreadsdemo/service/NativeBlockingService.java)), C database drivers (SQLite C), POSIX mutexes, hardware HSMs | **Platform Thread Offloading** (`Pattern 2`) | Cannot unmount; traps carrier thread. Offloading to a dedicated platform pool bulkheads the virtual thread carrier pool against starvation. |
 
 ---
 
@@ -227,7 +231,7 @@ public class RefactoredPaymentService {
 
 ```java
 // ==============================================================================
-// BEFORE: Dangerous direct blocking JNI call on Virtual Thread (CLM-RQ2-01)
+// BEFORE: Direct blocking JNI invocation on Virtual Thread (CLM-RQ2-01)
 // ==============================================================================
 @Service
 public class LegacyCryptoService {
@@ -235,10 +239,11 @@ public class LegacyCryptoService {
     private native byte[] decryptPayloadNative(byte[] encryptedData);
 
     public byte[] processData(byte[] input) {
-        // VULNERABILITY: Virtual thread enters blocking native code.
-        // If native library executes a blocking POSIX syscall or C mutex wait,
-        // the carrier thread may be held captive. In the measured direct JNI
-        // path without callbacks into Java, recordings reported 0 JFR pinning events.
+        // VULNERABILITY: Direct invocation enters blocking foreign native code.
+        // HotSpot cannot unmount native C stack frames. When the C function executes
+        // a blocking POSIX syscall (nanosleep, socket read, mutex wait), the underlying
+        // carrier thread is held hostage for the duration of the call.
+        // HotSpot emits ZERO jdk.VirtualThreadPinned events (silent carrier starvation).
         return decryptPayloadNative(input);
     }
 }
@@ -246,147 +251,68 @@ public class LegacyCryptoService {
 
 ```java
 // ==============================================================================
-// AFTER: Production-Hardened Architectural Isolation via Bounded Platform Thread Pool
+// AFTER: Safe Foreign Call Isolation via Bounded Platform Thread Pool
 // ==============================================================================
 @Service
 public class IsolatedCryptoService {
-    private static final Logger log = LoggerFactory.getLogger(IsolatedCryptoService.class);
-
-    static { 
-        System.loadLibrary("nativecrypto"); 
-    }
-    
+    static { System.loadLibrary("nativecrypto"); }
     private native byte[] decryptPayloadNative(byte[] encryptedData);
 
-    // PRODUCTION-HARDENED EXECUTOR: Bounded platform thread pool with explicit queue capacity
-    private final ThreadPoolExecutor nativeExecutor;
+    // Dedicated, bounded platform thread pool isolated from carrier threads
+    private final ExecutorService nativePlatformPool;
 
-    // POOL SIZING DIMENSIONING:
-    // Sizing depends heavily on native operation duration (T_hold), peak arrival rate (lambda),
-    // and downstream service/hardware limits—not just CPU core counts. Because blocking threads
-    // spend execution time off-CPU in kernel wait-queues, pool size must be tuned to absorb
-    // concurrency without exhausting native OS resources. Queue capacity must be strictly bounded.
-    public IsolatedCryptoService(
-            @Value("${native.pool.core-size:16}") int corePoolSize,
-            @Value("${native.pool.max-size:32}") int maxPoolSize,
-            @Value("${native.pool.queue-capacity:500}") int queueCapacity) {
-        
-        this.nativeExecutor = new ThreadPoolExecutor(
-            corePoolSize,
-            maxPoolSize,
-            60L, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(queueCapacity),
-            new CustomThreadFactory("native-crypto-pool"),
-            // CRITICAL ARCHITECTURAL SAFEGUARD:
-            // Never use ThreadPoolExecutor.CallerRunsPolicy when callers are Virtual Threads!
-            // In platform thread pools, CallerRunsPolicy throttles callers gracefully.
-            // But when called from a Virtual Thread, CallerRunsPolicy executes the rejected task
-            // on the virtual thread itself, forcing it into blocking native code and re-introducing
-            // the exact carrier starvation Pattern 2 was designed to eliminate!
-            // Use AbortPolicy to fail fast and shed excess load.
-            new ThreadPoolExecutor.AbortPolicy()
-        );
+    public IsolatedCryptoService(@Qualifier("nativePlatformPool") ExecutorService nativePlatformPool) {
+        this.nativePlatformPool = nativePlatformPool;
     }
 
-    public Future<byte[]> processDataAsync(byte[] input) {
-        // OFFLOAD: Shift foreign blocking execution off the virtual thread carrier pool.
-        // ExecutorService.submit returns a FutureTask whose cancel(true) requests
-        // interruption of the executing platform worker.
-        return nativeExecutor.submit(() -> decryptPayloadNative(input));
-    }
-
-    public byte[] processDataSync(byte[] input, long timeoutSeconds) throws InterruptedException {
-        Future<byte[]> future;
+    public byte[] processData(byte[] input, Duration timeout)
+            throws ExecutionException, TimeoutException, InterruptedException {
+        // OFFLOAD: Shift blocking foreign call to dedicated OS platform thread
+        Future<byte[]> future = nativePlatformPool.submit(() -> decryptPayloadNative(input));
         try {
-            future = processDataAsync(input);
-        } catch (RejectedExecutionException ex) {
-            // FAIL-FAST REJECTION: When the queue saturates, shed load without
-            // executing the native call on the submitting virtual thread.
-            log.warn("Native execution queue saturated. Shedding load immediately.");
-            throw new NativeCapacityException("Native processing pool saturated", ex);
-        }
-
-        try {
-            // Virtual thread unmounts cleanly while waiting for the platform thread Future
-            return future.get(timeoutSeconds, TimeUnit.SECONDS);
-        } catch (TimeoutException ex) {
-            // EXPLICIT CANCELLATION & INTERRUPT PROPAGATION:
-            future.cancel(true);
-            // FutureTask.cancel(true) requests interruption of the platform worker.
-            // NOTE ON NATIVE C CANCELLATION: Standard POSIX blocking system calls
-            // (nanosleep, read, poll) may ignore Java interruption unless native
-            // code handles signals or explicitly checks for cancellation.
-            log.warn("Native operation timed out after {} seconds. Cancellation requested.", timeoutSeconds);
-            throw new NativeTimeoutException("Native crypto operation timed out", ex);
-        } catch (InterruptedException ex) {
-            future.cancel(true);
-            Thread.currentThread().interrupt();
+            // UNMOUNT: Calling virtual thread parks cleanly on LockSupport while
+            // awaiting the platform worker, releasing its carrier immediately.
+            return future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException | InterruptedException ex) {
+            future.cancel(true); // Signal cooperative interruption to platform worker
             throw ex;
-        } catch (ExecutionException ex) {
-            Throwable cause = ex.getCause();
-            if (cause instanceof Error error) {
-                throw error;
-            }
-            if (cause instanceof RuntimeException runtime) {
-                throw runtime;
-            }
-            throw new NativeExecutionException("Native crypto operation failed", cause);
-        }
-    }
-
-    @PreDestroy
-    public void shutdown() {
-        log.info("Initiating graceful shutdown of nativeExecutor pool. In-flight tasks will be allowed to complete.");
-        nativeExecutor.shutdown(); // Cease accepting new submissions
-        try {
-            if (!nativeExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
-                log.warn("Grace period expired. Draining remaining queued tasks and interrupting executing threads...");
-                List<Runnable> droppedTasks = nativeExecutor.shutdownNow();
-                droppedTasks.forEach(task -> {
-                    if (task instanceof Future<?> pending) {
-                        pending.cancel(false);
-                    }
-                });
-                log.warn("Forced shutdown cancelled {} pending tasks in native queue.", droppedTasks.size());
-                if (!nativeExecutor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    log.error("Native executor still has active tasks after forced shutdown; "
-                            + "non-cooperative native calls may remain in flight.");
-                }
-            }
-        } catch (InterruptedException e) {
-            log.error("Shutdown interrupted. Forcing immediate termination...");
-            nativeExecutor.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    // Application exceptions should be translated to HTTP 503/504 by a controller
-    // adapter or @ControllerAdvice, rather than coupling this service to HTTP APIs.
-    private static final class NativeCapacityException extends RuntimeException {
-        NativeCapacityException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    private static final class NativeTimeoutException extends RuntimeException {
-        NativeTimeoutException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    private static final class NativeExecutionException extends RuntimeException {
-        NativeExecutionException(String message, Throwable cause) {
-            super(message, cause);
         }
     }
 }
 ```
 
-The executor size, queue capacity, rejection response, and shutdown grace period
-must be calibrated to native operation duration, arrival rate, downstream limits,
-and the service's overload policy. `shutdownNow()` can interrupt Java workers, but
-it cannot guarantee termination of a native call that ignores interruption; the
-application must therefore define how such in-flight work is observed and drained.
+#### Architectural Invariants and Implementation Gotchas
+
+1. **The `CallerRunsPolicy` Trap (Immediate Carrier Starvation):**
+   * *Mechanism & Hazard:* In traditional platform-thread architectures, `ThreadPoolExecutor.CallerRunsPolicy` is standard practice for graceful backpressure, forcing the submitting thread to execute rejected tasks when the queue is saturated. However, when callers are **virtual threads** (e.g., standard Spring Boot 3.x request threads), `CallerRunsPolicy` forces the calling virtual thread to execute the rejected native task synchronously.
+   * *The Failure Mode:* Because foreign native C frames cannot unmount, executing the native method on the virtual thread immediately captures its underlying `ForkJoinPool` carrier thread. Under sustained ingress, rejected requests rapidly pin every available carrier thread (`Runtime.getRuntime().availableProcessors()`), triggering JVM-wide carrier starvation and paralyzing unrelated virtual threads.
+   * *Prescribed Invariant:* Always configure `ThreadPoolExecutor.AbortPolicy` (or a custom load-shedder). The pool must fail fast with `RejectedExecutionException` (mapped to HTTP 503 / Circuit Breaker trips) to guarantee that carrier threads are never commandeered by rejected native work.
+
+2. **The POSIX Cancellation/Interruption Boundary:**
+   * *Semantic Disconnect:* When `future.get(timeout, ...)` times out, calling `future.cancel(true)` issues `Thread.interrupt()` to the executing platform worker. While standard Java blocking I/O responds to interrupts by throwing `InterruptedException` or closing channels, foreign C/C++ code executing through JNI or Panama FFM does not participate in JVM cooperative cancellation.
+   * *The Kernel Reality:* Standard POSIX blocking system calls (`nanosleep()`, blocking `read()`, `recv()`, `poll()`, POSIX mutex locks) ignore the Java thread interrupt flag entirely. Unless the native C library explicitly handles POSIX signals (`SIGUSR1`) or periodically queries JVM interruption via JNI callbacks (`(*env)->ExceptionCheck(env)`), the platform thread remains trapped in the OS kernel until the syscall completes naturally.
+   * *Prescribed Invariant:* `future.cancel(true)` releases the virtual thread continuation, but does *not* abort in-flight native C execution. The platform thread pool must be dimensioned to absorb un-abortable foreign tasks during timeout cascades without resource exhaustion.
+
+3. **Pool Dimensioning and Backpressure (`ArrayBlockingQueue`):**
+   * *Unbounded Queue Anti-Pattern:* Using an unbounded queue (such as `LinkedBlockingQueue` without capacity, as created by `Executors.newFixedThreadPool`) is fatal. Because virtual threads scale to tens of thousands with minimal memory, an unconstrained influx of native calls will accumulate without backpressure, leading to runaway heap consumption, multi-second queue latency, and catastrophic `OutOfMemoryError`.
+   * *Bounded Queue Sizing:* The platform pool must employ a strictly bounded `ArrayBlockingQueue` (e.g., 200–500 slots) paired with Little's Law dimensioning ($N = \lambda \times T_{\text{hold}}$), bounded by OS thread stack memory and downstream native hardware/driver constraints.
+
+```java
+@Configuration
+public class NativePoolConfiguration {
+    @Bean(name = "nativePlatformPool", destroyMethod = "shutdown")
+    public ExecutorService nativePlatformPool(
+            @Value("${native.pool.size:16}") int poolSize,
+            @Value("${native.pool.queue-capacity:500}") int queueCapacity) {
+        return new ThreadPoolExecutor(
+            poolSize, poolSize, 60L, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(queueCapacity),
+            new CustomizableThreadFactory("native-platform-"),
+            new ThreadPoolExecutor.AbortPolicy() // MANDATORY: Fail-fast sheds load
+        );
+    }
+}
+```
 
 ---
 
