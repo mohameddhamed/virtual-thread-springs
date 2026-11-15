@@ -1,0 +1,44 @@
+\chapter{Reproduction and Independent-Check Record}
+\label{app:reproducibility}
+
+\section[Reproduction Overview and Open-Science Package]{Reproduction Overview and\\ Open-Science Package}
+\label{sec:repro-overview}
+
+In accordance with open-science standards and ELTE Faculty of Informatics thesis requirements, the complete empirical corpus supporting this dissertation has been frozen, audited, and cataloged within the repository under \texttt{docs/evidence-freeze/}. The package encompasses 504 physical disk files totaling $965.99\text{ MB}$, including raw k6 JSON lines streams, binary Java Flight Recorder (JFR) event files, process telemetry CSV logs, and execution manifests.
+
+Table~\ref{tab:reproduction} presents the complete Reproduction and Independent-Check Manifest, providing exact values, file references, and deterministic commands to independently check all representative findings.
+
+\begin{longtable}{@{}p{0.16\textwidth}p{0.48\textwidth}p{0.26\textwidth}@{}}
+  \caption{Reproduction and independent-check manifest.}\label{tab:reproduction}\\
+  \toprule
+  \textbf{Item} & \textbf{Exact Value or Procedure} & \textbf{Expected Evidence} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Item} & \textbf{Exact Value or Procedure} & \textbf{Expected Evidence} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  Frozen Revision & Git commit hashes \texttt{1ccb617b6beecb25}\discretionary{}{}{}\texttt{0e534d758d4f0eb1ea67e2d2} and \texttt{5f9936c}; frozen directory \path{docs/evidence-freeze/}. & Commit hashes recorded in 113 JSON execution manifests. \\
+  \addlinespace
+  Environment & Hardware: Apple M1 (8 cores: 4P+4E), 8~GB RAM. OS: macOS Darwin 25.2.0 (arm64). Runtime: OpenJDK 21.0.8, OpenJDK 24.0.2, Maven 3.9, k6 v1.7.1, Spring Boot 3.5.12. & Verified in \path{run-family-matrix.csv} across 125 physical trials. \\
+  \addlinespace
+  Inputs & 504 cataloged physical disk files (~966~MB) partitioned across 8 strata, with cryptographic SHA-256 digests in \path{artifact-inventory.csv}. & 100\% checksum match verified across 368 result/JFR and 92 telemetry files. \\
+  \addlinespace
+  Automated Tests & \texttt{rtk mvn test} & 8 test suites run, 0 failures, 0 errors, BUILD SUCCESS (verifies locks, JNI, JDBC). \\
+  \addlinespace
+  Evidence Audit & \texttt{rtk python3 scripts/}\allowbreak \texttt{validate\_}\discretionary{}{}{}\texttt{normalized\_}\discretionary{}{}{}\texttt{evidence.py} & 76 normalized JSON files verified with 100\% SHA-256 integrity match. \\
+  \addlinespace
+  Metric Recalculation & \texttt{rtk python3 scripts/}\allowbreak \texttt{recalculate\_}\discretionary{}{}{}\texttt{metrics.py}\allowbreak \texttt{-{}-verify-reconciliation} & Parses 150,000+ k6 JSON lines; reconciles steady-state vs.\ whole-run delta ($0.765\%$). \\
+  \addlinespace
+  TDK Evaluation Audit & \texttt{rtk python3} \path{ELTE_IK_TDK_50_Point_Audit_Universal/}\allowbreak\path{elte-ik-tdk-50-point-audit/}\allowbreak\path{scripts/score_tdk.py} \path{docs/evidence-freeze/review-tdk-50point.json} & Evaluates 50-point criteria score based on ratified audit records. \\
+  \addlinespace
+  Central Result: Mutex & Stratum 1: \texttt{payments-synchronized} vs.\ \texttt{payments-reentrant-lock} under single carrier. & 108 pinning events reduced to 0; throughput identical at $1.956$ vs.\ $1.967\text{ req/s}$. \\
+  \addlinespace
+  Central Result: JNI & Stratum 3: \texttt{blocking-jni} (500~ms POSIX \texttt{nanosleep()}). & Throughput collapses to $1.967\text{ req/s}$; 0 JFR pinning events; process CPU $1.04\% \pm 0.12\%$. \\
+  \addlinespace
+  Central Result: Pool & Stratum 8: Two-Treatment Factorial Persistence Ablation. & Pool 1: $3.27\text{ req/s}$ ($p50 \approx 15.1\text{ s}$, 49 queued VUs); Pool 10: $32.60\text{ req/s}$ ($p50 \approx 1.43\text{ s}$). \\
+  \addlinespace
+  Known Limits & In-process single-carrier constraint (\texttt{parallelism=1}); closed-loop 10/50 VUs; $N=3$ process repetitions reported as descriptive bounds. & Multi-carrier baseline documented in Stratum 5; inferential ANOVA excluded. \\
+\end{longtable}

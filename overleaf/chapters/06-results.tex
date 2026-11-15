@@ -1,0 +1,246 @@
+\chapter{Experimental Results}
+\label{ch:results}
+
+\section{Evidence Inventory and Provenance Ledger}
+\label{sec:evidence-inventory}
+
+In accordance with empirical systems software engineering standards, this chapter documents directly measured observations, event logs, operating system telemetry streams, and descriptive distributions without speculative interpretation. All performance metrics adhere to the \textbf{Dual-Window Reporting Mandate} (\texttt{CLM-METH-02}), reporting side-by-side:
+\begin{enumerate}
+  \item \textbf{Whole-Run Metrics ($t \in [0\text{ s}, 55\text{ s}]$):} Full execution window, encompassing client ramp-up and ramp-down ($55.0\text{ s}$ denominator).
+  \item \textbf{Steady-State Hold-Window Metrics ($t \in [15\text{ s}, 45\text{ s}]$):} Filtered execution window, isolating the 30-second constant-concurrency hold stage ($30.0\text{ s}$ denominator).
+\end{enumerate}
+
+The experimental evidence analyzed comprises \textbf{504 physical disk files} totaling \textbf{$965.99\text{ MB}$ ($\approx 0.94\text{ GB}$)} under \texttt{results/}. This population represents \textbf{125 physical benchmark executions} across eight non-overlapping strata and one schema reference template. Automated cryptographic SHA-256 validation confirmed 100\% checksum agreement across all recorded comparisons.
+
+Table~\ref{tab:result-provenance} establishes the formal Result Provenance Ledger, tracing each central claim to its experimental method, raw evidence files, and frozen repository location.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Master result provenance ledger mapping claims to empirical artifacts.}
+  \label{tab:result-provenance}
+  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.23\textwidth}p{0.30\textwidth}X@{}}
+    \toprule
+    \textbf{Claim / Result} & \textbf{Method and Input} & \textbf{Raw Evidence and Metric} & \textbf{Corpus Location} \\
+    \midrule
+    Carrier Pinning Invariant (\texttt{CLM-RQ1-01}) & Closed-loop 10 VUs, \texttt{synchronized}, Java 21 & JFR \texttt{jdk.\allowbreak VirtualThreadPinned} events $\ge 20\text{ ms}$; exactly 108 events & Stratum~1, 3 trials (\texttt{20261015-}\allowbreak\texttt{142222} to \texttt{142430}) \\
+    \addlinespace
+    Mutex Unpinning (\texttt{CLM-RQ1-03}) & Closed-loop 10 VUs, \texttt{ReentrantLock}, Java 21 & JFR event stream; exactly 0 pinning events recorded & Stratum~1, 3 trials (\texttt{20261015-}\allowbreak\texttt{142534} to \texttt{142742}) \\
+    \addlinespace
+    Amdahl Throughput Invariance (\texttt{CLM-RQ1-04}) & Factorial comparison: \texttt{synchronized} vs.\ \texttt{ReentrantLock} & Steady-state throughput: $1.967$ vs.\ $1.956\text{ req/s}$ ($<0.6\%$ delta) & Stratum~1, 6 trials; Table~\ref{tab:primary-sync-matrix} \\
+    \addlinespace
+    AQS Barging Dispersion (\texttt{CLM-RQ1-05}) & $N=3$ process repetitions; trial-level variance & Median latency standard deviation: $\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$ ($>23\times$) & Stratum~1 \& Stratum~5; Table~\ref{tab:aqs-dispersion} \\
+    \addlinespace
+    JEP 491 Monitor Unpinning (\texttt{CLM-RQ1-06}) & Java 24.0.2 vs.\ Java 21 LTS \texttt{synchronized} & JFR pinning events drop from 108 to 0; throughput caps at $1.967\text{ req/s}$ & Stratum~2, 6 trials; Table~\ref{tab:jdk-evolution} \\
+    \addlinespace
+    JNI Carrier Captivity (\texttt{CLM-RQ2-01}, \texttt{CLM-RQ2-02}) & Native C POSIX \texttt{nanosleep(500ms)} downcall & Steady throughput $1.967\text{ req/s}$, 0 JFR pins, process CPU $1.04\% \pm 0.12\%$ & Stratum~3, 9 trials; Table~\ref{tab:jni-telemetry} \\
+    \addlinespace
+    Persistence Bottleneck Shift (\texttt{CLM-RQ2-03}) & Two-Treatment ablation: HikariCP pool 1 vs.\ 10 & Pool 1: $3.27\text{ req/s}$, $15.1\text{ s}$ $p50$, 49 queued VUs; Pool 10: $32.60\text{ req/s}$, $1.43\text{ s}$ $p50$, 0 pins & Stratum~8, 6 trials; Table~\ref{tab:persistence-contention} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Semantic Invariant and Correctness Verification}
+Before analyzing performance distributions, all admitted trials were verified against the semantic correctness criteria: 100.0\% of HTTP requests completed with status \texttt{200 OK} (324 requests in \texttt{payments-synchronized}, 324 in \texttt{payments-reentrant-lock}, 330 in \texttt{platform-synchronized}, 978 in \texttt{blocking-jni}, and 37,752 in \texttt{native-short}). The HTTP error rate was strictly \textbf{0.000\%} across all primary trials. All application processes terminated cleanly with an exit code of 0 upon receiving termination signals.
+
+\section{Results for RQ1: Synchronization, Pinning, and Serialization}
+\label{sec:results-rq1}
+
+Table~\ref{tab:primary-sync-matrix} reports the exact trial-level and aggregate metrics for Stratum~1 on OpenJDK 21.0.8 under single-carrier isolation (\texttt{parallelism=1}, \texttt{maxPoolSize=1}) with 10 closed-loop Virtual Users.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{Java 21 primary synchronization matrix performance (Stratum 1).}
+  \label{tab:primary-sync-matrix}
+  \begin{tabularx}{\textwidth}{@{}l X r r r r c@{}}
+    \toprule
+    \textbf{Run ID} & \textbf{Condition} & \shortstack{\textbf{Whole}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{Steady}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{$p50$}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{$p95$}\\\textbf{[$\text{ms}$]}} & \textbf{Pins} \\
+    \midrule
+    \texttt{142222} (T1) & \texttt{synchronized} & $1.964$ & $1.967$ & $4\,967.12$ & $4\,981.29$ & \textbf{108} \\
+    \texttt{142326} (T2) & \texttt{synchronized} & $1.964$ & $1.967$ & $4\,967.26$ & $4\,989.23$ & \textbf{108} \\
+    \texttt{142430} (T3) & \texttt{synchronized} & $1.964$ & $1.967$ & $4\,965.98$ & $4\,979.47$ & \textbf{108} \\
+    \textbf{\texttt{synchronized} Mean} & --- & $\mathbf{1.964}$ & $\mathbf{1.967}$ & $\mathbf{4\,966.79}$ & $\mathbf{4\,983.33}$ & $\mathbf{108.0}$ \\
+    \midrule
+    \texttt{142534} (T1) & \texttt{reentrant-lock} & $1.964$ & $1.967$ & $4\,962.92$ & $4\,974.96$ & \textbf{0} \\
+    \texttt{142638} (T2) & \texttt{reentrant-lock} & $1.964$ & $1.933$ & $4\,992.70$ & $5\,003.07$ & \textbf{0} \\
+    \texttt{142742} (T3) & \texttt{reentrant-lock} & $1.964$ & $1.967$ & $4\,990.23$ & $5\,015.33$ & \textbf{0} \\
+    \textbf{\texttt{reentrant-lock} Mean} & --- & $\mathbf{1.964}$ & $\mathbf{1.956}$ & $\mathbf{4\,981.95}$ & $\mathbf{4\,997.78}$ & $\mathbf{0.0}$ \\
+    \midrule
+    \texttt{143422} (T1) & \texttt{platform-sync} & $2.000$ & $1.967$ & $4\,928.54$ & $8\,972.52$ & \textbf{0} (N/A) \\
+    \texttt{143526} (T2) & \texttt{platform-sync} & $2.000$ & $1.967$ & $4\,922.60$ & $8\,975.80$ & \textbf{0} (N/A) \\
+    \texttt{143631} (T3) & \texttt{platform-sync} & $2.000$ & $1.967$ & $4\,937.33$ & $8\,980.64$ & \textbf{0} (N/A) \\
+    \textbf{\texttt{platform-sync} Mean} & --- & $\mathbf{2.000}$ & $\mathbf{1.967}$ & $\mathbf{4\,929.49}$ & $\mathbf{8\,976.32}$ & $\mathbf{0.0}$ \\
+    \midrule
+    \textbf{\texttt{no-lock} Mean} & Diagnostic Control & $\mathbf{12.964}$ & $\mathbf{16.489}$ & $\mathbf{506.61}$ & $\mathbf{509.32}$ & $\mathbf{0.0}$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Key RQ1 Empirical Invariants}
+\begin{enumerate}
+  \item \textbf{Monitor Pinning Invariant (\texttt{CLM-RQ1-01}):} In every synchronized trial, JFR recorded exactly \textbf{108} qualifying \texttt{jdk.VirtualThreadPinned} events, matching completed HTTP transactions 1:1.
+  \item \textbf{Suppression of Pinning via \texttt{ReentrantLock}}\\ (\texttt{CLM-RQ1-03}): Replacing \texttt{synchronized} with \texttt{ReentrantLock} reduced qualifying pinning events from 108 to strictly \textbf{0}.
+  \item \textbf{Throughput Invariance Across Mutex Implementations (\texttt{CLM-RQ1-04}):} Steady-state throughput remained identical at \textbf{$1.967\text{ req/s}$} for \texttt{synchronized} versus \textbf{$1.956\text{ req/s}$} for \texttt{reentrant-lock} (a minor delta of $0.011\text{ req/s}$ or $0.56\%$). Both match the single-server Amdahl ceiling ($\mu = 1/0.500\text{ s} = 2.0\text{ req/s}$).
+  \item \textbf{The Ramp-Up Distortion (\texttt{CLM-METH-02}):} In \texttt{platform-synchronized}, whole-run median latency was $3\,917.56\text{ ms}$, whereas steady-state hold median latency was $4\,929.49\text{ ms}$. Incorporating the uncrowded 15-second ramp-up artificially depressed median latency by \textbf{$1\,011.93\text{ ms}$ ($-25.83\%$).}
+  \item \textbf{Diagnostic Upper Bound (\texttt{no-lock}):} Eliminating mutual exclusion increased throughput from $1.967\text{ req/s}$ to \textbf{$16.489\text{ req/s}$} and reduced median latency to \textbf{$506.61\text{ ms}$}.
+\end{enumerate}
+
+\subsection[Trial-Level Dispersion and the AQS Barging Signature (CLM-RQ1-05)]{Trial-Level Dispersion and the AQS Barging Signature (\texttt{CLM-RQ1-05})}
+Table~\ref{tab:aqs-dispersion} details the trial-level dispersion metrics calculated across the $N=3$ process repetitions.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3.5pt}
+  \caption{Steady-state trial-level dispersion across $N=3$ process repetitions.}
+  \label{tab:aqs-dispersion}
+  \begin{tabularx}{\textwidth}{@{}X l r r r r r@{}}
+    \toprule
+    \textbf{Condition} & \textbf{Metric} & \shortstack{\textbf{T1}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{T2}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{T3}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{Range}\\\textbf{$\Delta$ [$\text{ms}$]}} & \shortstack{\textbf{Std Dev}\\\textbf{$\sigma$ [$\text{ms}$]}} \\
+    \midrule
+    \texttt{synchronized} (S1) & Steady $p50$ & $4\,967.12$ & $4\,967.26$ & $4\,965.98$ & $\mathbf{1.28}$ & $\mathbf{0.70}$ \\
+    \texttt{synchronized} (S1) & Steady $p95$ & $4\,981.29$ & $4\,989.23$ & $4\,979.47$ & $9.77$ & $5.19$ \\
+    \midrule
+    \texttt{reentrant-lock} (S1) & Steady $p50$ & $4\,962.92$ & $4\,992.70$ & $4\,990.23$ & $\mathbf{29.78}$ & $\mathbf{16.53}$ \\
+    \texttt{reentrant-lock} (S1) & Steady $p95$ & $4\,974.96$ & $5\,003.07$ & $5\,015.33$ & $40.37$ & $20.70$ \\
+    \midrule
+    \texttt{platform-sync} (S1) & Steady $p50$ & $4\,928.54$ & $4\,922.60$ & $4\,937.33$ & $14.73$ & $7.41$ \\
+    \texttt{no-lock} (Diagnostic, S1) & Steady $p50$ & $506.63$ & $506.69$ & $506.50$ & $0.20$ & $0.10$ \\
+    \midrule
+    \texttt{synchronized} (S5, 8-carrier) & Steady $p50$ & $4\,927.80$ & $4\,930.96$ & $4\,935.03$ & $7.24$ & $3.63$ \\
+    \texttt{reentrant-lock} (S5, 8-carrier) & Steady $p50$ & $4\,936.77$ & $4\,938.60$ & $4\,968.95$ & $32.18$ & $18.07$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Under single-carrier scheduling, \texttt{synchronized} exhibited an exceptionally narrow median latency range of $\Delta = 1.28\text{ ms}$ ($\sigma = 0.70\text{ ms}$), whereas \texttt{reentrant-lock} exhibited $\Delta = 29.78\text{ ms}$ ($\sigma = 16.53\text{ ms}$). This constitutes a \textbf{23-fold variance difference} ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$), consistent with the direct-CAS barging behavior of AQS \texttt{NonfairSync}.
+
+\subsection{Java 24 Runtime Evolution: JEP 491 Unpinning (Stratum 2)}
+Table~\ref{tab:jdk-evolution} compares the runtime performance of Java 21 LTS against early-access OpenJDK 24.0.2 under identical mutual exclusion workloads.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3.5pt}
+  \caption{Java 21 vs.\ Java 24 monitor synchronization performance (Stratum 2).}
+  \label{tab:jdk-evolution}
+  \begin{tabularx}{\textwidth}{@{}l l r r r r >{\raggedleft\arraybackslash}X@{}}
+    \toprule
+    \textbf{JDK Runtime} & \textbf{Condition} & \shortstack{\textbf{Whole}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{Steady}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{$p50$}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{$p95$}\\\textbf{[$\text{ms}$]}} & \textbf{Pins} \\
+    \midrule
+    OpenJDK 21.0.8 & \texttt{synchronized} & $1.964$ & $1.967$ & $4\,966.79$ & $4\,983.33$ & \textbf{108} (Pinned) \\
+    OpenJDK 21.0.8 & \texttt{reentrant-lock} & $1.964$ & $1.956$ & $4\,981.95$ & $4\,997.78$ & \textbf{0} (Unmounted) \\
+    OpenJDK 24.0.2 & \texttt{synchronized} & $2.000$ & $1.967$ & $4\,944.67$ & $\mathbf{9\,000.77}$ & \textbf{0} (JEP 491) \\
+    OpenJDK 24.0.2 & \texttt{reentrant-lock} & $1.982$ & $1.967$ & $4\,952.60$ & $4\,968.27$ & \textbf{0} (Unmounted) \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+On Java 24, JEP 491 completely eliminated monitor pinning events (\textbf{108 to 0}), yet steady-state throughput remained strictly constrained at \textbf{$1.967\text{ req/s}$}, confirming that unpinning does not bypass Amdahl's serialization law.
+
+\section{Results for RQ2: Architectural Migration Risks}
+\label{sec:results-rq2}
+
+\subsection{Foreign Function Interface: JNI Native Boundary Results (Stratum 3)}
+Table~\ref{tab:jni-telemetry} summarizes the results across nine repeated trials of \texttt{blocking-jni} (500~ms POSIX \texttt{nanosleep()}) on OpenJDK 21.0.8 under single-carrier scheduling.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{JNI foreign function execution telemetry (Stratum 3, $N=9$).}
+  \label{tab:jni-telemetry}
+  \begin{tabularx}{\textwidth}{@{}p{0.28\textwidth} r r c c >{\raggedright\arraybackslash}X@{}}
+    \toprule
+    \textbf{Execution Condition} & \textbf{Steady [$\text{req/s}$]} & \textbf{$p50$ [$\text{ms}$]} & \textbf{Pins} & \textbf{Avg CPU} & \textbf{Carrier OS State} \\
+    \midrule
+    \texttt{blocking-jni} (9-run Mean) & $\mathbf{1.967}$ & $\mathbf{4\,963.36}$ & $\mathbf{0}$ & $\mathbf{1.04\% \pm 0.12\%}$ & Darwin\slash Mach Kernel Wait \\
+    \texttt{native-short} (Baseline) & $1\,143.9$ & $0.78$ & $0$ & $38.2\% \pm 4.1\%$ & Active User Execution \\
+    \texttt{pure-java-sleep} (Control) & $1.967$ & $4\,956.1$ & $0$ & $1.1\% \pm 0.1\%$ & HotSpot Yield / Parked \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+The empirical findings establish that blocking POSIX system calls silently capture the carrier thread: throughput collapses to \textbf{$1.967\text{ req/s}$} with \textbf{exactly 0 JFR pinning events}, while process CPU consumption remains negligible at \textbf{$1.04\% \pm 0.12\%$} (peak steady-state $\le 8.5\%$).
+
+\subsection{Two-Treatment Factorial Persistence Ablation (Stratum 8)}
+Table~\ref{tab:persistence-contention} details the results of the Two-Treatment Factorial Persistence Ablation under 50 concurrent virtual users across HikariCP pool sizes 1 and 10.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{3.5pt}
+  \caption{Two-Treatment Factorial Persistence Ablation performance (Stratum 8).}
+  \label{tab:persistence-contention}
+  \begin{tabularx}{\textwidth}{@{}X c r r r c c c@{}}
+    \toprule
+    \textbf{Treatment} & \textbf{Pool} & \shortstack{\textbf{Whole}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{Steady}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{$p50$}\\\textbf{[$\text{ms}$]}} & \textbf{Act.} & \textbf{Pend.} & \textbf{Pins} \\
+    \midrule
+    Treatment A (Pre-Acquisition) & $K=1$ & $96.26$ & $123.10$ & $304.04$ & $0.01$ & $0$ & $0$ \\
+    Treatment A (Pre-Acquisition) & $K=10$ & $96.17$ & $123.02$ & $304.63$ & $0.01$ & $0$ & $0$ \\
+    \midrule
+    Treatment B (Connection-Held) & $K=1$ & $3.87$ & $\mathbf{3.27}$ & $\mathbf{15\,123.0}$ & $1.0$ & $\mathbf{49}$ & $\mathbf{0}$ \\
+    Treatment B (Connection-Held) & $K=10$ & $30.85$ & $\mathbf{32.60}$ & $\mathbf{1\,431.3}$ & $9.2$ & $\mathbf{40}$ & $\mathbf{0}$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Under Treatment B with Pool Size 1, throughput was strictly bounded across all trials to \textbf{$3.27\text{ req/s}$} ($N=3$, $\sigma = 0.00\text{ req/s}$), mathematically converging with Little's Law ($\mu = 1 / 0.300\text{ s} = 3.333\text{ req/s}$ within 1.9\%). Expanding pool size to 10 scaled throughput tenfold to \textbf{$32.60\text{ req/s}$} ($10.5\times$ latency reduction). In all trials, JFR recorded \textbf{0 pinning events}, validating that virtual threads unmount cleanly while queue formation shifts entirely into the connection pool.
+
+\subsection{Supporting Architectural Controls (Stratum 4)}
+Table~\ref{tab:diagnostic-controls} reports baseline metrics for Stratum~4 diagnostic controls.
+
+\begin{table}[H]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \caption{Supporting architectural diagnostic controls (Stratum 4).}
+  \label{tab:diagnostic-controls}
+  \begin{tabularx}{\textwidth}{@{}l X r r r r c@{}}
+    \toprule
+    \textbf{Endpoint} & \textbf{Thread Mode} & \textbf{Total Reqs} & \shortstack{\textbf{Steady}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{$p50$}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{$p95$}\\\textbf{[$\text{ms}$]}} & \textbf{Pins} \\
+    \midrule
+    \texttt{/products} & Virtual & $12\,502$ & $96.98$ & $2.33$ & $6.57$ & $0$ \\
+    \texttt{/products} & Platform & $12\,420$ & $96.29$ & $2.61$ & $5.88$ & $0$ \\
+    \texttt{/cpu} & Virtual & $11\,671$ & $90.54$ & $9.03$ & $13.21$ & $0$ \\
+    \texttt{/cpu} & Platform & $11\,188$ & $86.61$ & $13.79$ & $20.24$ & $0$ \\
+    \texttt{/orders} (A) & Virtual & $3\,144$ & $24.11$ & $311.35$ & $318.56$ & $0$ \\
+    \texttt{/orders} (A) & Platform & $3\,172$ & $24.44$ & $307.11$ & $311.56$ & $0$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Historical Baselines and Flawed Strata (Strata 5 and 7)}
+\label{sec:historical-flawed}
+
+In Stratum~5 (historical 8-carrier baseline on Apple M1), unconstrained execution confirmed that \texttt{synchronized} generated 110 pinning events and achieved $1.967\text{ req/s}$, while \texttt{reentrant-lock} generated 0 pinning events and achieved $1.967\text{ req/s}$. In Stratum~7 (containerized Docker PostgreSQL, 31,274 requests evaluated), executions omitted JFR flags; while HTTP latencies were stable ($p50 \approx 303.6\text{ ms}$), all claims regarding carrier unmounting on containerized PostgreSQL are declared Not Established (\texttt{CLM-RQ2-05}).
+
+\section{Negative, Null, and Ablation Findings}
+\label{sec:negative-findings}
+
+Table~\ref{tab:negative-findings} systematically records all investigated mechanisms where expected performance gains failed to materialize.
+
+\begin{table}[H]
+  \centering
+  \caption{Systematic negative, null, and ablation findings ledger.}
+  \label{tab:negative-findings}
+  \begin{tabularx}{\textwidth}{@{}p{0.25\textwidth}p{0.32\textwidth}X@{}}
+    \toprule
+    \textbf{Investigated Mechanism} & \textbf{Hypothesized Effect} & \textbf{Actual Empirical Observation} \\
+    \midrule
+    \texttt{ReentrantLock} Refactoring & Eliminating pinning increases throughput & Throughput identical at $1.96\text{ req/s}$ ($<0.5\%$ delta) due to Amdahl domain serialization. \\
+    \addlinespace
+    Java 24 JEP 491 Unpinning & JDK 24 unpinning increases throughput & Throughput identical at $1.97\text{ req/s}$; serialization persisted. \\
+    \addlinespace
+    Foreign JNI Pinning Alerts & JNI blocking emits JFR pinning events & Exactly 0 pinning events emitted across 27 trials; complete diagnostic omission. \\
+    \addlinespace
+    JNI Carrier CPU Consumption & Carrier blocked in native code burns 100\% CPU & Process CPU remained at $1.04\% \pm 0.12\%$; thread suspended in Darwin/Mach wait state. \\
+    \addlinespace
+    Database Pool Sensitivity & Constraining pool size always causes queueing & In Treatment A, pool was $>98\%$ idle ($304\text{ ms}$ latency); queueing occurs only when connections are held across blocking delays (Treatment B). \\
+    \addlinespace
+    Dynamic Carrier Compensation & HotSpot spawns extra carriers for pinned monitors & ForkJoinPool never spawned extra carriers; scheduler starved under single-carrier constraint. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

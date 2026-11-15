@@ -1,0 +1,181 @@
+\chapter{Related Work}
+\label{ch:related-work}
+
+\section{Review Scope and Source Strategy}
+\label{sec:review-scope}
+
+To establish the academic and engineering context of this research, a systematic literature review was conducted across five foundational concurrency domains:
+\begin{enumerate}
+  \item \textbf{Queueing and Scheduling Foundations:} Classical single- and multi-server queueing networks, operational conservation laws, and the historical evolution of two-level ($M:N$) user-space thread scheduling.
+  \item \textbf{Concurrency, Memory Models, and Synchronization:} Language-level intrinsic monitors, hardware lock designs, explicit lock synchronization, and the Java Memory Model (JMM).
+  \item \textbf{Empirical Benchmarking Methodology in Managed Runtimes:} Rigorous protocols for warm-up isolation, steady-state identification, non-independent error handling, and closed-loop workload modeling.
+  \item \textbf{Normative JDK Specifications and OpenJDK Architecture:} Platform specifications defining Virtual Threads, carrier thread multiplexing, continuation capture, and monitor unpinning proposals.
+  \item \textbf{Empirical Evaluations of Modern Asynchronous and Virtual-Thread Frameworks:} Contemporary benchmark studies evaluating Project Loom, Spring Boot, Quarkus, and real-world enterprise adoption post-mortems.
+\end{enumerate}
+
+The search strategy targeted peer-reviewed computer science literature published between 1961 and 2026 across IEEE Xplore, the ACM Digital Library, SpringerLink, and ScienceDirect, supplemented by normative OpenJDK Enhancement Proposals (JEPs)~\cite{JEP444,JEP491,JEP506}, Java Community Process standards (JSR-133~\cite{Manson2005}), and industrial production post-mortems~\cite{DotCMS2024}. Works were selected based on direct relevance to thread multiplexing, synchronization bottlenecks, or managed runtime benchmarking.
+
+\section{Five-Domain Concurrency Taxonomy}
+\label{sec:literature-taxonomy}
+
+Table~\ref{tab:literature-matrix} categorizes the foundational and empirical literature across the five identified domains, detailing the core focus of each source and its evidentiary boundaries relative to this dissertation.
+
+\begin{longtable}{@{}p{0.18\textwidth}p{0.20\textwidth}p{0.27\textwidth}p{0.22\textwidth}@{}}
+  \caption{Comprehensive literature taxonomy across foundational concurrency domains.}\label{tab:literature-matrix}\\
+  \toprule
+  \textbf{Domain} & \textbf{Source} & \textbf{Primary Scientific Value} & \textbf{Evidentiary Boundary} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Domain} & \textbf{Source} & \textbf{Primary Scientific Value} & \textbf{Evidentiary Boundary} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  Queueing \& Scheduling & Amdahl (1967)~\cite{Amdahl1967} & Formulates speedup ceiling governed by strictly serial fraction $(1 - P)$. & Theoretical scaling model; predates user-space thread unmounting. \\
+  \addlinespace
+  Queueing \& Scheduling & Kleinrock (1975)~\cite{Kleinrock1975} & Mathematical foundations of $M/M/1$ and $M/G/1$ queueing systems. & Theoretical queueing theory; does not evaluate JVM carrier pools. \\
+  \addlinespace
+  Queueing \& Scheduling & Little (1961, 2011)~\cite{Little1961,Little2011} & Operational queueing law ($L = \lambda W$) relating population, throughput, and latency. & Steady-state invariant; does not model internal lock contention. \\
+  \addlinespace
+  Queueing \& Scheduling & Anderson et al. (1991)~\cite{Anderson1991} & Establishes $M:N$ two-level scheduling, user unmounting, and scheduler activations. & OS kernel implementation; predates managed runtimes and JDBC pools. \\
+  \addlinespace
+  Queueing \& Scheduling & Dijkstra (1965)~\cite{Dijkstra1965} & Foundational formulation of mutual exclusion and serialized execution regions. & Algorithmic primitive; does not address carrier thread starvation. \\
+  \addlinespace
+  Queueing \& Scheduling & Hoare (1974)~\cite{Hoare1974} & Conceptual origin of structured monitors and condition wait queues. & Language design concept; does not foresee carrier pinning hazards. \\
+  \addlinespace
+  Queueing \& Scheduling & Ousterhout (1996)~\cite{Ousterhout1996} & Argued against thread synchronization and memory overhead in favor of events. & Systems debate; predates modern lightweight user-mode thread multiplexers. \\
+  \addlinespace
+  Queueing \& Scheduling & Welsh et al. (2001)~\cite{Welsh2001} & Staged Event-Driven Architecture (SEDA) decomposing systems into event queues. & Event-driven pipeline; introduces asynchronous programming complexity. \\
+  \addlinespace
+  Queueing \& Scheduling & von Behren et al. (2003)~\cite{VonBehren2003} & Showed high-concurrency servers scale using lightweight threads and compiler support. & Early user-threading rationale; predates Java~21 continuations. \\
+  \midrule
+  Concurrency Models & Lamport (1979)~\cite{Lamport1979} & Formalized sequential consistency for multiprocessor systems. & Hardware memory model; does not evaluate thread scheduling. \\
+  \addlinespace
+  Concurrency Models & Herlihy \& Shavit (2008)~\cite{Herlihy2008} & Mathematical foundations of mutual exclusion and queue locks. & Focuses on multi-core hardware; does not model carrier pools. \\
+  \addlinespace
+  Concurrency Models & Goetz et al. (2006)~\cite{Goetz2006} & Canonical reference on \texttt{java.\allowbreak util.\allowbreak concurrent} and explicit locking. & Written for 1:1 platform threads; predates Loom unmounting. \\
+  \addlinespace
+  Concurrency Models & Lea (2000)~\cite{Lea2000,Lea2000FJ} & Engineered AQS and work-stealing ForkJoinPool powering Loom scheduler. & Runtime foundation; does not evaluate full Spring MVC request lifecycles. \\
+  \addlinespace
+  Concurrency Models & Manson et al. (2005)~\cite{Manson2005} & Formulated Java Memory Model (JSR-133) happens-before consistency. & Memory visibility semantics; does not analyze throughput under load. \\
+  \addlinespace
+  Concurrency Models & Mellor-Crummey \& Scott (1991)~\cite{MellorCrummey1991} & Introduced MCS FIFO queue locks, foundation of HotSpot AQS. & Hardware algorithms; predates Java virtual thread parking. \\
+  \addlinespace
+  Concurrency Models & Bacon et al. (2001)~\cite{Bacon2001} & Optimized Java monitor acquisition via mark-word CAS fast paths (thin locks). & JVM monitor design; does not address carrier pinning in monitors. \\
+  \midrule
+  Benchmarking Method & Georges et al. (2007)~\cite{Georges2007} & Rigorous principles for warm-up, steady-state, and multi-process variance. & Evaluates JIT/GC steady-state; does not evaluate virtual thread harnesses. \\
+  \addlinespace
+  Benchmarking Method & Blackburn et al. (2006)~\cite{Blackburn2006} & DaCapo benchmark suite standardizing macro-level Java evaluation. & Macro-benchmarks predating virtual threads; no web I/O evaluation. \\
+  \addlinespace
+  Benchmarking Method & Kalibera \& Jones (2013)~\cite{Kalibera2013} & Treatment of correlated measurement errors and process repetitions. & Methodological foundation; requires independent process invocations. \\
+  \addlinespace
+  Benchmarking Method & Bulej et al. (2017)~\cite{Bulej2017} & Framework for automated performance regression detection in CI pipelines. & Regression testing; provides discipline for reproducible suites. \\
+  \addlinespace
+  Benchmarking Method & Traini et al. (2022)~\cite{Traini2022} & Dual-window standard separating warm-up ramp transients from steady state. & Methodological literature; does not evaluate Virtual Threads. \\
+  \addlinespace
+  Benchmarking Method & Schroeder et al. (2006)~\cite{Schroeder2006} & Proved closed-loop harnesses enforce self-throttling; open-loop tests capacity. & Justifies closed-loop k6 testing to isolate internal mechanisms. \\
+  \midrule
+  JDK Specifications & JEP 425 \& 436~\cite{JEP425,JEP436} & Preview releases of Virtual Threads in JDK 19 and JDK 20. & Incubation specifications; superseded by Java 21 LTS standard. \\
+  \addlinespace
+  JDK Specifications & Pressler (JEP 444, 2023)~\cite{JEP444} & Normative specification of Virtual Threads and monitor pinning in Java 21 LTS. & Platform specification; does not quantify application lock interactions. \\
+  \addlinespace
+  JDK Specifications & Pressler (JEP 491, 2024)~\cite{JEP491} & Redesigns HotSpot monitors to allow unmounting inside \texttt{synchronized}. & Platform enhancement; provides no empirical data for Spring MVC. \\
+  \addlinespace
+  JDK Specifications & JEP 506 (2025)~\cite{JEP506} & Scoped Values as immutable context sharing to replace \texttt{ThreadLocal}. & Future feature; does not resolve \texttt{ThreadLocal} in Java 21 systems. \\
+  \addlinespace
+  JDK Specifications & Lindholm et al. (JVMS 21)~\cite{JVMS21} & Normative JVM bytecode instructions, monitors, and thread states. & Specification; does not evaluate application throughput under load. \\
+  \addlinespace
+  JDK Specifications & Gosling et al. (JLS 21)~\cite{JLS21} & Normative Java language semantics, monitors, and memory model (§17). & Language specification; does not model carrier thread multiplexing. \\
+  \addlinespace
+  JDK Specifications & Oracle (2023)~\cite{OracleVTGuidance} & Official guidance and best practices for virtual thread adoption. & General guidance; provides no empirical data under carrier limits. \\
+  \midrule
+  Modern Frameworks & Beronić et al. (2021)~\cite{Beronivc2021} & Early exploratory analysis of structured concurrency in Loom prototypes. & Evaluated pre-standard Loom; does not evaluate Java 21 LTS or JFR. \\
+  \addlinespace
+  Modern Frameworks & Navarro et al. (2023)~\cite{Navarro2023} & Quarkus benchmark showing reactive core outperformed VT near saturation. & Focuses on Quarkus reactive; does not isolate locks, JDBC, or JNI. \\
+  \addlinespace
+  Modern Frameworks & Lašić et al. (2024)~\cite{Lasic2024} & Evaluated aggregate virtual thread throughput against database backends. & Evaluated gross client metrics; omitted connection-holding control, JFR unmounting verification, and JNI captivity. \\
+  \addlinespace
+  Modern Frameworks & Likus \& Krużel (2025)~\cite{Likus2025} & Evaluated I/O vs.\ CPU REST endpoints on Spring Boot with Java 21. & Relies on black-box HTTP metrics; omitted lock isolation, JFR stack traces, JNI downcalls, and warm-up filtering. \\
+  \addlinespace
+  Modern Frameworks & Charlak et al. (2026)~\cite{Charlak2026} & Comparative web server study showing reactive memory advantages. & Focuses on paradigm comparison; lacks migration refactoring guidance. \\
+  \addlinespace
+  Modern Frameworks & dotCMS Core (2024)~\cite{DotCMS2024} & Industrial rollback: reverted async cache commits due to lock pinning. & Industry post-mortem; confirms failure modes but lacks controlled benchmark data. \\
+\end{longtable}
+
+\section{Closest Prior Work and Comparative Delta Matrix}
+\label{sec:closest-work}
+
+Among contemporary empirical evaluations of Java 21 Virtual Threads, two studies represent the closest prior work to this dissertation:
+\begin{enumerate}
+  \item \textbf{Likus \& Krużel (2025)~\cite{Likus2025}:} Investigated the throughput and latency of synthetic I/O-bound (using non-blocking sleep) and CPU-bound endpoints on Spring Boot 3 using Java 21. While demonstrating high concurrency under unconstrained simulated I/O, the study treated the JVM as a black box: it measured only HTTP client-side metrics, evaluated no critical sections protected by mutual exclusion, performed no internal JVM Flight Recorder telemetry, and omitted foreign-function and persistence boundaries.
+  \item \textbf{Lašić et al. (2024)~\cite{Lasic2024}:} Evaluated virtual threads against relational database backends, observing that connection pool exhaustion caps scalability. However, their experimental design evaluated only gross aggregate client throughput without isolating connection checkout duration ($T_{\text{hold}}$), omitted mathematical verification of queueing conservation laws ($X_{\text{max}} = K / T_{\text{hold}}$), did not verify carrier unmounting via JFR traces, and omitted foreign function (JNI) boundaries entirely.
+\end{enumerate}
+
+To establish the rigorous scientific differentiation of this research, Table~\ref{tab:comparative-delta} provides a 10-point Comparative Delta Matrix contrasting this dissertation with Likus \& Krużel (2025)~\cite{Likus2025} and Lašić et al. (2024)~\cite{Lasic2024}.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Systematic Comparative Delta Matrix against closest related work.}
+  \label{tab:comparative-delta}
+  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.21\textwidth}p{0.21\textwidth}X@{}}
+    \toprule
+    \textbf{Dimension} & \textbf{Likus \& Krużel (2025)~\cite{Likus2025}} & \textbf{Lašić et al. (2024)~\cite{Lasic2024}} & \textbf{This Dissertation} \\
+    \midrule
+    Primary Framework & Spring Boot 3.x & Java 21 Server Apps & Spring Boot 3.5.12 MVC (Zulu 21.0.8) \\
+    \addlinespace
+    JVM Telemetry & None (client HTTP only) & None (client metrics only) & Continuous JFR stack traces (\path{jdk.VirtualThreadPinned}, 20~ms) \\
+    \addlinespace
+    Domain Mutex Isolation & None (pure I/O sleep) & None (uncontended queries) & Strict factorial matrix: \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock under 500~ms critical section \\
+    \addlinespace
+    Carrier Pinning Delta & Not measured & Not measured & Measured: 108 pinning events (\texttt{synchronized}) reduced to \textbf{0 events} (\texttt{ReentrantLock}) \\
+    \addlinespace
+    Amdahl Invariant Proof & Not investigated & Not investigated & Formally demonstrated: eliminating pinning yields \textbf{identical throughput} ($1.956$ vs.\ $1.967\text{ req/s}$) \\
+    \addlinespace
+    Foreign Functions (JNI) & Not evaluated & Not evaluated & Proven: blocking POSIX \texttt{nanosleep()} silently captures carrier (1.04\% CPU, 0 JFR events) \\
+    \addlinespace
+    Database Pool Model & Not evaluated & Aggregate pool throughput & Factorial ablation (Stratum 8): connection-held vs.\ unheld delay ($X_{\text{max}} = K / T_{\text{hold}}$) \\
+    \addlinespace
+    Queueing Calibration & None & Informal observations & Exact mathematical validation of Little's Law ($R = N/X - Z$) \\
+    \addlinespace
+    Steady-State Isolation & Whole-run client averages & Whole-run averages & Dual-window reporting standard ($55\text{ s}$ whole-run vs.\ $30\text{ s}$ steady-state hold) \\
+    \addlinespace
+    Migration Framework & High-level observations & General pool suggestions & 5 Mandatory Rules, 4 Production Refactorings, Master Decision Tree \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Critical Synthesis and the Research Gap}
+\label{sec:critical-synthesis}
+
+Synthesizing this literature reveals a coherent theoretical and methodological foundation:
+\begin{enumerate}
+  \item \textbf{Conservation Laws Transcend Scheduling Models:} As established by Amdahl~\cite{Amdahl1967}, Little~\cite{Little1961,Little2011}, and Kleinrock~\cite{Kleinrock1975}, user-mode thread multiplexing cannot overcome queueing bottlenecks. When an application contains a serialized critical section or interacts with a bounded downstream database pool, thread unmounting merely transfers queue accumulation across architectural tiers.
+  \item \textbf{Two-Level Scheduling and Boundary Hazards:} The historical threading debate (Ousterhout~\cite{Ousterhout1996} vs.\ Welsh et al.~\cite{Welsh2001} vs.\ von Behren et al.~\cite{VonBehren2003}) highlighted the cognitive clarity of imperative threading against event-loop scalability. Anderson et al.~\cite{Anderson1991} showed that $M:N$ threading requires kernel-user cooperative signaling. In Java 21 Virtual Threads (JEP 444~\cite{JEP444}), unmounting relies on runtime cooperation via continuations and AQS~\cite{Lea2000FJ}; however, foreign function invocations (JNI) bypass runtime cooperation, reproducing the exact carrier captivity problems identified in early operating systems research.
+  \item \textbf{Rigorous Managed-Runtime Benchmarking:} Methodologies by Georges et al.~\cite{Georges2007}, Kalibera \& Jones~\cite{Kalibera2013}, and Traini et al.~\cite{Traini2022} mandate that JVM performance evaluations must rigorously decouple transient warm-up phases from steady-state equilibrium, treat independent process executions as units of variance, and avoid unjustified inferential claims on small sample sizes.
+  \item \textbf{Transitory Nature of Java 21 Synchronization Constraints:} While explicit locks (\texttt{ReentrantLock})~\cite{Goetz2006,Herlihy2008} resolve monitor pinning in Java 21, JEP 491~\cite{JEP491} demonstrates that monitor pinning is a temporary runtime limitation destined for removal in JDK 24. Migration guidance must therefore separate transient JDK runtime behavior from permanent architectural bottlenecks.
+\end{enumerate}
+
+\subsection{The Identified Research Gap}
+Despite the breadth of prior literature, a critical \textbf{research gap} exists in the systems engineering body of knowledge:
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\emph{Prior empirical studies have failed to provide a controlled, reproducible, end-to-end Spring Boot MVC investigation that jointly isolates:}\\
+1. A Java 21 \texttt{synchronized} monitor-pinning treatment alongside an identical \texttt{ReentrantLock} refactored treatment under an unbroken business endpoint contract;\\
+2. Controlled platform thread and diagnostic baseline comparisons on the identical hardware artifact;\\
+3. Continuous, low-overhead Java Flight Recorder (JFR) stack attribution verifying the exact duration and method origin of \texttt{jdk.VirtualThreadPinned} events;\\
+4. A clear empirical decoupling of carrier thread unmounting from application-level mutual exclusion serialization (Amdahl's Law);\\
+5. An empirical deconstruction of silent carrier captivity across foreign function (JNI) boundaries, distinguishing OS kernel wait-states from active CPU utilization; and\\
+6. A two-treatment factorial ablation of relational persistence, validating the Downstream Bottleneck Shift Law under HikariCP connection holding.%
+}}
+
+\bigskip
+
+\section{Positioning of the Proposed Contribution}
+\label{sec:positioning}
+
+This dissertation closes this research gap by delivering an empirical systems investigation grounded in physical benchmark data. Rather than proposing speculative conceptual architectures or relying on black-box HTTP client metrics, this work constructs an instrumented enterprise Spring Boot 3.5.12 testbed, subjects it to 125 audited benchmark trials across 8 experimental strata, and combines low-level HotSpot C++ source inspection with JFR telemetry and OS process monitoring. The resulting contributions provide both theoretical validation of queueing conservation laws and actionable engineering guidance for practitioners migrating enterprise Java backend systems to Virtual Threads.

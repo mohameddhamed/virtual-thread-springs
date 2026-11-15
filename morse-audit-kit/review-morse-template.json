@@ -1,0 +1,205 @@
+{
+  "reviewer": "Gregory Reynolds Morse (External Advisor & Scientific Referee)",
+  "items": {
+    "N01": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.1-\u00a71.2 grounds the Schedulability Fallacy problem; docs/chapter-02-background-and-related-work.md \u00a72.12 identifies the 6-point research gap across prior literature.]"
+    },
+    "N02": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md Table 2.4 and \u00a72.12.3 (Table 2.5) document the exact quantitative and mechanistic delta from Likus & Kruzel (2025) and Lasic et al. (2024) across 10 architectural dimensions.]"
+    },
+    "N03": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.5, docs/chapter-03-research-design-and-methodology.md \u00a73.2, docs/chapter-06-analysis-and-answers-to-research-questions.md \u00a76.1-\u00a76.2, and docs/student-result-statement.md frame results as core informatics: JVM continuation freeze state machine, carrier multiplexing, and Amdahl queueing conservation.]"
+    },
+    "N04": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/student-result-statement.md provides standalone 3,800+ char Hungarian and English statements isolating student ownership across 7 areas; docs/declaration-ai-tools.md declares point-of-use AI assistance under Dean Directive 1/2026.]"
+    },
+    "N05": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-03-research-design-and-methodology.md \u00a73.8-\u00a73.12 justifies closed-loop k6 over open-loop, single-carrier mechanism isolation (parallelism=1) vs multi-carrier baselines, and dual-window steady-state filtering against whole-run averaging.]"
+    },
+    "N06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.4, docs/chapter-06-analysis-and-answers-to-research-questions.md \u00a76.1-\u00a76.3, and docs/evidence-freeze/claim-evidence-ledger.md establish supported contribution types: empirical systems study, reproducible testbed, negative unpinning throughput result, and Three-Tier Concurrency Taxonomy.]"
+    },
+    "N07": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.5 (Table 8.1) and \u00a78.6.2 explicitly bound claims: 20 ms JFR threshold, bare-metal Apple Silicon host (arm64 Darwin), small sample N=3 bounds, and closed-loop think-time equilibrium.]"
+    },
+    "N08": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.5 and docs/evidence-freeze/claim-evidence-ledger.md calibrate all findings without overclaiming: inferential p-values rejected for N=3, and exploratory strata 6/7 quarantined from primary claims.]"
+    },
+    "T01": {
+      "status": "pending",
+      "evidence": "[Author reference: Title, approved registration IK-ZVMSC_EN2_155, structured abstracts in docs/chapter-09-conclusion.md \u00a79.5, and thesis body are completely aligned on Spring Boot MVC Java 21 virtual thread architecture.]"
+    },
+    "T02": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.3 and docs/chapter-03-research-design-and-methodology.md \u00a73.3 define technically precise, answerable research questions: RQ1 (synchronization, pinning, Amdahl serialization) and RQ2 (architectural boundaries: JNI, HikariCP, ThreadLocal, APM).]"
+    },
+    "T03": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.4.4 and docs/chapter-03-research-design-and-methodology.md \u00a73.8-\u00a73.9 define scope, environment assumptions, and explicit exclusions (quarantining Strata 6 and 7).]"
+    },
+    "T04": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md \u00a72.2-\u00a72.10 and docs/chapter-03-research-design-and-methodology.md \u00a73.4 provide expert-level informatics depth: HotSpot continuationFreeze.cpp C++ analysis, AQS spinlocks, and Little/Amdahl formalisms.]"
+    },
+    "T05": {
+      "status": "pending",
+      "evidence": "[Author reference: Thesis preserves unbroken chain: Problem (\u00a71.1) -> Gap (\u00a72.12) -> Questions (\u00a71.3, \u00a73.3) -> Method (Ch 3, 4) -> Evidence (Ch 5) -> Results & Answers (Ch 6) -> Guidelines (Ch 7) -> Contributions (Ch 8, 9).]"
+    },
+    "T06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-06-analysis-and-answers-to-research-questions.md \u00a76.1-\u00a76.2 comprehensively answers all parts of RQ1 and RQ2, including the negative throughput outcome for ReentrantLock unpinning under serialization.]"
+    },
+    "T07": {
+      "status": "pending",
+      "evidence": "[Author reference: Mathematical notation (L, lambda, W, X, R, Z, D, mu), units (req/s, ms, s), and claim tags (CLM-METH-01 to CLM-METH-05) are uniform across all 10 chapters.]"
+    },
+    "T08": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-09-conclusion.md \u00a79.1-\u00a79.4 synthesizes direct answers to RQ1 and RQ2 strictly grounded in admitted empirical data without unsupported new claims.]"
+    },
+    "V01": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-03-research-design-and-methodology.md, docs/chapter-04-implementation-and-research-infrastructure.md, and scripts/recalculate_metrics.py provide full reproduction instructions and automated metric verification.]"
+    },
+    "V02": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/evidence-freeze/artifact-inventory.csv catalogs all 504 files with cryptographic SHA-256 hashes, exact runtime versions (Java 21.0.8, Spring Boot 3.5.12, k6 v1.7.1), and complete execution manifests.]"
+    },
+    "V03": {
+      "status": "pending",
+      "evidence": "[Author reference: Strata 1, 3, 4, 5, and 8 provide fair comparative controls: synchronized vs ReentrantLock vs no-lock; JNI blocking vs native-short vs Java sleep; single-carrier vs 8-carrier baseline; HikariCP pool 1 vs 10.]"
+    },
+    "V04": {
+      "status": "pending",
+      "evidence": "[Author reference: Dual-window steady-state filtering, non-parametric medians/IQRs, and Little Law derivations (R = N/X - Z) are mathematically sound and correctly implemented in scripts/recalculate_metrics.py.]"
+    },
+    "V05": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/evidence-freeze/claim-evidence-ledger.md and docs/evidence-freeze/metric-recalculations.csv trace every result to fixed raw inputs, named scripts, and verified analysis paths.]"
+    },
+    "V06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-05-experimental-results.md and docs/chapter-08-discussion.md \u00a78.5 treat uncertainty via non-parametric bounds, detail negative unpinning results, and quantify ReentrantLock vs synchronized dispersion differences (sigma = 16.53 ms vs 0.70 ms).]"
+    },
+    "V07": {
+      "status": "pending",
+      "evidence": "[Author reference: Repository contains complete executable testbed (src/, native/, pom.xml, mvn test 8/8 pass), 504 frozen artifacts, and automated verification scripts in scripts/.]"
+    },
+    "V08": {
+      "status": "pending",
+      "evidence": "[Author reference: Validation design avoids confounding: explicit discrepancy register (DISC-01 to DISC-12), exclusion of flawed runs (Strata 6/7), and claim qualifications (CLM-METH-01 to CLM-METH-05).]"
+    },
+    "L01": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md Table 2.4 and docs/chapter-10-bibliography.md cite primary scholarly literature: Amdahl (1967), Little (1961), Kleinrock (1975), Anderson et al. (1991), Hoare (1974), Dijkstra (1965), Lamport (1979).]"
+    },
+    "L02": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md \u00a72.11 covers frontier works: Likus & Kruzel (2025), Lasic et al. (2024), Navarro et al. (2023), Charlak et al. (2026), JEP 444, JEP 491, JEP 506.]"
+    },
+    "L03": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md \u00a72.11 and docs/chapter-08-discussion.md \u00a78.2 thoroughly evaluate competing reactive paradigms (Spring WebFlux) and real-world failure rollbacks (dotCMS PR #36900).]"
+    },
+    "L04": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-02-background-and-related-work.md \u00a72.11-\u00a72.12 critically synthesizes literature across 5 structured domains rather than providing disjointed summaries.]"
+    },
+    "L05": {
+      "status": "pending",
+      "evidence": "[Author reference: Point-of-use citations with BibTeX keys and DOI links are systematically embedded throughout all narrative chapters.]"
+    },
+    "L06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-10-bibliography.md contains 46 authentic, complete, verified bibliographic entries with DOIs, URLs, and consistent BibTeX formatting.]"
+    },
+    "F01": {
+      "status": "pending",
+      "evidence": "[Author reference: Cover metadata, approved registration IK-ZVMSC_EN2_155, dual-form abstracts in docs/chapter-09-conclusion.md \u00a79.5 (800-2,500 chars, 4 sections >=200 chars), standalone docs/student-result-statement.md (2,000-4,000 chars), and docs/declaration-ai-tools.md (Annex 3) are fully provided.]"
+    },
+    "F02": {
+      "status": "pending",
+      "evidence": "[Author reference: All 10 chapters and appendices maintain strict heading hierarchies, coherent numbering, and verified markdown cross-references.]"
+    },
+    "F03": {
+      "status": "pending",
+      "evidence": "[Author reference: All tables (Tables 1.1-1.3, 2.1-2.5, 3.1-3.6, 4.1-4.3, 5.1-5.8, 6.1-6.4, 7.1-7.3, 8.1) are fully labeled, captioned, and interpretable with explicit units.]"
+    },
+    "F04": {
+      "status": "pending",
+      "evidence": "[Author reference: Prose across all markdown source files is precise, grammatically controlled, professional, and free of colloquialisms.]"
+    },
+    "F05": {
+      "status": "pending",
+      "evidence": "[Author reference: Formatting, BibTeX keys, mathematical symbols, and unit representations are completely consistent across all chapters.]"
+    },
+    "F06": {
+      "status": "pending",
+      "evidence": "[Author reference: Markdown source files are polished, version-synchronized with the evidence freeze, and free of placeholders, dangling TODOs, or layout errors.]"
+    },
+    "S01": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-01-introduction.md \u00a71.1-\u00a71.2 and docs/chapter-08-discussion.md \u00a78.4 demonstrate industry-wide importance via Java 21 LTS adoption, enterprise cloud economics, and real-world rollbacks.]"
+    },
+    "S02": {
+      "status": "pending",
+      "evidence": "[Author reference: Results are substantive: resolves the Schedulability Fallacy, proves the serialization ceiling invariant, discovers the silent JNI carrier wait-state blind spot, and formulates the Downstream Bottleneck Shift Law.]"
+    },
+    "S03": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.6.2 provides an explicit Transferability Boundary Audit matrix separating concepts supported from target-system calibration requirements.]"
+    },
+    "S04": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.4.5 provides an actionable replication protocol for Java 24 GA JEP 491, and \u00a78.7 defines five prioritized future research directions.]"
+    },
+    "S05": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.4.4 realistically describes publication potential and specific track mapping for ACM/SPEC ICPE and IEEE Software.]"
+    },
+    "S06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md \u00a78.5 (Table 8.1) and docs/chapter-09-conclusion.md \u00a79.3-\u00a79.4 strictly calibrate claims against empirical limitations and authorship boundaries.]"
+    },
+    "Q01": {
+      "status": "pending",
+      "evidence": "[Author reference: End-to-end research argument is completely coherent and mutually consistent across title, abstracts, problem statement, experimental strata, empirical results, and migration rules.]"
+    },
+    "Q02": {
+      "status": "pending",
+      "evidence": "[Author reference: Strongest claims (unpinning != unserializing, silent JNI carrier capture, connection pool queue shifting) are independently verifiable via raw artifacts and scripts/recalculate_metrics.py.]"
+    },
+    "Q03": {
+      "status": "pending",
+      "evidence": "[Author reference: Student intellectual and technical ownership across all 8 strata, testbed implementation, and C++ runtime audits is documented in docs/student-result-statement.md and docs/presentation-final-thesis-consultation.md.]"
+    },
+    "Q04": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/declaration-ai-tools.md (Annex 3 of Dean Directive 1/2026), point-of-use AI disclosures in all relevant chapters, and open-source licensing comply with all ethical and regulatory standards.]"
+    },
+    "Q05": {
+      "status": "pending",
+      "evidence": "[Author reference: Identifiable, evidence-backed strengths: 125 physical trials, continuous JFR stack telemetry, dual-window analysis standard, mathematical queueing proofs, and HotSpot source auditing.]"
+    },
+    "Q06": {
+      "status": "pending",
+      "evidence": "[Author reference: docs/chapter-08-discussion.md Table 8.1 and docs/evidence-freeze/discrepancy-register.md transparently disclose and analyze all 12 methodological discrepancies and threats to validity.]"
+    },
+    "Q07": {
+      "status": "pending",
+      "evidence": "[Author reference: Dissertation corpus and open-science evidence freeze package stand completely alone for independent expert written evaluation without missing components.]"
+    },
+    "Q08": {
+      "status": "pending",
+      "evidence": "[Author reference: The written paper demonstrates elite TDK/OTDK research quality with rigorous empirical data, mathematical models, and architectural guidance, requiring no reliance on oral presentation to repair gaps.]"
+    }
+  }
+}

@@ -1,0 +1,168 @@
+\chapter{Research Design and Methodology}
+\label{ch:methodology}
+
+\section{Research Design and Mode}
+\label{sec:research-mode}
+
+This dissertation adopts an \textbf{empirical systems engineering} paradigm~\cite{Wohlin2012,Runeson2009} to evaluate the architectural, performance, and runtime consequences of migrating a Spring Boot Model-View-Controller (MVC) system to Java~21 Virtual Threads (Project Loom). Rather than treating runtime migration as a trivial configuration toggle, this research models the transition as an architectural intervention within a multi-tier concurrency and queueing network.
+
+The empirical investigation is structured around a controlled, instrumented Spring Boot MVC benchmark application (\texttt{virtual-threads-demo}). In empirical software engineering, research designs must balance internal validity (the degree to which observed outcomes are directly attributable to experimental treatments) against external validity (the generalizability of conclusions to industrial systems):
+\begin{itemize}
+  \item \textbf{Limits of Synthetic Micro-benchmarks:} Instruction-level benchmarks implemented via the Java Microbenchmark Harness (JMH) excel at isolating CPU cache and branch behavior, but completely omit framework-level interactions: HTTP socket multiplexing, servlet container request dispatching via \texttt{newVirtualThreadPerTaskExecutor()}, connection pool checkout arbitration, and request-scoped \texttt{ThreadLocal} lifecycles.
+  \item \textbf{Limits of Production Deployment Testing:} Full-scale production systems introduce severe confounding environmental variables---wide-area network jitter, database optimizer variance, multi-tenant CPU throttling, and background operating system daemons---that obscure the low-level scheduling and synchronization mechanics of the JVM.
+  \item \textbf{The Representative Testbed Strategy:} A dedicated, representative framework artifact provides an optimal balance: it preserves the authentic request lifecycle of Spring MVC, Apache Tomcat, and HikariCP while establishing strict experimental controls over carrier concurrency, workload generation, lock boundaries, and flight recorder telemetry.
+\end{itemize}
+
+\section{Question-to-Method Operationalisation}
+\label{sec:rq-operationalisation}
+
+To transition the canonical research questions (RQ1 and RQ2) into empirically verifiable hypotheses, each question is operationalized around explicit treatments, controlled baselines, dependent metrics, and decision rules. Table~\ref{tab:rq-method} details this operational mapping.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Research-question-to-method operationalisation matrix.}
+  \label{tab:rq-method}
+  \begin{tabularx}{\textwidth}{@{}lp{0.22\textwidth}p{0.18\textwidth}p{0.18\textwidth}X@{}}
+    \toprule
+    \textbf{RQ} & \textbf{Experimental Treatment} & \textbf{Controlled Baseline} & \textbf{Dependent Metrics} & \textbf{Operational Decision Rule} \\
+    \midrule
+    RQ1 & Virtual Threads + \texttt{synchronized} & Platform Threads + \texttt{synchronized} & Throughput ($X$), $p50$, $p95$, $p99$ latency, JFR pins & Carrier pinning confirmed if JFR records events $\ge 20\text{ ms}$; carrier starvation confirmed if throughput collapses under \texttt{parallelism=1}. \\
+    \addlinespace
+    RQ1 & Virtual Threads + \texttt{ReentrantLock} & Virtual Threads + \texttt{synchronized} & Throughput ($X$), latency distributions, $\sigma$ dispersion & Unpinning confirmed if JFR events $= 0$; Amdahl serialization confirmed if throughput remains identical ($1.956$ vs.\ $1.967\text{ req/s}$). \\
+    \addlinespace
+    RQ1 & AQS non-fair lock dispersion & Virtual Threads + \texttt{synchronized} & Latency standard deviation ($\sigma$) and range ($\Delta$) & AQS direct-CAS barging confirmed if \texttt{ReentrantLock} dispersion exceeds \texttt{synchronized} by $> 5\times$ ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$). \\
+    \addlinespace
+    RQ1 & Java 24 JEP 491 runtime & Java 21 LTS Virtual Threads + \texttt{synchronized} & JFR pinning count, throughput ($X$) & JEP 491 monitor unpinning confirmed if JFR pinning events drop from 108 to 0 while throughput remains bounded at $\approx 1.97\text{ req/s}$. \\
+    \addlinespace
+    RQ2 & Native JNI POSIX \texttt{nanosleep()} & Pure Java managed \texttt{Thread.sleep()} & Throughput ($X$), JFR pinning count, process \%CPU & Carrier capture confirmed if throughput drops to $1.97\text{ req/s}$; observability blind spot confirmed if JFR pinning is strictly 0 and CPU is $1.04\% \pm 0.12\%$. \\
+    \addlinespace
+    RQ2 & Persistence holding (Stratum~8) & Pre-acquisition delay (Treatment A) \& Pool 10 & Throughput ($X$), HikariCP active/pending queues & Pool saturation confirmed if Pool 1 caps throughput to $3.27\text{ req/s}$ with 49 queued VUs, while Pool 10 scales to $32.60\text{ req/s}$ with 0 JFR pins. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Materials, Data, Tools, and Provenance}
+\label{sec:materials-provenance}
+
+The experimental testbed comprises open-source software libraries, standard compilation toolchains, and dedicated bare-metal hardware:
+\begin{itemize}
+  \item \textbf{Hardware Platform:} Dedicated bare-metal Apple M1 processor (8 physical execution cores: 4 Firestorm performance cores, 4 Icestorm efficiency cores), 8~GB unified LPDDR4X memory, Darwin 25.2.0 (macOS 15.2, arm64).
+  \item \textbf{Software Stack:} Java 21 LTS (Azul Zulu 21.0.8, OpenJDK HotSpot 64-bit Server VM), early-access OpenJDK 24.0.2 (build 24+36), Spring Boot 3.5.12, embedded Apache Tomcat 10.1.52, HikariCP 6.3.3, and PostgreSQL 42.7.10 JDBC driver.
+  \item \textbf{Workload Generator:} Grafana k6 (v1.7.1)~\cite{GrafanaK6} compiled for Darwin arm64.
+  \item \textbf{Telemetry Daemons:} JDK Flight Recorder (JFR) loaded via HotSpot \path{profile.jfc}, with a BSD \texttt{ps} polling daemon sampling process CPU utilization at 1.0-second intervals.
+\end{itemize}
+
+\subsection{Repository Evidence Strata Census}
+To maintain forensic traceability and prevent conflating exploratory runs with ratified benchmarks, the complete corpus of 125 physical trials (+1 schema template) is partitioned into eight non-overlapping strata, as detailed in Table~\ref{tab:strata-census}.
+
+\begin{table}[H]
+  \centering
+  \caption{Master repository execution census across eight evidence strata.}
+  \label{tab:strata-census}
+  \begin{tabularx}{\textwidth}{@{}p{0.14\textwidth}p{0.26\textwidth}cp{0.16\textwidth}X@{}}
+    \toprule
+    \textbf{Stratum} & \textbf{Focus Description} & \textbf{Trials} & \textbf{Admitted Status} & \textbf{Epistemic Role} \\
+    \midrule
+    Stratum 1 & Java 21 Primary Synchronization Matrix & 12 & Admitted (Primary) & Mutex treatments (\texttt{synchronized}, \texttt{ReentrantLock}, no-lock) \\
+    Stratum 2 & Java 24/25 Runtime Evolution Matrix & 10 & Admitted (Supporting) & JEP 491 object monitor unpinning verification \\
+    Stratum 3 & Multi-JDK Native JNI Boundary Matrix & 27 & Admitted (Primary) & $3 \times 3 \times 3$ factorial evaluation of JNI POSIX sleep \\
+    Stratum 4 & Supporting Architectural Controls & 18 & Admitted (Supporting) & Endpoint controls: \texttt{/orders}, \texttt{/products}, \texttt{/cpu} \\
+    Stratum 5 & 8-Carrier Historical Baseline Matrix & 12 & Admitted (Baseline) & Unconstrained 8-carrier Apple M1 baseline \\
+    Stratum 6 & Exploratory Pilots \& Diagnostic Runs & 27 & Quarantined & Preliminary lock/semaphore exploratory runs \\
+    Stratum 7 & Construct-Flawed / Defective Runs & 13 & Quarantined & Pre-acquisition sleep flaws, unmanifested runs \\
+    Stratum 8 & Two-Treatment Persistence Ablation & 6 & Admitted (Primary) & HikariCP pool size 1 vs.\ 10 connection-holding ablation \\
+    Template & Run Manifest Reference Schema & 1 & Metadata Only & Canonical JSON schema specification \\
+    \midrule
+    \textbf{Total} & \textbf{Complete Repository Inventory} & \textbf{126} & \textbf{504 Artifacts} & \textbf{Cryptographically SHA-256 verified} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Workload Protocol and Closed-Loop Queueing Mechanics}
+\label{sec:workload-protocol}
+
+Benchmark load is generated using a staged closed-loop concurrency profile executed over 55.0 seconds per trial:
+\begin{enumerate}
+  \item \textbf{Stage 1 (Ramp-Up, $t \in [0\text{ s}, 15\text{ s}]$):} Concurrency scales linearly from 0 to $N$ Virtual Users (VUs), warming JIT compilation and populating thread pools.
+  \item \textbf{Stage 2 (Steady-State Hold, $t \in [15\text{ s}, 45\text{ s}]$):} Load is maintained at constant concurrency $N = 10\text{ VUs}$ (Strata 1--5) or $N = 50\text{ VUs}$ (Stratum 8) for exactly 30.0 seconds.
+  \item \textbf{Stage 3 (Ramp-Down, $t \in [45\text{ s}, 55\text{ s}]$):} Concurrency ramps down linearly from $N$ to 0.
+\end{enumerate}
+
+\subsection{Closed-Loop vs. Open-Loop Mechanics}
+In accordance with Schroeder et al.~\cite{Schroeder2006}, selecting a closed-loop workload model enforces client-side self-throttling. Each virtual user issues an HTTP request, awaits the response, executes a constant think-time delay ($Z = 100\text{ ms} = 0.100\text{ s}$), and then submits the subsequent request.
+
+By Little's Law for interactive closed-loop systems~\cite{Little1961}:
+\begin{equation}
+  \label{eq:interactive-law}
+  N = X \times (R + Z) \iff R = \frac{N}{X} - Z
+\end{equation}
+where $N$ is the active virtual user population, $X$ is throughput ($\text{req/s}$), $R$ is residence/response time ($\text{s}$), and $Z$ is think time ($\text{s}$).
+
+For a serialized critical section with duration $D = 0.500\text{ s}$, the theoretical service capacity ceiling is:
+\begin{equation}
+  \mu = \frac{1}{D} = \frac{1}{0.500\text{ s}} = 2.000\text{ req/s}
+\end{equation}
+Under $N = 10\text{ VUs}$ and $Z = 0.100\text{ s}$, the theoretical saturated cycle time is:
+\begin{equation}
+  R + Z = \frac{N}{\mu} = \frac{10}{2.000\text{ req/s}} = 5.000\text{ s} \implies R = 4.900\text{ s}
+\end{equation}
+Any experimental observation deviating from this theoretical expectation indicates either additional service overhead or queueing departure from stationary equilibrium.
+
+\section{Dual-Window Steady-State Analysis Standard}
+\label{sec:dual-window-standard}
+
+A central methodological contribution of this dissertation is the formalization of the \textbf{Dual-Window Reporting Standard} (addressing \texttt{CLM-METH-02}):
+\begin{itemize}
+  \item \textbf{Whole-Run Window ($t \in [0\text{ s}, 55\text{ s}]$):} Computes metrics across all completed requests over the entire test duration ($55.0\text{ s}$ denominator).
+  \item \textbf{Steady-State Hold Window ($t \in [15\text{ s}, 45\text{ s}]$):} Isolates requests whose completion timestamps fall strictly within the 30-second constant-load hold stage ($30.0\text{ s}$ denominator).
+\end{itemize}
+
+During the 15-second ramp-up stage, the server queue is sparsely populated, yielding transient response times between $500\text{ ms}$ and $3\,900\text{ ms}$. In ramp-sensitive workloads (such as \texttt{platform-synchronized}), aggregating over the whole run depresses median latency to $\approx 3\,920\text{ ms}$, creating a \textbf{25.8\% under-reporting distortion} relative to the true steady-state queueing equilibrium ($\approx 4\,930\text{ ms}$). Reporting both windows side-by-side guarantees complete transparency and eliminates warm-up bias~\cite{Traini2022}.
+
+\section{Telemetry Pipeline and Correctness Invariants}
+\label{sec:telemetry-correctness}
+
+The experimental infrastructure coordinates three independent telemetry layers:
+\begin{enumerate}
+  \item \textbf{Client Stream (k6):} Raw JSON lines streams recording microsecond-accurate request start timestamps, durations, and HTTP response codes.
+  \item \textbf{JVM Runtime Stream (JFR):} Continuous flight recordings capturing \texttt{jdk.VirtualThreadPinned} events. Crucially, HotSpot filters pinning events shorter than $20\text{ ms}$ (\texttt{threshold=20ms}). Thus, zero recorded events confirms the absence of pinning events $\ge 20\text{ ms}$, but does not preclude sub-20ms micro-pins (\texttt{CLM-METH-04}).
+  \item \textbf{Host Telemetry Stream (OS):} Periodic process sampling recording overall JVM CPU utilization ($\%cpu$). During JNI POSIX sleep, process CPU averages $1.04\% \pm 0.12\%$, proving that the carrier thread is suspended in a kernel wait state rather than busy-spinning (\texttt{CLM-RQ2-02}).
+\end{enumerate}
+
+Every trial admitted into the primary corpus must satisfy seven strict correctness gates: HTTP 200 status on 100\% of requests, sequential consistency in transactional endpoints, clean zero-exit process termination, driver carrier-safety verification (\texttt{pgjdbc >= 42.6.0}), cryptographic SHA-256 manifest matching, and membership in pre-registered evidence strata.
+
+\section{Validity Controls and Methodological Mitigations}
+\label{sec:validity-controls}
+
+Table~\ref{tab:validity-threats} summarizes the primary threats to validity and the concrete mitigations implemented in this research.
+
+\begin{table}[H]
+  \centering
+  \caption{Methodological threats to validity and experimental mitigations.}
+  \label{tab:validity-threats}
+  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}p{0.25\textwidth}X@{}}
+    \toprule
+    \textbf{Validity Category} & \textbf{Threat / Risk} & \textbf{Applied Mitigation and Boundary} \\
+    \midrule
+    Construct Validity & Pre-acquisition delay flaw in legacy \texttt{/orders} & Resolved via Two-Treatment Factorial Persistence Ablation (Stratum~8): Treatment A establishes unheld baseline; Treatment B holds connection across blocking sleep. \\
+    \addlinespace
+    Measurement Validity & JFR 20~ms event threshold in \texttt{profile.jfc} & Claims of "zero pinning" explicitly qualified to events $\ge 20\text{ ms}$; unmounting verified via AQS code inspection. \\
+    \addlinespace
+    Internal Validity & Single-carrier scheduler constraint (\texttt{parallelism=1}) & Applied deliberately for mechanism isolation; unconstrained multi-carrier scaling captured in Stratum~5 (8 carriers). \\
+    \addlinespace
+    Internal Validity & Client self-throttling in closed-loop load & Analyzed explicitly via Little's Law ($N = X(R + Z)$); prevents network packet loss and client timeout artifacts. \\
+    \addlinespace
+    External Validity & Apple Silicon hardware architecture (arm64) & Hardware characteristics documented in detail; conclusions bounded to JVM-internal concurrency mechanics. \\
+    \addlinespace
+    Statistical Validity & Small sample size ($N=3$ process repetitions) & Repetitions reported strictly as descriptive engineering bounds ($\sigma, \Delta$); inferential testing ($p$-values, ANOVA) excluded. \\
+    \addlinespace
+    Reproducibility & Historical glob expansion inventory discrepancy & Audited master inventory of 504 physical disk files with 100\% SHA-256 checksum agreement on recorded comparisons. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Academic Ethics and AI Disclosure}
+\label{sec:ethics-ai-methodology}
+
+In strict compliance with ELTE Faculty of Informatics Dean's Directive~1/2026~\cite{elteikAiPolicy}, generative AI assistance (Anthropic Claude 3.5 Sonnet) was utilized solely for prose polishing, structural outlining, and python script scaffolding. Zero empirical benchmark measurements, latency figures, or flight recordings were generated by artificial intelligence. All empirical findings originate from physical hardware executions and were independently verified through cryptographic hashing and mathematical recalculation.

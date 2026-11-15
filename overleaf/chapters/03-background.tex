@@ -1,0 +1,223 @@
+\chapter{Background and Foundations}
+\label{ch:background}
+
+\section{Evolution of Concurrency in the Java Virtual Machine}
+\label{sec:jvm-concurrency-evolution}
+
+The architectural history of concurrency in the Java Virtual Machine (JVM) reflects an ongoing tension between programming ergonomics, memory efficiency, and operating system resource management:
+\begin{enumerate}
+  \item \textbf{Green Threads (JDK 1.1):} Early JVM implementations multiplexed user-mode threads onto a single operating system process in user space ($N:1$ model). While lightweight, green threads could not exploit multi-core Symmetric Multiprocessing (SMP) architectures and suffered from coarse-grained scheduling: any blocking system call issued by a single green thread halted the entire JVM process.
+  \item \textbf{Native Platform Threads (JDK 1.2 to Java 20):} To harness multi-core hardware, OpenJDK HotSpot transitioned to a strict $1:1$ threading model, delegating thread management to the host operating system kernel (via POSIX \texttt{pthread}s on Linux and macOS, or Win32 threads on Windows). Each instance of \texttt{java.lang.Thread} mapped directly to an OS kernel thread. While this unlocked true hardware parallelism, it tethered Java concurrency directly to heavyweight OS kernel abstractions:
+    \begin{itemize}
+      \item Fixed call-stack virtual memory reservations (typically $1\,024\text{ KB}$ via \texttt{-Xss1m}).
+      \item Kernel-space context switching overhead ($ring~3 \leftrightarrow ring~0$ mode transitions and CPU cache invalidations).
+      \item The necessity of bounded thread pooling (e.g., Tomcat \texttt{maxThreads = 200}) to prevent memory exhaustion.
+    \end{itemize}
+  \item \textbf{The Reactive Interregnum (2010s):} As web traffic expanded, non-blocking, asynchronous reactive frameworks (e.g., Netty, Spring WebFlux, Project Reactor) emerged to multiplex thousands of concurrent connections over a small pool of event-loop threads matching CPU core counts. While highly scalable, reactive programming imposed severe cognitive friction (monadic composition via \texttt{Mono} and \texttt{Flux}), broken stack traces, and deep architectural friction when interfacing with blocking relational database drivers (JDBC).
+  \item \textbf{Project Loom and Virtual Threads (Java 21 LTS, JEP 444~\cite{JEP444}):} Project Loom resolves this dichotomy by decoupling the Java thread abstraction from the OS kernel thread, introducing lightweight, user-mode \emph{Virtual Threads} managed directly by the JVM runtime under an $M:N$ scheduling model.
+\end{enumerate}
+
+\section{Project Loom and Virtual Thread Architecture}
+\label{sec:loom-architecture}
+
+Under JEP 444~\cite{JEP444}, Virtual Threads operate as user-mode tasks scheduled by the JVM onto a bounded pool of standard OS platform threads, designated as \emph{carrier threads}.
+
+\subsection{Continuation Abstraction and Chunked Stack Management}
+At the core of Project Loom is the \texttt{jdk.internal.vm.Continuation} abstraction. A continuation represents a sequential computation that can suspend its execution voluntarily (yield) and resume later from the exact suspension point.
+
+Unlike platform threads, which allocate a fixed, contiguous OS memory stack, a virtual thread maintains its execution stack dynamically on the garbage-collected Java heap. When a virtual thread is instantiated, its initial memory footprint is small ($\approx 1\text{ KB}$). Stack frames are allocated as a linked chain of \emph{stack chunks} directly on the heap:
+\begin{itemize}
+  \item \textbf{Stack Mounting:} When scheduled to run, the JVM \emph{mounts} the virtual thread onto a carrier thread. The continuation's top execution frames are copied from the heap onto the native OS execution stack of the carrier thread.
+  \item \textbf{Stack Unmounting (Yielding):} When the virtual thread encounters a blocking operation (such as socket read/write, explicit lock acquisition, or sleep), the JVM captures and freezes the execution frames from the carrier thread's native stack back into heap-allocated stack chunks. The virtual thread \emph{unmounts}, freeing the carrier thread to execute other ready virtual threads.
+  \item \textbf{Stack Remounting:} Once the blocking operation completes (e.g., the OS signals socket readiness via \texttt{epoll} or \texttt{kqueue}), the virtual thread is unparked and submitted to the carrier pool's scheduling queue, where an available carrier thread remounts it and resumes execution.
+\end{itemize}
+
+\subsection{The Work-Stealing Carrier Scheduler}
+The default carrier scheduler for virtual threads is an instance of \path{java.util.concurrent.ForkJoinPool}, initialized with work-stealing semantics~\cite{Lea2000FJ}:
+\begin{itemize}
+  \item \textbf{Parallelism Level:} Governed by JVM property\\ \texttt{jdk.virtualThreadScheduler.parallelism}, defaulting to the available core count ($\min(\text{cores}, 256)$).
+  \item \textbf{Maximum Carrier Pool Size:} Governed by JVM property\\ \texttt{jdk.virtualThreadScheduler.maxPoolSize}, defaulting to 256.
+  \item \textbf{Carrier Identification:} Carrier threads are standard platform daemon threads named \path{ForkJoinPool-1-worker-N}.
+\end{itemize}
+
+\section{Mechanics of Monitor Pinning in Java 21}
+\label{sec:monitor-pinning-mechanics}
+
+In Java 21, the cooperative unmounting mechanism is subject to a critical runtime limitation known as \textbf{carrier pinning}. When a virtual thread is pinned, it cannot unmount from its carrier thread upon encountering a blocking operation. Consequently, the underlying OS carrier thread remains blocked, unavailable to schedule any other virtual thread.
+
+\subsection{HotSpot C++ Continuation Freeze Mechanics}
+In the OpenJDK HotSpot C++ source code (\path{src/hotspot/share/runtime/continuationFreeze.cpp})~\cite{HotSpotSource}, continuation suspension is implemented by the \texttt{freeze()} function. When a virtual thread attempts to yield, the runtime walks the call stack from the current frame to the continuation delimiter.
+
+During stack-walking, HotSpot evaluates whether the thread holds any intrinsic object monitors:
+\begin{verbatim}
+// HotSpot C++ continuationFreeze.cpp snippet
+if (thread->held_monitor_count() > 0) {
+    return freeze_pinned_monitor;
+}
+\end{verbatim}
+
+If the virtual thread has entered an intrinsic monitor via the \texttt{monitorenter} bytecode instruction (i.e., executing inside a \texttt{synchronized} method or block) and executes a blocking operation, the freeze state machine returns \texttt{freeze\_pinned\_monitor}. The JVM aborts the unmounting sequence, and the carrier thread transitions to a blocked OS state.
+
+HotSpot classifies pinning under two primary conditions:
+\begin{enumerate}
+  \item \textbf{Monitor Pinning:} Holding an intrinsic monitor (\texttt{synchronized}) during a blocking call.
+  \item \textbf{Native Frame Pinning:} Having native C/C++ stack frames on the call stack (e.g., executing inside a JNI downcall or foreign function invocation).
+\end{enumerate}
+
+\subsection{The JDK Runtime Evolution: JEP 491 in Java 24}
+To address monitor pinning, OpenJDK introduced \textbf{JEP 491} (\emph{Synchronize Virtual Threads without Pinning})~\cite{JEP491}, integrated into JDK 24. JEP 491 redesigns HotSpot's \texttt{ObjectMonitor} implementation. Instead of associating monitor acquisition with native thread structures, the runtime permits virtual threads to release the carrier thread even when blocking inside \texttt{synchronized} blocks or waiting on monitor condition variables (\texttt{Object.wait()}).
+
+However, JEP 491 explicitly does \textbf{not} eliminate all forms of carrier pinning:
+\begin{itemize}
+  \item \textbf{Native Frames Remain Pinned:} Blocking calls executed while native frames exist on the stack continue to pin the carrier thread.
+  \item \textbf{Class Initializer Execution:} Code executing inside static class initializers (\texttt{<clinit>}) remains pinned.
+  \item \textbf{Domain Serialization Remains Unchanged:} JEP 491 resolves the \emph{schedulability} bottleneck (carrier availability), but does not alter \emph{mutual exclusion}. A critical section that serializes execution continues to cap throughput to $\mu = 1/D$, as governed by Amdahl's Law~\cite{Amdahl1967}.
+\end{itemize}
+
+\section{Synchronization Primitives: Intrinsic Monitors vs. Explicit Locks}
+\label{sec:sync-primitives}
+
+In Java, mutual exclusion can be achieved through two distinct mechanisms with contrasting runtime implementations:
+
+\subsection{Language-Level Intrinsic Monitors (\texttt{synchronized})}
+Intrinsic monitors are built directly into the Java language and bytecode specification~\cite{JLS21,JVMS21}. Every Java object possesses an intrinsic monitor represented in the object's mark word. In HotSpot, monitor acquisition uses biased locking (historically) and thin locks optimized via atomic compare-and-swap (CAS) operations~\cite{Bacon2001}. When contention occurs, the thin lock is inflated into a heavyweight C++ \texttt{ObjectMonitor} containing OS-level mutexes and wait queues. In Java 21, because the inflated \texttt{ObjectMonitor} maintains direct pointers to the calling OS thread, virtual threads cannot yield while holding it.
+
+\subsection{Explicit Locks and the AbstractQueuedSynchronizer (AQS)}
+The \texttt{java.util.concurrent.locks} framework, engineered by Doug Lea~\cite{Lea2000}, implements synchronization in user space via the \texttt{AbstractQueuedSynchronizer} (AQS)~\cite{Lea2000FJ}, which is derived from the MCS queue lock algorithm~\cite{MellorCrummey1991}.
+
+In \texttt{ReentrantLock}, thread parking and unparking are managed through \path{LockSupport.park()} and \path{LockSupport.unpark()}. When a virtual thread encounters contention on a \texttt{ReentrantLock}:
+\begin{enumerate}
+  \item The virtual thread enqueues an AQS node representing its wait state.
+  \item \texttt{LockSupport.park()} invokes the JVM continuation yield hook.
+  \item The virtual thread unmounts cleanly from its carrier thread, avoiding monitor pinning entirely.
+\end{enumerate}
+
+\subsection{The NonfairSync Barging Anomaly}
+By default, \texttt{ReentrantLock} uses a non-fair synchronization policy (\texttt{NonfairSync}). Unlike fair locks, which strictly respect FIFO queue ordering, \texttt{NonfairSync} allows newly arriving threads to execute a direct CAS acquisition on the lock state before inspecting the AQS wait queue. This "barging" behavior maximizes raw throughput by avoiding thread unpark overhead. However, under high virtual thread concurrency, barging induces substantial variance in wait times, producing elevated tail-latency dispersion ($\sigma$) compared to intrinsic monitors.
+
+\section{Persistence Concurrency: JDBC and Connection Pools}
+\label{sec:persistence-concurrency}
+
+Enterprise Spring Boot MVC applications typically interact with relational databases through the Java Database Connectivity (JDBC) API. Standard JDBC drivers (e.g., PostgreSQL JDBC, MySQL Connector/J) execute synchronous, blocking network I/O over standard TCP sockets.
+
+\subsection{HikariCP Connection Pool Mechanics}
+Because creating physical database connections is computationally expensive (involving TCP handshakes, TLS negotiation, and database backend process spawning), enterprise applications maintain bounded connection pools via HikariCP~\cite{HikariCPReference}.
+
+HikariCP regulates access to a fixed pool of $K$ database connections using a specialized concurrent data structure (\texttt{FastList} and \texttt{ConcurrentBag}). When an incoming request executes a database query:
+\begin{enumerate}
+  \item The thread requests a connection via \texttt{DataSource.getConnection()}.
+  \item If an idle connection is available, it is leased immediately.
+  \item If all $K$ connections are active, the calling thread blocks on a synchronous handoff queue (\texttt{SynchronousQueue}) until a connection is returned or a timeout (\texttt{connectionTimeout}, default $30\text{ s}$) expires.
+\end{enumerate}
+
+\subsection{The Downstream Bottleneck Shift Law}
+When virtual threads execute JDBC queries, standard socket blocking within the JDBC driver unmounts cleanly from carrier threads (provided the driver does not use \texttt{synchronized} blocks). However, virtual threads cannot expand downstream database capacity.
+
+If an application holds a leased database connection across a blocking operation of duration $T_{\text{hold}}$, the maximum theoretical system throughput $X_{\text{max}}$ is strictly constrained by the connection pool size $K$ and Little's Law~\cite{Little1961}:
+\begin{equation}
+  \label{eq:pool-capacity}
+  X_{\text{max}} = \frac{K}{T_{\text{hold}}}
+\end{equation}
+Multiplexing 10,000 virtual threads onto the application tier cannot exceed this ceiling; instead, concurrent requests accumulate in the HikariCP checkout queue, shifting the bottleneck entirely from the web container to the database pool.
+
+\section{ThreadLocal Semantics and Request Context}
+\label{sec:threadlocal-semantics}
+
+In enterprise Java, \texttt{java.lang.ThreadLocal} variables are ubiquitous for propagating request-scoped context (e.g., security tokens, transaction contexts, distributed trace IDs).
+
+Under the 1:1 platform thread paradigm, the number of live platform threads was bounded by container configuration (e.g., 200 threads). Storing context in \texttt{ThreadLocal} incurred a predictable, bounded memory overhead:
+\begin{equation}
+  M_{\text{context}} = N_{\text{threads}} \times S_{\text{entry}}
+\end{equation}
+
+Under Virtual Threads, where an application can instantiate $100\,000$ concurrent threads simultaneously, retaining large objects in \texttt{ThreadLocal} variables without immediate, deterministic cleanup creates severe memory retention hazards:
+\begin{equation}
+  M_{\text{context}} = 100\,000 \times S_{\text{entry}}
+\end{equation}
+If $S_{\text{entry}} = 50\text{ KB}$, memory consumption scales to $5\text{ GB}$, inducing garbage collection pressure and OutOfMemoryError exceptions. Furthermore, thread-local caching anti-patterns (such as pooling reusable buffers in \texttt{ThreadLocal}) fail catastrophically because virtual threads are ephemeral and never reused.
+
+\section[Foreign Function Boundary: JNI and Native Execution]{Foreign Function Boundary:\\ JNI and Native Execution}
+\label{sec:jni-boundary}
+
+When Java applications interface with native platform libraries (C/C++) via the Java Native Interface (JNI) or Project Panama Foreign Function \& Memory (FFM) API (JEP 454~\cite{JEP454}), execution crosses from the managed JVM runtime into unmanaged OS native space.
+
+\subsection{Carrier Captivity in Native Downcalls}
+When a virtual thread executes a JNI native method, HotSpot transitions the thread's execution state from \texttt{\_thread\_in\_Java} to \texttt{\_thread\_in\_native}. In this state:
+\begin{itemize}
+  \item Native C code executes directly on the OS platform thread acting as the virtual thread's carrier.
+  \item If the native code executes a blocking system call (e.g., POSIX \texttt{nanosleep()}, synchronous file I/O, or blocking socket read), the OS kernel suspends the underlying platform thread.
+  \item Because native code executes outside JVM bytecode interpretation, HotSpot continuation yield hooks are completely bypassed. The virtual thread \textbf{cannot unmount}.
+  \item The carrier thread remains captured for the entire duration of the native blocking call, starving the virtual thread scheduler.
+\end{itemize}
+
+\subsection{The Observability Vacuum}
+Because JNI carrier capture bypasses the HotSpot continuation freeze state machine, HotSpot's diagnostic instrumentation is never triggered. Specifically:
+\begin{itemize}
+  \item HotSpot generates \textbf{zero} \texttt{jdk.VirtualThreadPinned} events.
+  \item Thread dumps report the virtual thread in state \texttt{RUNNABLE} (in native).
+  \item OS process telemetry reveals low CPU utilization if the thread is suspended in a kernel wait state (e.g., Darwin/Mach \texttt{semaphore\_wait\_trap}).
+\end{itemize}
+This combination creates a dangerous diagnostic blind spot in enterprise monitoring systems.
+
+\section{Observability, Diagnostics, and Telemetry}
+\label{sec:observability-diagnostics}
+
+Accurately observing virtual thread behavior requires coordinating three distinct diagnostic tiers:
+\begin{enumerate}
+  \item \textbf{Java Flight Recorder (JFR):} HotSpot provides continuous event tracing. The key event for detecting monitor pinning is \texttt{jdk.VirtualThreadPinned}. Crucially, this event is recorded only when the pinning duration exceeds a configurable threshold:
+    \begin{verbatim}
+    -XX:FlightRecorderOptions=stackdepth=64
+    jdk.VirtualThreadPinned#threshold=20ms
+    \end{verbatim}
+    Pinning events with hold durations shorter than the threshold ($< 20\text{ ms}$) are discarded by the runtime to minimize diagnostic overhead.
+  \item \textbf{JVM Thread Dumps:} Traditional thread dumps (\texttt{jstack}) omit virtual threads by default due to the high overhead of formatting hundreds of thousands of threads. Virtual thread dumps require specialized tooling (such as \texttt{jcmd <pid> Thread.dump\_to\_file -format=json}).
+  \item \textbf{Operating System Process Telemetry:} Low-level OS telemetry (e.g., \texttt{ps}, \texttt{top}) captures physical CPU utilization and thread state transitions in the OS kernel scheduler.
+\end{enumerate}
+
+\section{Performance Foundations and Causal Queueing Models}
+\label{sec:queueing-foundations}
+
+Evaluating concurrency performance requires grounding observations in operational queueing theory:
+
+\subsection{Little's Law and Closed-Loop Systems}
+Little's Law~\cite{Little1961} establishes that under stationary equilibrium, the average number of requests in a queueing system ($L$) equals the arrival rate ($\lambda$) multiplied by average residence time ($W$):
+\begin{equation}
+  \label{eq:littles-law}
+  L = \lambda W
+\end{equation}
+
+In a \textbf{closed-loop} system (such as Grafana k6 with fixed Virtual Users $N$ and constant client think time $Z$):
+\begin{equation}
+  \label{eq:closed-loop}
+  N = X (R + Z)
+\end{equation}
+where:
+\begin{itemize}
+  \item $N$ is the constant number of concurrent users (closed-loop population).
+  \item $X$ is the achieved throughput ($\text{req/s}$).
+  \item $R$ is the client-observed response time / residence time ($\text{s}$).
+  \item $Z$ is the client think time between consecutive requests ($\text{s}$).
+\end{itemize}
+
+Rearranging Equation~\ref{eq:closed-loop} yields the theoretical response time:
+\begin{equation}
+  \label{eq:response-time}
+  R = \frac{N}{X} - Z
+\end{equation}
+
+When throughput $X$ plateaus at a system bottleneck, increasing the user population $N$ linearly inflates response time $R$.
+
+\subsection{Amdahl's Law and Single-Server Serialization}
+Amdahl's Law~\cite{Amdahl1967} defines the maximum speedup $S$ attainable by parallelizing a workload with a strictly serial fraction $s$:
+\begin{equation}
+  \label{eq:amdahls-law}
+  S(N) = \frac{1}{s + \frac{1 - s}{N}}
+\end{equation}
+As concurrency $N \to \infty$, the maximum speedup asymptotically approaches $1/s$.
+
+When an application contains a critical section protected by mutual exclusion with service duration $D$:
+\begin{equation}
+  \label{eq:serialization-ceiling}
+  \mu = \frac{1}{D}
+\end{equation}
+The system's maximum service capacity is fundamentally constrained to $\mu\text{ req/s}$. In this regime, unmounting virtual threads or expanding carrier pools cannot exceed $\mu$; mutual exclusion enforces strict sequential processing through the critical section.

@@ -1,0 +1,108 @@
+\documentclass{elteikthesis}
+
+% Overleaf: keep this file named main.tex and select pdfLaTeX.
+% Local build: make  (or: latexmk -pdf main.tex)
+\input{config}
+\input{template-guidance}
+
+\begin{document}
+\documentlang{english}
+
+\hypersetup{pageanchor=false}
+\maketitle
+\pagenumbering{gobble}
+
+% Export the approved MSc topic-registration form to this exact filename.
+\IfFileExists{approved-topic-registration.pdf}{%
+  \includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{approved-topic-registration.pdf}
+}{%
+  \MissingArtifactPage{Approved MSc Thesis Topic Registration Form}{%
+    Export the approved form as \texttt{approved-topic-registration.pdf} and upload it
+    beside \texttt{main.tex}. Verify programme, specialisation, title, supervisor,
+    contribution, and dates against the final thesis.}
+}
+
+\ifshowtemplateguidance
+  \include{chapters/00-authoring-control}
+\fi
+
+\cleardoublepage
+\chapter*{Abstract}
+This dissertation presents an empirical systems investigation into the architectural, performance, and operational implications of migrating enterprise Spring Boot Model-View-Controller (MVC) applications to Java 21 Virtual Threads (Project Loom, JEP 444). While virtual threads decouple Java threads from operating system kernel threads to eliminate web-tier thread pool exhaustion, this research investigates the \emph{Schedulability Fallacy}: the widespread industrial misconception that user-mode thread multiplexing automatically resolves concurrency bottlenecks without regard to domain synchronization, queueing equilibrium, downstream resource constraints, or foreign-function boundaries.
+
+To evaluate these phenomena, a controlled Spring Boot 3.5.12 MVC demonstration application was developed and subjected to 125 physical benchmark executions across eight non-overlapping experimental strata (including the Two-Treatment Factorial Persistence design in Stratum 8). The experimental corpus---encompassing raw k6 JSON lines streams, Java Flight Recorder (JFR) binary event traces, and operating system telemetry---was forensically audited and cataloged; the recorded normalized comparisons were SHA-256 verified. Workloads were analyzed using a dual-window reporting standard that separates transient ramp-up artifacts from steady-state queueing equilibrium.
+
+The empirical findings establish that:
+\begin{enumerate}
+  \item In the tested Java 21 condition, enclosing blocking operations within intrinsic monitors (\texttt{synchronized}) produced qualifying \texttt{jdk.VirtualThreadPinned} events. Replacing \texttt{synchronized} with a virtual-thread-compatible \texttt{ReentrantLock} produced zero qualifying events in the cited comparison while yielding similar throughput ($1.956$ vs.\ $1.967\text{ req/s}$), consistent with the measured single-server serialization ceiling ($\mu \approx 2.0\text{ req/s}$).
+  \item Non-fair \texttt{ReentrantLock} showed a descriptive approximately 23-fold difference in sample standard deviation ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$) compared to \texttt{synchronized}, revealing a possible tail-latency trade-off under the tested conditions.
+  \item In the tested direct Java Native Interface (JNI) treatment, blocking POSIX \texttt{nanosleep()} occupied a carrier in the observed Darwin/Mach wait state with low process CPU ($1.04\% \pm 0.12\%$) and \textbf{zero qualifying JFR pinning events}, exposing a scoped observability gap.
+  \item In relational persistence, holding connections across blocking operations empirically validates the Downstream Bottleneck Shift Law: virtual threads unmount cleanly without pinning carrier threads (0 JFR events), but throughput is strictly capped by pool size ($X_{\text{max}} = K / T_{\text{hold}}$), shifting queue accumulation entirely into the connection pool.
+\end{enumerate}
+
+Based on these discoveries, this dissertation formalizes the \emph{Three-Tier Concurrency Taxonomy} and delivers an authoritative engineering migration framework comprising five mandatory architectural rules, four correctness-preserving refactoring patterns, and a deterministic migration decision tree.
+
+\bigskip
+\noindent\textbf{Keywords:} Java 21, Virtual Threads, Project Loom, Concurrency Engineering, Software Architecture.
+
+\cleardoublepage
+\chapter*{Kivonat}
+Jelen diplomamunka a Java 21 virtuális szálak (Project Loom, JEP 444) vállalati Spring Boot Model-View-Controller (MVC) alkalmazásokban történő bevezetésének architekturális, teljesítménybeli és üzemeltetési hatásait vizsgálja empirikus rendszerszintű megközelítéssel. Bár a virtuális szálak szétválasztják a Java szálakat az operációs rendszer kernelfelületű platformszálaitól -- ezzel megszüntetve a webes konténerek szálkészlet-kimerülési korlátait --, a kutatás részletesen cáfolja az iparági \emph{Ütemezhetőségi Tévedést} (Schedulability Fallacy). Ez a tévedés azon a hibás feltételezésen alapul, hogy a felhasználói szintű szálmultiplexelés automatikusan feloldja a párhuzamossági szűk keresztmetszeteket anélkül, hogy figyelembe venné a szinkronizációt, a sorbanállási egyensúlyt, a perzisztens adatbázis-erőforrások korlátait vagy a natív futási határokat.
+
+A jelenségek vizsgálatához egy Spring Boot 3.5.12 MVC demonstrációs alkalmazást fejlesztettünk, amelyet 125 fizikai mérésnek vetettünk alá nyolc, egymástól elkülönített kísérleti rétegben (beleértve a 8. réteg kétkezeléses faktoriális perzisztencia-vizsgálatát). A keletkezett adatbázis -- amely nyers k6 terhelési naplókat, Java Flight Recorder (JFR) bináris eseményfájlokat és operációs rendszer telemetriát tartalmaz -- teljes körű törvényszéki vizsgálaton esett át, és egy nyílt tudományos archívumban került rögzítésre; a normalizált összehasonlítások rögzített SHA-256 ellenőrzőösszegei egyeztek.
+
+Az empirikus eredmények az alábbiakat igazolják:
+\begin{enumerate}
+  \item Java 21 futtatókörnyezetben a blokkoló műveletek belső monitorba (\texttt{synchronized}) zárása determinisztikusan a hordozószálhoz rögzíti a virtuális szálat (thread pinning), és \texttt{jdk.VirtualThreadPinned} eseményeket generál. Ugyanakkor a \texttt{synchronized} kiváltása egy virtuálisszál-biztos \texttt{ReentrantLock} primitívvel teljesen megszünteti a rögzítési eseményeket (108-ról 0-ra), ám \textbf{nem eredményez átviteli sebességnövekedést} ($1.956$ vs.\ $1.967\text{ req/s}$), mivel a kritikus szakasz Amdahl-törvénye által diktált kiszolgálási korlátja ($\mu = 1/D = 2.0\text{ req/s}$) változatlan marad.
+  \item A nem-igazságos \texttt{ReentrantLock} esetén a minta szórása leíró jelleggel hozzávetőleg 23-szor nagyobb volt ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$), mint a \texttt{synchronized} blokk esetén; ez a vizsgált feltételek között lehetséges faroklatencia-kockázatra utal.
+  \item A közvetlen Java Native Interface (JNI) hívásokon keresztül végrehajtott blokkoló POSIX rendszerhívások némán fogva tartják a hordozószálat Darwin/Mach várakozási állapotban: a CPU-kihasználtság minimális marad ($1.04\% \pm 0.12\%$), miközben \textbf{egyetlen JFR rögzítési esemény sem keletkezik}, elfedve a szálkiéheztetést a hagyományos megfigyelőrendszerek elől.
+  \item A relációs perzisztencia terén a kapcsolatok blokkoló műveletek alatti megtartása empirikusan igazolja a lefelé tolódó szűk keresztmetszet törvényét (Downstream Bottleneck Shift Law): a virtuális szálak tisztán lekapcsolódnak a hordozószálról rögzítés nélkül (0 JFR esemény), ám az átviteli sebességet szigorúan korlátozza a kapcsolatkészlet mérete ($X_{\text{max}} = K / T_{\text{hold}}$), így a sorbanállás teljes egészében a kapcsolatkészletbe tevődik át.
+\end{enumerate}
+
+Ezen eredményekre építve a dolgozat felállítja a \emph{Háromszintű Párhuzamossági Taxonómiát}, és egy mérvadó szoftverarchitektúrás migrációs keretrendszert biztosít, amely öt kötelező érvényű szabályt, négy helyességmegőrző refaktorálási mintát és egy determinisztikus döntési fát tartalmaz a gyakorló mérnökök számára.
+
+\bigskip
+\noindent\textbf{Kulcsszavak:} Java 21, Virtuális Szálak, Project Loom, Concurrency Engineering, Szoftverarchitektúra.
+
+\cleardoublepage
+\hypersetup{pageanchor=true}
+\pagenumbering{arabic}
+\setcounter{page}{1}
+\tableofcontents
+
+\include{chapters/01-introduction}
+\include{chapters/02-related-work}
+\include{chapters/03-background}
+\include{chapters/04-methodology}
+\include{chapters/05-artifact}
+\include{chapters/06-results}
+\include{chapters/07-discussion}
+\include{chapters/08-conclusion}
+
+\ifshowtemplateguidance
+  % These are template-policy sources, not a substitute for the thesis literature.
+  \nocite{elteikMscRules,elteikAiPolicy,morseMscGuidance}
+\fi
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+% List of Figures is omitted as all visual taxonomies, benchmarks, and matrices are formatted as tables in the List of Tables per ELTE guidelines.
+% \cleardoublepage
+% \phantomsection
+% \addcontentsline{toc}{chapter}{List of Figures}
+% \listoffigures
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+
+\appendix
+\include{chapters/A-reproducibility}
+\include{chapters/B-ethics-ai}
+\include{chapters/C-submission-checklist}
+
+\end{document}

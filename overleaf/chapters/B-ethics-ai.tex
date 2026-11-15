@@ -1,0 +1,57 @@
+\chapter{Ethics, Data, Licensing, and AI Record}
+\label{app:ethics-ai}
+
+\section{Research Governance and Compliance Overview}
+\label{sec:governance-overview}
+
+This dissertation strictly adheres to the research governance policies of the Faculty of Informatics, Eötvös Loránd University (ELTE), including the Academic Regulations for Students (Volume~2, Sections 74/A--E) and \textbf{Dean's Directive No.~1/2026 (III. 26.)} on the use of Artificial Intelligence tools in higher education, research, and thesis preparation~\cite{elteikAiPolicy}.
+
+Table~\ref{tab:governance} summarizes the research governance, data licensing, ethical boundaries, and AI disclosure record.
+
+\begin{table}[H]
+  \centering
+  \caption{Research governance and disclosure record.}
+  \label{tab:governance}
+  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}p{0.25\textwidth}p{0.28\textwidth}X@{}}
+    \toprule
+    \textbf{Governance Area} & \textbf{Status and Authority} & \textbf{Evidence Location} & \textbf{Residual Risk or Action} \\
+    \midrule
+    Ethics and Consent & Not applicable (systems engineering study). & No human subjects, personal data, or clinical interventions involved. & None; zero personal or sensitive user data processed. \\
+    \addlinespace
+    Privacy and Confidentiality & Fully compliant; public open-science artifact. & All source code and telemetry are public; zero corporate credentials or private keys. & All runtime passwords in scripts are local test dummies (e.g., \texttt{postgres:\allowbreak thesis}). \\
+    \addlinespace
+    Data and Artifact Licences & Open-source distribution under the MIT License. & \texttt{LICENSE} file in repository root; evaluated dependencies are Apache~2.0, MIT, or EPL-2.0. & Full redistribution rights granted for open-science replication. \\
+    \addlinespace
+    AI Assistance & Declared under Dean's Directive 1/2026 (Annex~3). & Table~\ref{tab:ai-usage-breakdown}; signed declaration filed with thesis submission. & Zero AI-generated data; all empirical data originates from physical hardware executions. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Detailed Disclosure of Generative AI Assistance}
+\label{sec:ai-detailed-disclosure}
+
+In accordance with Annex~3 of Dean's Directive 1/2026, Table~\ref{tab:ai-usage-breakdown} provides a detailed accounting of all generative AI tool usage during the preparation of this thesis.
+
+\begin{table}[H]
+  \centering
+  \caption{Detailed inventory of generative AI tool usage (Dean's Directive 1/2026 Annex 3).}
+  \label{tab:ai-usage-breakdown}
+  \begin{tabularx}{\textwidth}{@{}p{0.22\textwidth}Xp{0.22\textwidth}p{0.22\textwidth}@{}}
+    \toprule
+    \textbf{Purpose} & \textbf{Method and Critical Adaptation} & \textbf{AI Tool Used} & \textbf{Thesis Scope / Location} \\
+    \midrule
+    Structural Drafting, Outlining, and Prose Polish & Generated preliminary outlines and structural drafts for standard framework descriptions; critically revised and rewritten by author to align with ELTE academic standards and queueing models. & Anthropic Claude (Claude 3.5 Sonnet) & Chapters~\ref{ch:introduction} (§\ref{sec:programme-fit}), \ref{ch:background} (§\ref{sec:jvm-concurrency-evolution}), \ref{ch:methodology} (§\ref{sec:research-mode}), \ref{ch:artifact} (§\ref{sec:system-architecture}), \ref{ch:discussion} (§\ref{sec:rq-closure}), and \ref{ch:conclusion}. \\
+    \addlinespace
+    Scaffolding Recalculation \& Verification Scripts & Scaffolding preliminary Python templates for parsing raw k6 JSON lines and JFR events; audited, refined, and verified against physical data using cryptographic SHA-256 checks. & Anthropic Claude (Claude 3.5 Sonnet) \& GitHub Copilot & Python verification scripts (\path{scripts/normalize_evidence.py}, \path{recalculate_metrics.py}, \path{validate_normalized_evidence.py}). \\
+    \addlinespace
+    Integration Test Boilerplate Scaffolding & Autocompleted boilerplate JUnit 5 integration test fixtures; manually adapted with strict assertions for mutual exclusion, \texttt{ThreadLocal} cleanup, and JNI bindings. & GitHub Copilot & Chapter~\ref{ch:artifact} and test directory \path{src/test/java/}. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Strict Exclusions and Independent Authorship Guarantees}
+\begin{enumerate}
+  \item \textbf{Zero AI Generation of Empirical Data:} No benchmark results, throughput metrics, latency distributions, JFR pinning events, or host CPU telemetry were generated, simulated, or interpolated by artificial intelligence. Every data point reported in this dissertation originates exclusively from physical benchmark executions on dedicated bare-metal hardware.
+  \item \textbf{Independent Theoretical Attribution:} All theoretical derivations (e.g., Amdahl single-server saturation, Little's Law response-time calculations, and Downstream Bottleneck Shift Law), research question closures, and the Three-Tier Concurrency Taxonomy reflect the author's independent intellectual analysis.
+  \item \textbf{Primary Source Literature Audits:} All cited literature, OpenJDK JEP specifications, and HotSpot C++ runtime source implementations (\path{continuationFreeze.cpp}, \path{VirtualThread.java}) were independently verified against primary authoritative sources.
+\end{enumerate}

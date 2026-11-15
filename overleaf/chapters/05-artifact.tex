@@ -1,0 +1,177 @@
+\chapter{Implementation and Research Infrastructure}
+\label{ch:artifact}
+
+\section{System Architecture and Application Anatomy}
+\label{sec:system-architecture}
+
+To evaluate the runtime interactions between Java 21 Virtual Threads, monitor pinning, mutual exclusion serialization, relational persistence, and foreign function boundaries, an instrumented benchmark application (\texttt{virtual-threads-demo}) was engineered. The system models an enterprise Model-View-Controller (MVC) microservice architecture implemented in Java~21 LTS utilizing the Spring Boot 3.5.12 framework~\cite{SpringReference}, deployed on embedded Apache Tomcat 10.1.52~\cite{TomcatReference}, and compiled via Apache Maven 3.9.
+
+The source tree is organized under root package \texttt{com.\allowbreak thesis.\allowbreak virtual\allowbreak threadsdemo}, adhering to a strict separation of concerns across four primary architectural layers: HTTP controllers, service implementations, persistence repositories, and native shared libraries. Table~\ref{tab:endpoint-catalog} details the empirical endpoint catalog and their corresponding experimental roles.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Empirical endpoint catalog and experimental roles.}
+  \label{tab:endpoint-catalog}
+  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}cp{0.25\textwidth}Xc@{}}
+    \toprule
+    \textbf{Endpoint} & \textbf{Method} & \textbf{Service Component} & \textbf{Primary Concurrency Mechanism} & \textbf{Target RQ} \\
+    \midrule
+    \texttt{/payments} & \texttt{POST} & \texttt{PaymentService} & Configurable mutex (\texttt{synchronized}, \texttt{ReentrantLock}, \texttt{none}) + 500~ms critical section & RQ1 \\
+    \addlinespace
+    \texttt{/orders} & \texttt{GET} & \texttt{OrderService} & \texttt{ThreadLocal} context + 300~ms simulated delay + HikariCP query & RQ2 \\
+    \addlinespace
+    \texttt{/products} & \texttt{GET} & \texttt{ProductService} & Fast-path non-blocking \texttt{JdbcTemplate} query (no artificial delay) & RQ1, RQ2 \\
+    \addlinespace
+    \texttt{/native} & \texttt{GET} & \texttt{NativeBlocking}\allowbreak\texttt{Service} & JNI binding to C POSIX \texttt{nanosleep(500ms)} syscall & RQ2 \\
+    \addlinespace
+    \texttt{/native-short} & \texttt{GET} & \texttt{NativeBlocking}\allowbreak\texttt{Service} & JNI binding to C \texttt{nativeNoop()} (transit baseline) & RQ2 \\
+    \addlinespace
+    \texttt{/cpu} & \texttt{GET} & \texttt{CpuService} & $5 \times 10^6$ iterations of \texttt{Math.fma} and \texttt{Math.sqrt} & RQ1, RQ2 \\
+    \addlinespace
+    \texttt{/hello} & \texttt{GET} & \texttt{HelloController} & Static string allocation (zero-I/O health probe) & Diag. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Framework Bill of Materials and Pinned Dependencies}
+To eliminate version ambiguity, all runtime dependencies are statically pinned in \texttt{pom.xml}:
+\begin{itemize}
+  \item \textbf{Java Runtime:} OpenJDK 64-Bit Server VM (Azul Zulu 21.0.8 / OpenJDK 21.0.8, bytecode version 21). Comparative replication trials utilized OpenJDK 24.0.2 (build 24+36).
+  \item \textbf{Framework Stack:} Spring Boot 3.5.12 pulling Spring Framework 6.2.x.
+  \item \textbf{Embedded Servlet Container:} Apache Tomcat 10.1.52.
+  \item \textbf{Connection Pool:} HikariCP 6.3.3.
+  \item \textbf{Relational Database Driver:} PostgreSQL JDBC Driver 42.7.10, safely exceeding the \texttt{pgjdbc >= 42.6.0} threshold required to guarantee that internal driver monitors do not pin carrier threads.
+\end{itemize}
+
+\section{Tomcat Request Dispatch and Virtual Thread Wiring}
+\label{sec:tomcat-dispatch}
+
+In Spring Boot 3, activating Virtual Threads requires only declaring:
+\begin{verbatim}
+spring.threads.virtual.enabled: true
+\end{verbatim}
+This property triggers \texttt{TomcatWebServerFactoryCustomizer} to configure Tomcat's protocol handler with \texttt{Executors.newVirtualThreadPerTaskExecutor()}. Table~\ref{tab:tomcat-dispatch} compares the architectural request lifecycle between Virtual Thread mode and the baseline Platform Thread mode.
+
+\begin{table}[H]
+  \centering
+  \caption{Tomcat request dispatch architecture: Virtual vs.\ Platform concurrency.}
+  \label{tab:tomcat-dispatch}
+  \begin{tabularx}{\textwidth}{@{}p{0.24\textwidth}p{0.36\textwidth}X@{}}
+    \toprule
+    \textbf{Architectural Phase} & \textbf{Virtual Threads (\texttt{enabled: true})} & \textbf{Platform Threads (\texttt{enabled: false})} \\
+    \midrule
+    Connection Ingestion & Dedicated OS platform threads (\texttt{NioEndpoint} Acceptor/Poller via \texttt{kqueue}/\texttt{epoll}) & Dedicated OS platform threads (\texttt{NioEndpoint} Acceptor/Poller via \texttt{kqueue}/\texttt{epoll}) \\
+    \addlinespace
+    Servlet Task Execution & Ephemeral \texttt{VirtualThread} per request (heap continuation $< 1\text{ KB}$) & Bounded worker thread checked out from Tomcat pool (\texttt{maxThreads = 200}) \\
+    \addlinespace
+    Scheduler Binding & HotSpot carrier pool (\texttt{ForkJoinPool-1-worker-N}) & Direct OS kernel thread scheduling \\
+    \addlinespace
+    Blocking Behavior & Continuation unmounts from carrier thread on blocking I/O or AQS park & Carrier OS thread remains physically blocked in kernel space \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Payment Synchronization Implementations}
+\label{sec:payment-sync-implementations}
+
+The primary synchronization treatments evaluated in RQ1 are encapsulated within \texttt{PaymentService}. The service models a financial transaction where state mutations must be serialized:
+\begin{itemize}
+  \item \textbf{\texttt{synchronized} Treatment:} Synchronizes on a private \texttt{Object monitor} before invoking \texttt{simulatePaymentCall()} ($500\text{ ms}$ simulated payment gateway sleep). In Java~21, this triggers HotSpot monitor pinning.
+  \item \textbf{\texttt{reentrant-lock} Treatment:} Acquires an explicit \path{java.util.concurrent.locks.ReentrantLock}. Uncontended acquisition succeeds via atomic CAS; contended threads park via AQS and unmount cleanly.
+  \item \textbf{\texttt{fair-reentrant-lock} Treatment:} Uses \texttt{new ReentrantLock(true)}, enforcing FIFO queue ordering and suppressing direct-CAS barging.
+  \item \textbf{\texttt{none} Diagnostic Control:} Directly invokes \texttt{simulatePaymentCall()} without synchronization, establishing the theoretical upper throughput bound for concurrent execution under the simulated delay.
+\end{itemize}
+
+\section{Foreign Function Interface: Native POSIX Shared Library}
+\label{sec:jni-native-library}
+
+To evaluate unmanaged native execution (RQ2), a custom dynamic shared library (\texttt{libnativeblocking.dylib} on macOS; \texttt{.so} on Linux) was implemented in C (\texttt{native/native\_blocking.c}) and bound via JNI to \texttt{NativeBlockingService}:
+
+{\small
+\begin{verbatim}
+JNIEXPORT void JNICALL
+Java_com_thesis_virtualthreadsdemo_service_NativeBlockingService_nativeSleep(
+        JNIEnv *env, jobject self, jlong sleep_millis) {
+    struct timespec remaining = {
+        .tv_sec = (time_t) (sleep_millis / 1000),
+        .tv_nsec = (long) ((sleep_millis % 1000) * 1000000L)
+    };
+    while (nanosleep(&remaining, &remaining) == -1 && errno == EINTR) {
+        /* Resume bounded sleep if interrupted by a signal. */
+    }
+}
+\end{verbatim}
+}
+
+\subsection{HotSpot Carrier Captivity and Diagnostic Omission}
+When \texttt{nativeSleep(500)} is invoked:
+\begin{enumerate}
+  \item HotSpot transitions the carrier thread state from\\ \texttt{\_thread\_in\_Java} to \texttt{\_thread\_in\_native}.
+  \item The POSIX \texttt{nanosleep()} system call places the physical OS platform thread into an interruptible Darwin/Mach wait state. The carrier thread yields its CPU core to the OS kernel scheduler.
+  \item Because execution occurs outside JVM bytecode interpretation, no bytecode safe-points are reached and \texttt{Continuation.yield()} is never called. The virtual thread remains rigidly bound to the carrier.
+  \item The JFR \texttt{jdk.VirtualThreadPinned} event triggers only when yield fails. Because yield is never attempted, JFR records strictly \textbf{0 pinning events} across all 27 native trials, creating a complete diagnostic blind spot.
+  \item Process telemetry sampled at 1.0-second intervals confirms that process CPU utilization remains at $1.04\% \pm 0.12\%$, disproving busy-wait myths.
+\end{enumerate}
+
+\section[Persistence Layer and HikariCP Connection Pooling]{Persistence Layer and HikariCP\\ Connection Pooling}
+\label{sec:persistence-implementation}
+
+Relational persistence is implemented using Spring \texttt{JdbcTemplate} backed by HikariCP across an embedded H2 database and containerized PostgreSQL 15. The schema (\texttt{schema.sql}) defines two tables: \texttt{orders} and \texttt{products}, pre-populated at boot time.
+
+\subsection{Two-Treatment Factorial Persistence Design}
+To resolve the construct flaw identified in early exploratory trials (where simulated delay was uncoupled from connection leasing), \texttt{OrderService} was instrumented with a configurable persistence treatment flag (\texttt{demo.orders.hold-connection-during-delay}):
+\begin{itemize}
+  \item \textbf{Treatment A (Pre-Acquisition Delay, Unheld Baseline):} The $300\text{ ms}$ delay executes \emph{before} calling \texttt{jdbcTemplate.queryForList()}. The virtual thread holds zero database connections during sleep, unmounting cleanly. HikariCP pool occupancy is negligible ($L_{\text{pool}} \approx 0.0125\text{ connections}$), leaving the pool over 98\% idle.
+  \item \textbf{Treatment B (Connection-Held Delay, Saturated Contention):} The connection is acquired first via \texttt{jdbcTemplate.execute()}, and the $300\text{ ms}$ delay is held inside the active connection callback:
+{\small
+\begin{verbatim}
+jdbcTemplate.execute((ConnectionCallback<...>) connection -> {
+    simulateSlowQuery(); // Connection held for 300 ms!
+    try (PreparedStatement ps = connection.prepareStatement(...)) { ... }
+});
+\end{verbatim}
+}
+\end{itemize}
+
+Under Treatment B, connection checkout duration is strictly $T_{\text{hold}} = 0.300\text{ s}$. By Little's Law, a pool size of $K=1$ enforces a single-server bottleneck ($X_{\text{max}} = 1 / 0.300 \approx 3.33\text{ req/s}$), causing 49 virtual users to queue in HikariCP. Expanding pool size to $K=10$ scales throughput tenfold ($X_{\text{max}} \approx 33.3\text{ req/s}$) with 0 JFR pinning events, validating the Downstream Bottleneck Shift Law.
+
+\section{Request Context and ThreadLocal Lifecycle}
+\label{sec:threadlocal-lifecycle}
+
+In \texttt{OrderService}, request-scoped context is stored in a static \texttt{ThreadLocal<String>} variable. In platform thread containers, memory overhead is bounded by pool size ($200 \times M_{\text{context}}$). Under Virtual Threads, where concurrency can reach $100\,000$ simultaneous threads, heap memory scales linearly:
+\begin{equation}
+  \text{Memory}_{\text{virtual}} = N_{\text{concurrent}} \times M_{\text{context}}
+\end{equation}
+If $M_{\text{context}} = 50\text{ KB}$ (e.g., tokens, tracing spans), heap overhead reaches $5.0\text{ GB}$. While \texttt{OrderService} enforces cleanup via \texttt{REQUEST\_CONTEXT.remove()} in a \texttt{finally} block, thread-local caching anti-patterns represent a major architectural vulnerability under virtual threads.
+
+\section{Benchmarking Harness and Telemetry Pipeline}
+\label{sec:benchmarking-harness}
+
+Benchmark execution was fully automated by \texttt{run-benchmark.sh}:
+\begin{enumerate}
+  \item \textbf{JVM Initialization:} Launches the Spring Boot jar with JVM scheduler controls (\texttt{-Djdk.virtualThreadScheduler.parallelism=1}), JFR profiling options, and native library bindings.
+  \item \textbf{Health Verification:} Polls \texttt{/products} until receiving HTTP 200 OK before initiating load.
+  \item \textbf{Telemetry Daemon:} Launches a background subshell sampling \texttt{ps -p \$APP\_PID -o \%cpu=} every 1.0 second.
+  \item \textbf{k6 Workload Execution:} Dispatches \texttt{k6/isolated-load-test.js} across 15s ramp-up, 30s steady hold, and 10s ramp-down.
+  \item \textbf{Manifest and Checksum Generation:} Captures process exit codes, records Git commit hashes (\texttt{1ccb617}, \texttt{5f9936c}), and computes SHA-256 digests of k6 JSON streams, JFR binary recordings, and telemetry CSV files into JSON run manifests.
+\end{enumerate}
+
+\section{Verification Suite and Artifact Provenance Tooling}
+\label{sec:verification-tooling}
+
+The testbed is hardened with an automated JUnit 5 test suite executing 8 test suites with 100\% passing assertions (\texttt{rtk mvn test}):
+\begin{itemize}
+  \item \texttt{PaymentControllerTest}: Verifies mutual exclusion and sequential consistency across all lock modes.
+  \item \texttt{OrderControllerTest}: Validates JDBC queries and \texttt{ThreadLocal} context cleanup.
+  \item \texttt{NativeControllerTest}: Validates JNI shared library linking and syscall return codes.
+  \item \texttt{ProductControllerTest} \& \texttt{CpuControllerTest}: Verify fast-path persistence and compute workloads.
+\end{itemize}
+
+Furthermore, three standalone Python tools ensure complete reproducibility:
+\begin{itemize}
+  \item \texttt{scripts/generate\_artifact\_inventory.py}: Audits all 504 disk files in \texttt{results/}, generating the master ledger \texttt{docs/evidence-freeze/artifact-inventory.csv}.
+  \item \texttt{scripts/generate\_run\_family\_matrix.py}: Parses manifests to classify all 126 records into the 8 strata.
+  \item \texttt{scripts/recalculate\_metrics.py}: Streams through 150,000 raw k6 JSON lines to compute whole-run vs.\ steady-state hold-window metrics.
+  \item \texttt{scripts/validate\_normalized\_evidence.py}: Verifies the consolidated JSON evidence schema against cryptographic SHA-256 digests.
+\end{itemize}

@@ -1,0 +1,205 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Programme and Specialisation Fit}
+\label{sec:programme-fit}
+
+This master's dissertation is submitted in partial fulfillment of the requirements for the degree of \emph{Master of Science in Computer Science} within the \emph{Software Architecture Specialisation} at the Faculty of Informatics, Eötvös Loránd University (ELTE), Budapest~\cite{elteikMscRules}. The research was conducted under the institutional auspices of the Department of Programming Languages and Compilers, under the joint supervision of Associate Professor Dr.~habil.\ Tamás Kozsik (Head of Department) and external thesis advisor Gregory Reynolds Morse (Lecturer and MSc in Computer Science)~\cite{morseMscGuidance}, pursuant to approved MSc thesis topic registration \texttt{IK-ZVMSC\_EN2\_155}.
+
+The dissertation directly addresses three core subject areas of the MSc curriculum and final examination syllabus:
+\begin{enumerate}
+  \item \textbf{Software Architecture and Scalable Enterprise Systems:} Evaluating request-dispatching topologies, concurrency bounding, connection-pool queueing dynamics, and architectural boundary preservation when migrating synchronous enterprise web services from OS-managed thread pools to lightweight user-space threads.
+  \item \textbf{Advanced Java Programming and Runtime Internals:} Deconstructing Java Virtual Machine (JVM) execution mechanics, continuation capture, intrinsic monitor synchronization (\texttt{synchronized}), explicit lock synchronization (\texttt{java.\allowbreak util.\allowbreak concurrent.\allowbreak locks.\allowbreak ReentrantLock}), the AbstractQueuedSynchronizer (AQS) framework, and the OpenJDK HotSpot runtime transition from Java~21 LTS (JEP~444~\cite{JEP444}) to Java~24 (JEP~491~\cite{JEP491}).
+  \item \textbf{Systems Engineering, Project Management, and Empirical Rigour:} Designing reproducible benchmark suites, managing experimental artifacts, instituting open-science data freezes with cryptographic integrity, and establishing compliance with academic governance standards, including ELTE Dean's Directive~1/2026~\cite{elteikAiPolicy}.
+\end{enumerate}
+
+\section{Motivation and Research Problem}
+\label{sec:motivation-problem}
+
+For more than two decades, enterprise Java backend architectures have overwhelmingly relied upon the synchronous, \emph{thread-per-request} paradigm. Standardized by the Java Servlet API and realized in production web servers such as Apache Tomcat~\cite{TomcatReference} and Spring Framework Model-View-Controller (MVC) containers~\cite{SpringReference}, this architecture assigns each incoming HTTP connection to a dedicated worker thread. This paradigm provides immense developer ergonomics: sequential imperative code execution, natural diagnostic stack traces, implicit request-scoped context propagation via \texttt{ThreadLocal}, and seamless integration with synchronous blocking persistence APIs such as JDBC and HikariCP~\cite{HikariCPReference}.
+
+However, this architecture historically rested upon an inflexible foundation: a strict $1:1$ mapping between Java threads (\texttt{java.lang.Thread}) and operating system (OS) kernel platform threads (such as POSIX \texttt{pthread}s). Because platform threads allocate heavyweight virtual memory stacks (defaulting to $1\,024\text{ KB}$ per thread in HotSpot via \texttt{-Xss1m}) and incur preemptive kernel context-switching latency, enterprise containers strictly bound concurrency using fixed thread pools (e.g., Tomcat's default \texttt{maxThreads = 200}). Under high concurrency or during downstream I/O latency spikes, worker thread pools exhaust rapidly, inducing connection backlog queueing, exponential latency escalation, and catastrophic server timeouts.
+
+To circumvent platform thread exhaustion, reactive, event-driven architectures (such as Spring WebFlux, Project Reactor, and Netty) emerged during the 2010s. By multiplexing concurrent connections across a tiny pool of non-blocking event-loop threads matching CPU core counts, reactive systems eliminated thread pool exhaustion. Yet this efficiency imposed severe cognitive and operational costs: the abandonment of imperative control flow in favor of monadic functional pipelines (\texttt{Mono}, \texttt{Flux}), fragmented stack traces that obscure production debugging, and fundamental architectural friction when interfacing with blocking relational database drivers (JDBC).
+
+The delivery of \textbf{Project Loom} in \textbf{Java 21 LTS} via \textbf{JEP 444}~\cite{JEP444} was engineered to eliminate this trade-off. Virtual Threads introduce lightweight, user-mode threads managed directly by the JVM runtime under an $M:N$ scheduling architecture:
+\begin{itemize}
+  \item Millions of ephemeral virtual threads ($M$) can be instantiated with minimal initial memory footprints ($\approx 1\text{ KB}$), storing their call frames as \texttt{Continuation} objects directly on the garbage-collected Java heap.
+  \item A small pool of OS platform threads ($N$), managed by a work-stealing HotSpot \texttt{ForkJoinPool} (\texttt{DEFAULT\_SCHEDULER}), acts as \emph{carrier threads} that physically execute instructions on CPU cores.
+  \item When a virtual thread executes a blocking operation within standard Java libraries (such as socket I/O, \texttt{Thread.sleep()}, or \texttt{ReentrantLock.lock()}), the runtime captures its continuation frames to the heap and \emph{unmounts} the virtual thread from its carrier, freeing the underlying OS thread to execute other ready virtual threads.
+\end{itemize}
+
+In Spring Boot 3.2.0 and later (evaluated in this dissertation on Spring Boot 3.5.12), enabling virtual threads requires only a single configuration property:
+\begin{verbatim}
+spring.threads.virtual.enabled: true
+\end{verbatim}
+Setting this property configures Tomcat to dispatch incoming HTTP requests to an ephemeral virtual thread created by \texttt{Executors.\allowbreak newVirtualThread\allowbreak PerTaskExecutor()}.
+
+\subsection{The Virtual Thread Bottleneck Fallacy}
+The effortless activation of virtual threads catalyzed a widespread industry misconception that this dissertation defines as \textbf{The Virtual Thread Bottleneck Fallacy}. This fallacy presumes that the primary limiting factor in enterprise backend performance is always web-tier container thread pool concurrency, and that enabling virtual threads universally eliminates concurrency bottlenecks, drastically cuts latencies, and delivers immediate order-of-magnitude throughput gains.
+
+In reality, removing the platform thread ceiling does not eliminate performance bottlenecks; rather, it shifts the operational pressure points deeper into the application architecture:
+\begin{enumerate}
+  \item \textbf{Domain Serialization Ceiling:} Enterprise workflows frequently contain shared mutable state protected by mutual exclusion (such as Java intrinsic monitors, explicit locks, or database table locks). By Amdahl's Law~\cite{Amdahl1967}, if an operation contains a serial duration $D$, the maximum system service rate is fundamentally bounded by $\mu = 1/D$, irrespective of whether requests are served by platform threads or virtual threads.
+  \item \textbf{Carrier Pinning Hazards:} In Java 21, when a virtual thread blocks inside an intrinsic monitor (\texttt{synchronized} block or method), the JVM runtime cannot unmount the virtual thread from its carrier thread. This phenomenon---\emph{monitor pinning}---locks the underlying OS platform thread in place. Under concurrent load, carrier threads are rapidly exhausted, starving the entire scheduler.
+  \item \textbf{Silent Native Carrier Captivity:} When a virtual thread invokes native code via the Java Native Interface (JNI), blocking POSIX system calls (e.g., \texttt{nanosleep()}) execute entirely outside HotSpot continuation management. The OS carrier thread is captured in an unmanaged wait state, starving the virtual thread pool without generating any Java Flight Recorder (JFR) pinning telemetry.
+  \item \textbf{Downstream Connection Pool Exhaustion:} In relational persistence, holding a database connection across a blocking operation shifts queueing entirely to the JDBC connection pool. Even though virtual threads unmount cleanly without pinning carrier threads, total throughput is capped by pool capacity ($X_{\text{max}} = K / T_{\text{hold}}$), causing queue formation at the database pool checkout tier.
+\end{enumerate}
+
+\section{Research Goals, Questions, and Hypotheses}
+\label{sec:research-questions}
+
+To establish a rigorous, empirical systems investigation into these phenomena, this dissertation addresses two canonical Research Questions:
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\textbf{Research Question 1 (RQ1):}\\
+\emph{How does synchronization (specifically monitor pinning) interact with carrier-thread availability, application-level serialization, and runtime throughput in Java 21 Spring Boot MVC systems?}%
+}}
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\textbf{Research Question 2 (RQ2):}\\
+\emph{What architectural risks---including native boundaries, connection pool management, context propagation, and observability limits---must engineering teams evaluate before enabling Virtual Threads in existing Spring Boot MVC systems?}%
+}}
+
+\bigskip
+
+To ensure answerability and rigorous empirical evaluation, Table~\ref{tab:research-questions} operationalizes each research question into concrete treatments, hypotheses, and required evidentiary criteria.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Research questions, operational deconstruction, and intended evidence.}
+  \label{tab:research-questions}
+  \begin{tabularx}{\textwidth}{@{}p{0.07\textwidth}p{0.26\textwidth}p{0.26\textwidth}X@{}}
+    \toprule
+    \textbf{ID} & \textbf{Operational Focus} & \textbf{Treatment \& Variables} & \textbf{Intended Evidentiary Criteria} \\
+    \midrule
+    RQ1 & Carrier pinning vs.\ domain serialization ceiling & Factorial matrix: Tomcat platform vs.\ virtual threads; \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock; Java~21 LTS vs.\ Java~24 (JEP~491). & JFR \texttt{jdk.VirtualThreadPinned} events (108 to 0); steady-state throughput ($1.956$ vs.\ $1.967\text{ req/s}$); Amdahl ceiling proof ($\mu \approx 2.0\text{ req/s}$); AQS barging dispersion. \\
+    \addlinespace
+    RQ2 & Architectural risks: JNI, pools, context, diagnostics & POSIX JNI C downcalls; HikariCP connection holding (Stratum~8 two-treatment design: pool size 1 vs.\ 10); \texttt{ThreadLocal} lifecycle; JFR threshold limits. & Process CPU ($1.04\% \pm 0.12\%$) in Darwin/Mach wait state with 0 JFR pinning events; connection queue growth (49 queued threads); memory leak traces; diagnostic blind spot analysis. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+To prevent conflating distinct performance failure modes, Table~\ref{tab:symptom-disambiguation} defines an authoritative \emph{Symptom-to-Mechanism Disambiguation Matrix}. Every observed performance anomaly must satisfy its explicit evidentiary requirement before assigning architectural causality.
+
+\begin{table}[H]
+  \centering
+  \small
+  \caption{Symptom-to-Mechanism Disambiguation Matrix.}
+  \label{tab:symptom-disambiguation}
+  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.18\textwidth}Xp{0.18\textwidth}@{}}
+    \toprule
+    \textbf{Observed Symptom} & \textbf{Naive Hypothesis} & \textbf{True Underlying Mechanism} & \textbf{Evidentiary Requirement} \\
+    \midrule
+    Throughput plateau at $\approx 2\text{ req/s}$ & Virtual threads fail to unmount due to monitor pinning & \textbf{Domain Serialization:} Critical section ($500\text{ ms}$) caps service rate to $\mu = 1/D = 2.0\text{ req/s}$ via Amdahl's Law. & Throughput identical ($1.956$ vs.\ $1.967\text{ req/s}$) when pinning is eliminated via \texttt{ReentrantLock}. \\
+    \addlinespace
+    Median latency inflation ($R \approx 5.0\text{ s}$) & Scheduler inefficiency or context-switching storm & \textbf{Closed-Loop Saturation:} 10 Virtual Users (VUs) with $Z = 100\text{ ms}$ think time: Little's Law gives $R = N/X - Z \approx 4.985\text{ s}$. & Mathematical convergence between Little's Law formula and k6 steady-state response distribution. \\
+    \addlinespace
+    Throughput collapse with zero JFR pinning events & Virtual threads unmounting cleanly; network I/O fault & \textbf{Silent JNI Carrier Captivity:} POSIX \texttt{nanosleep()} holds carrier in \texttt{\_thread\_in\_native}; HotSpot yield bypassed. & k6 throughput drops to $1.97\text{ req/s}$ while JFR pinning event count is strictly 0. \\
+    \addlinespace
+    Carrier starvation with process CPU $\approx 1\%$ & Carrier threads in 100\% busy-spin loop & \textbf{Kernel Wait Suspension:} Native POSIX sleep places thread in Darwin/Mach wait state without burning CPU. & Process telemetry showing steady-state CPU of $1.04\% \pm 0.12\%$. \\
+    \addlinespace
+    Connection pool starvation without pinning & Virtual threads eliminate pool sizing limits & \textbf{Downstream Bottleneck Shift:} Clean unmounting (0 JFR events), but throughput capped by pool ($X_{\text{max}} = K / T_{\text{hold}}$). & HikariCP telemetry ($1.0/1$ active, 49 queued VUs) and scaling ($3.27$ to $32.60\text{ req/s}$) with 0 pinning. \\
+    \addlinespace
+    Tail latency dispersion in refactored locks & \texttt{ReentrantLock} is slower than intrinsic monitor & \textbf{AQS NonfairSync Barging:} Default non-fair lock permits arriving threads to bypass queue, inflating variance. & Latency standard deviation spread ($\sigma = 16.53\text{ ms}$ for \texttt{ReentrantLock} vs.\ $0.70\text{ ms}$ for \texttt{synchronized}). \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Scope, Assumptions, Constraints, and Exclusions}
+\label{sec:scope-constraints}
+
+To maintain rigorous experimental control and internal validity, the scope and boundaries of this study are defined as follows:
+
+\begin{itemize}
+  \item \textbf{Software Stack:} The primary research artifact is an instrumented enterprise benchmark application implemented on \textbf{Spring Boot 3.5.12}, executed on embedded \textbf{Apache Tomcat 10.1.52}, and compiled with \textbf{Java 21 LTS} (Azul Zulu 21.0.8, OpenJDK HotSpot 64-bit Server VM). Comparative boundary replications utilize early-access OpenJDK 24.0.2 (build 24+36).
+  \item \textbf{Persistence Layer:} Database access is modeled using Spring \texttt{JdbcTemplate} backed by \textbf{HikariCP 6.3.3}, evaluated across in-memory H2 databases and containerized Docker PostgreSQL 15-alpine instances.
+  \item \textbf{Hardware and Operating System Environment:} All primary benchmark trials were executed on a dedicated, bare-metal Apple Silicon host:
+    \begin{itemize}
+      \item \textbf{Processor:} Apple M1 (8 logical cores: 4 performance cores, 4 efficiency cores).
+      \item \textbf{Memory:} 8~GB unified memory.
+      \item \textbf{Operating System:} Darwin 25.2.0 (macOS 15.2, arm64).
+    \end{itemize}
+  \item \textbf{Scheduler Isolation Parameterization:} To isolate carrier starvation mechanics with mathematical clarity and prevent multi-core scheduling jitter from masking single-carrier contention, primary experimental trials applied JVM scheduler flags:
+    \begin{verbatim}
+    -Djdk.virtualThreadScheduler.parallelism=1
+    -Djdk.virtualThreadScheduler.maxPoolSize=1
+    \end{verbatim}
+    This constitutes an in-process JVM scheduler constraint rather than an OS cgroup quota, guaranteeing that the carrier pool consists of exactly one OS platform thread.
+  \item \textbf{Closed-Loop Workload Model:} Load generation was conducted using Grafana k6~\cite{GrafanaK6} in a closed-loop configuration (fixed concurrency with constant think time $Z = 100\text{ ms}$), enforcing stationary queueing equilibrium and preventing client-side packet drops.
+\end{itemize}
+
+\subsection{Explicit Methodological Exclusions}
+The following domains are explicitly excluded from the empirical scope:
+\begin{enumerate}
+  \item \textbf{Reactive Frameworks as Empirical Treatments:} Monadic reactive stacks (Spring WebFlux, Project Reactor) are compared theoretically, but are not benchmarked as empirical treatments.
+  \item \textbf{Distributed Multi-Node Topologies:} Clustered network meshes and cross-datacenter latencies are excluded to eliminate non-deterministic network noise from JVM scheduler measurements.
+  \item \textbf{Inferential Hypothesis Testing on Small Samples:} Primary benchmark conditions were executed across $N=3$ independent process-level repetitions. These repetitions are reported strictly as descriptive engineering bounds; inferential testing ($p$-values, ANOVA) is excluded.
+  \item \textbf{Flawed Exploratory Runs:} Preliminary exploratory runs lacking proper JFR configuration or connection-holding controls are formally partitioned into Stratum~7 and excluded from quantitative findings.
+\end{enumerate}
+
+\section{Contributions and Responsibility Boundaries}
+\label{sec:contributions}
+
+This dissertation delivers four central scientific and architectural contributions, supported by the ratified empirical evidence corpus:
+
+\ContributionLedger
+
+The student's independent contributions and responsibility boundaries (summarized in Table~\ref{tab:contribution-ledger}) reflect the following achievements:
+\begin{itemize}
+  \item \textbf{C1 (Carrier Unpinning vs.\ Serialization):} Demonstrating through empirical benchmarking and queueing theory that refactoring \texttt{synchronized} to \texttt{ReentrantLock} completely eliminates carrier pinning (108 to 0 events), but yields identical throughput ($1.956$ vs.\ $1.967\text{ req/s}$) due to the Amdahl serialization ceiling ($\mu \approx 2.0\text{ req/s}$).
+  \item \textbf{C2 (Silent JNI Carrier Starvation):} Proving that blocking native POSIX system calls hold carrier threads captive in Darwin/Mach wait states with low process CPU ($1.04\% \pm 0.12\%$) and exactly zero JFR pinning events, exposing a critical observability gap.
+  \item \textbf{C3 (Dual-Window Reporting Standard):} Establishing an open-science corpus of 125 physical trials across 8 strata with 504 cataloged artifacts (~966~MB) and SHA-256 integrity verification, formulating the Dual-Window Reporting Standard to filter $25.8\%$ ramp-up latency distortion.
+  \item \textbf{C4 (Authoritative Migration Framework):} Providing an evidence-backed migration framework comprising 5 core architectural rules, 4 correctness-preserving refactoring patterns, and a deterministic decision tree.
+\end{itemize}
+
+\subsection{The Three Foundational Architectural Principles}
+Synthesizing these findings yields three foundational architectural principles governing virtual thread concurrency:
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\textbf{Principle 1: The Amdahl-Little Invariant (Capacity Conservation).}\\
+\emph{Virtual threads expand in-flight concurrency ($N$), but cannot increase the service capacity ($\mu = 1/D$) of serialized application critical sections or downstream resources. When an architectural bottleneck dominates request duration, expanding concurrency merely inflates queueing latency ($R = N/X - Z$) in accordance with Little's Law, yielding zero throughput benefit.}%
+}}
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\textbf{Principle 2: The Boundary Invariant (Diagnostic and OS Transparency).}\\
+\emph{Cooperative carrier unmounting operates strictly within managed JVM boundaries. When a virtual thread crosses into unmanaged native execution (JNI / POSIX syscalls), it captures the physical OS carrier thread. Because native blocking bypasses HotSpot continuation yield points, carrier starvation occurs silently---evading standard JFR pinning diagnostics and maintaining negligible CPU utilization.}%
+}}
+
+\bigskip
+
+\noindent\fbox{%
+\parbox{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}{%
+\textbf{Principle 3: The State and Resource Invariant (Thread Ephemerality).}\\
+\emph{Virtual threads transform threads from heavyweight, pooled resources into ephemeral execution units. Consequently, architectural patterns designed around thread pooling---such as using thread pools to throttle downstream database access or caching expensive state in \texttt{ThreadLocal} variables---become severe anti-patterns. Concurrency bounding must be explicitly migrated to resource-specific semaphores and connection pools, while request context must enforce deterministic teardown.}%
+}}
+
+\bigskip
+
+\section{Thesis Roadmap}
+\label{sec:roadmap}
+
+The remainder of this dissertation is organized as follows:
+\begin{itemize}
+  \item \textbf{Chapter~\ref{ch:related-work} (Related Work):} Synthesizes foundational concurrency literature, formalizes a five-domain taxonomy, and establishes a 10-point Comparative Delta Matrix against closest related work.
+  \item \textbf{Chapter~\ref{ch:background} (Background and Foundations):} Details JVM concurrency evolution, Project Loom internals, HotSpot continuation freeze mechanics, JEP~491 unpinning, and queueing foundations (Little's Law and Amdahl's Law).
+  \item \textbf{Chapter~\ref{ch:methodology} (Research Design and Methodology):} Formulates the empirical systems research paradigm, the 8-strata reference framework, the closed-loop k6 harness, JFR telemetry, and the Dual-Window Reporting Standard.
+  \item \textbf{Chapter~\ref{ch:artifact} (Implementation and Research Infrastructure):} Documents the Spring Boot 3.5.12 testbed architecture, POSIX JNI C shared library, HikariCP configuration, and automated test suite.
+  \item \textbf{Chapter~\ref{ch:results} (Experimental Results):} Reports empirical measurements across all 125 benchmark trials, presenting side-by-side whole-run and steady-state metrics, JFR event counts, and AQS dispersion signatures.
+  \item \textbf{Chapter~\ref{ch:discussion} (Analysis, Discussion, and Migration Guidance):} Provides formal closure for RQ1 and RQ2, details the Three-Tier Concurrency Taxonomy, master threats to validity, and delivers the authoritative migration framework.
+  \item \textbf{Chapter~\ref{ch:conclusion} (Conclusion):} Summarizes key research findings, limitations, lessons learned, and outlines five future research directions.
+  \item \textbf{Appendices~\ref{app:reproducibility}--\ref{app:submission}:} Detail reproducibility procedures, research ethics and AI tool declarations, and the master process checklist.
+\end{itemize}

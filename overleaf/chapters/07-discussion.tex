@@ -1,0 +1,215 @@
+\chapter{Analysis, Discussion, and Migration Guidance}
+\label{ch:discussion}
+
+\section{Explicit Answers to the Research Questions}
+\label{sec:rq-closure}
+
+Synthesizing the empirical observations across all 125 physical trials and theoretical derivations, this section formally closes the canonical research questions. Table~\ref{tab:rq-closure} details the Research Question Closure Ledger.
+
+\begin{table}[H]
+  \centering
+  \footnotesize
+  \caption{Research-question closure ledger.}
+  \label{tab:rq-closure}
+  \begin{tabularx}{\textwidth}{@{}p{0.06\textwidth}Xp{0.22\textwidth}p{0.22\textwidth}p{0.08\textwidth}@{}}
+    \toprule
+    \textbf{RQ} & \textbf{Evidence-Backed Answer} & \textbf{Strength \& Uncertainty} & \textbf{Limit or Condition} & \textbf{Link} \\
+    \midrule
+    RQ1 & In Java 21, \texttt{synchronized} blocks enclosing blocking I/O pin virtual threads to carriers (108 JFR events), starving the scheduler under single-carrier constraint. Replacing \texttt{synchronized} with \texttt{ReentrantLock} completely eliminates pinning (0 JFR events), but yields \textbf{identical throughput} ($1.956$ vs.\ $1.967\text{ req/s}$) because Amdahl's Law enforces a service ceiling ($\mu = 1/D = 2.0\text{ req/s}$). Non-fair \texttt{ReentrantLock} direct-CAS barging inflates tail-latency standard deviation by a factor of 23 ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$). Java~24 (JEP~491) unpins monitors (0 events) while throughput remains bounded. & High internal validity; verified across 12 primary trials and JDK 24 boundary trials. Dispersion based on $N=3$ descriptive process repetitions. & Bounded to single-carrier scheduler isolation; does not evaluate open-loop Poisson traffic. & C1 \\
+    \addlinespace
+    RQ2 & Four primary architectural risks must be assessed before enabling Virtual Threads:
+    (1) \textbf{Foreign JNI Syscalls:} Blocking POSIX \texttt{nanosleep()} holds carriers captive in Darwin/Mach wait states ($1.04\% \pm 0.12\%$ CPU) with zero JFR pinning alerts.
+    (2) \textbf{Persistence Queue Shift:} Holding database connections across blocking operations unmounts virtual threads (0 pins), but throughput is capped by pool size ($X_{\text{max}} = K / T_{\text{hold}}$), shifting queues entirely into HikariCP.
+    (3) \textbf{Context Scaling:} Millions of virtual threads retaining state in \texttt{ThreadLocal} create $O(N)$ heap bloat.
+    (4) \textbf{Diagnostic Blind Spots:} JFR filters pins $<20\text{ ms}$, while \texttt{ThreadMXBean} omits virtual threads entirely. & Empirical discovery verified across 27 JNI trials, 6 Stratum 8 trials, and low-level HotSpot C++ source audit. & Specific to evaluated Spring Boot and HikariCP configurations; heap growth is an analytical projection. & C2, C3, C4 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section[The Three-Tier Concurrency Taxonomy]{Theoretical Foundations:\\ The Three-Tier Concurrency Taxonomy}
+\label{sec:three-tier-taxonomy}
+
+To provide a sound conceptual framework for virtualized runtime concurrency, this dissertation establishes the \textbf{Three-Tier Concurrency Taxonomy}:
+
+\begin{enumerate}
+  \item \textbf{Tier 1: Runtime Schedulability (Project Loom / Carrier Multiplexing):}
+    \begin{itemize}
+      \item \emph{Governing Principle:} $M:N$ user-mode thread multiplexing managed by OpenJDK HotSpot's \texttt{ForkJoinPool}.
+      \item \emph{Architectural Problem Solved:} Eliminates OS-level platform thread memory overhead ($1\,024\text{ KB}$ stack reservation) and web container thread-pool exhaustion.
+      \item \emph{Runtime Vulnerabilities:} Monitor pinning in Java 21 LTS (JEP 444~\cite{JEP444}) and silent foreign-function carrier captivity (JNI).
+    \end{itemize}
+  \item \textbf{Tier 2: Domain Synchronization (Software Architecture / Mutual Exclusion):}
+    \begin{itemize}
+      \item \emph{Governing Principle:} Amdahl's Law~\cite{Amdahl1967} and Bernstein's Conditions.
+      \item \emph{Architectural Problem Solved:} Guarantees shared-state transactional integrity and sequential consistency.
+      \item \emph{Fundamental Invariant:} Unpinning carrier threads \textbf{cannot unserialize} an application critical section. If service time is dominated by a serial duration $D$, maximum system service rate is immutable: $\mu = 1/D$.
+    \end{itemize}
+  \item \textbf{Tier 3: Backend Capacity (Infrastructure / Finite Resources):}
+    \begin{itemize}
+      \item \emph{Governing Principle:} Little's Law~\cite{Little1961} and the Universal Scalability Law.
+      \item \emph{Architectural Problem Solved:} Preserves downstream physical hardware capacity (relational database CPU, I/O, locks, and connection pools).
+      \item \emph{Architectural Risk:} Multiplying application-tier thread concurrency without downstream admission control shifts queue accumulation into connection pool checkout queues ($X_{\text{max}} = K / T_{\text{hold}}$).
+    \end{itemize}
+\end{enumerate}
+
+\section[The Authoritative Migration Framework]{The Authoritative Engineering\\ Migration Framework}
+\label{sec:migration-framework}
+
+Translating these findings into industrial engineering practice yields an authoritative migration framework comprising five mandatory architectural rules, four correctness-preserving refactoring patterns, and a deterministic migration decision tree.
+
+\subsection{The Five Core Architectural Migration Rules}
+\begin{enumerate}
+  \item \textbf{Rule 1: The Mutex Refactoring Rule (\texttt{CLM-MIG-01}).} Enclosing blocking operations within \texttt{synchronized} blocks must be refactored to \texttt{ReentrantLock} in Java 21 to prevent carrier pinning. However, engineering teams must not expect throughput improvements if the critical section is serialized; unpinning restores carrier availability for unrelated requests, but cannot accelerate contended execution paths.
+  \item \textbf{Rule 2: The Native JNI Isolation Rule (\texttt{CLM-MIG-02}).} Blocking foreign function downcalls (JNI / POSIX syscalls) must never execute directly on virtual threads. They must be offloaded to dedicated, bounded platform thread pools.
+  \item \textbf{Rule 3: The Connection Pool Sizing Fallacy (\texttt{CLM-MIG-03}).} Database connection pools must \textbf{never} be inflated to match virtual thread concurrency. Connection pools must be sized strictly to database engine core capacity. Concurrency bounding must be implemented via application-level semaphores, and connection holding time ($T_{\text{hold}}$) must be minimized.
+  \item \textbf{Rule 4: The Production Observability Rule (\texttt{CLM-MIG-04}).} Production telemetry must not rely on legacy \texttt{ThreadMXBean} metrics. Teams must deploy continuous JFR profiling with tuned thresholds (\texttt{threshold=10ms} or \texttt{0ms}), monitor HikariCP active/pending connections, and track host OS thread states.
+  \item \textbf{Rule 5: \texttt{ThreadLocal} Memory Hygiene (\texttt{CLM-RQ2-07}).} Static \texttt{ThreadLocal} variables must enforce deterministic cleanup inside \texttt{finally} blocks immediately after request processing to prevent $O(N)$ heap inflation. Applications targeting Java 25 should migrate to Scoped Values (JEP 506~\cite{JEP506}).
+\end{enumerate}
+
+\subsection{Correctness-Preserving Refactoring Patterns}
+
+\paragraph{Pattern 1: Safe Mutex Refactoring (Eliminating Monitor Pinning).}
+To resolve Java 21 monitor pinning without altering synchronization semantics:
+\begin{verbatim}
+// BEFORE: Pinned in Java 21
+public synchronized void executeTransaction() {
+    blockingCall();
+}
+
+// AFTER: Unpins cleanly via AQS
+private final ReentrantLock lock = new ReentrantLock();
+
+public void executeTransaction() {
+    lock.lock();
+    try {
+        blockingCall();
+    } finally {
+        lock.unlock();
+    }
+}
+\end{verbatim}
+
+\paragraph{Pattern 2: JNI Platform Thread Offloading.}
+To isolate unmanaged native syscalls from the virtual thread carrier pool:
+\begin{verbatim}
+@Service
+public class NativeIsolationService {
+    private final ExecutorService nativeExecutor =
+        Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors());
+
+    public CompletableFuture<String> executeNativeCall() {
+        return CompletableFuture.supplyAsync(() -> {
+            return nativeBlockingService.block();
+        }, nativeExecutor);
+    }
+}
+\end{verbatim}
+
+\paragraph{Pattern 3: Minimizing Relational Connection Holding.}
+To prevent shifting queues into HikariCP, connection checkout must be delayed until strictly necessary:
+\begin{verbatim}
+// ANTI-PATTERN: Holding connection across independent blocking I/O
+@Transactional
+public void processOrder() {
+    externalHttpValidation(); // Connection held for 300 ms!
+    orderRepository.save(order);
+}
+
+// CORRECT: Isolate connection lease strictly to database execution
+public void processOrder() {
+    externalHttpValidation(); // Zero database connections leased
+    transactionTemplate.execute(status -> {
+        return orderRepository.save(order); // Connection leased < 1 ms
+    });
+}
+\end{verbatim}
+
+\subsection{Master Migration Decision Matrix and Decision Tree}
+Table~\ref{tab:migration-decision} summarizes the architectural triage rules for determining virtual thread eligibility.
+
+\begin{table}[H]
+  \centering
+  \caption{Architectural migration triage and action matrix.}
+  \label{tab:migration-decision}
+  \begin{tabularx}{\textwidth}{@{}p{0.22\textwidth}p{0.25\textwidth}X@{}}
+    \toprule
+    \textbf{Workload / Boundary} & \textbf{Loom Compatibility} & \textbf{Mandatory Engineering Action} \\
+    \midrule
+    Non-blocking / Stateless I/O & Fully Compatible & Enable \texttt{spring.threads.}\allowbreak \texttt{virtual.enabled: true}; immediate scalability benefit. \\
+    \addlinespace
+    Synchronized Mutex Blocks & Hazardous in Java 21 & Refactor to \texttt{ReentrantLock} (Pattern 1); evaluate tail-latency SLAs for AQS barging. \\
+    \addlinespace
+    JNI / Foreign C Syscalls & Critical Starvation Risk & Offload syscalls to dedicated platform thread pool (Pattern 2). \\
+    \addlinespace
+    Relational JDBC Persistence & Compatible with Isolation & Verify \texttt{pgjdbc >= 42.6.0}; do not inflate connection pool; minimize hold time (Pattern 3). \\
+    \addlinespace
+    ThreadLocal Context Caching & Severe Memory Risk & Enforce \texttt{remove()} in \texttt{finally}; prepare migration to Scoped Values. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Master Threats to Validity}
+\label{sec:master-validity}
+
+Table~\ref{tab:master-validity} provides an exhaustive threats-to-validity evaluation, categorized across four classical empirical dimensions~\cite{Wohlin2012}.
+
+\begin{table}[H]
+  \centering
+  \caption{Master threats to validity matrix.}
+  \label{tab:master-validity}
+  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}p{0.25\textwidth}X@{}}
+    \toprule
+    \textbf{Dimension} & \textbf{Identified Threat} & \textbf{Methodological Mitigation and Scope} \\
+    \midrule
+    Internal Validity & Single-carrier scheduler constraint (\texttt{parallelism=1}) & Applied deliberately for mechanism isolation to unmask pinning; unconstrained 8-carrier scaling verified separately in Stratum~5. \\
+    \addlinespace
+    Internal Validity & Closed-loop k6 workload dynamics & Formally derived via Little's Law ($R = N/X - Z$); findings represent stationary equilibrium rather than open-loop arrival bursts. \\
+    \addlinespace
+    Internal Validity & JFR 20~ms event duration threshold & Claims of "zero pinning" qualified explicitly to events $\ge 20\text{ ms}$; unmounting verified via AQS code inspection. \\
+    \addlinespace
+    External Validity & Single bare-metal Apple Silicon host & Frame results as empirical systems study on arm64/Darwin; platform-independent JVM invariants separated from host timings. \\
+    \addlinespace
+    External Validity & Homogeneous synthetic delays & Workloads evaluate physical mechanisms in isolation; migration guidance mandates staging under production traffic. \\
+    \addlinespace
+    Construct Validity & Legacy \texttt{/orders} pre-acquisition delay flaw & Resolved via Two-Treatment Factorial Persistence Ablation in Stratum~8, contrasting unheld Treatment A against active connection-held Treatment B. \\
+    \addlinespace
+    Construct Validity & Containerized PostgreSQL JFR omission & Formally declared \textbf{Not Established}; PostgreSQL carrier unmounting retained as external literature, not repository-measured. \\
+    \addlinespace
+    Statistical Validity & Sample size ($N=3$ process repetitions) & Repetitions reported strictly as descriptive engineering bounds ($\sigma, \Delta$); inferential testing (ANOVA, $p$-values) excluded. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Transferability Boundary Audit}
+To assist practitioners, the transferability boundary matrix delineates findings that transfer directly to enterprise systems versus those requiring local calibration:
+\begin{itemize}
+  \item \textbf{Directly Transferable Invariants:} Java 21 monitor pinning mechanics; decoupling carrier unpinning from Amdahl serialization; JNI silent carrier captivity; JFR threshold filtering; AQS barging dispersion.
+  \item \textbf{Requires System-Specific Calibration:} Absolute throughput numbers ($\text{req/s}$) and latency percentiles; optimal HikariCP pool sizing; \texttt{ThreadLocal} heap pressure under target request volume; multi-core scheduling under Linux CFS bandwidth quotas.
+\end{itemize}
+
+\section{Engineering, Operational, and Academic Relevance}
+\label{sec:engineering-relevance}
+
+\subsection{Architectural and Operational Relevance}
+Enabling virtual threads removes the implicit admission control historically provided by bounded platform thread pools. Software architects must introduce explicit, bounded bulkheads at the HTTP ingress tier, minimize critical section durations, and isolate foreign functions. SRE teams must abandon legacy \texttt{ThreadMXBean} metrics in favor of JFR continuous event streaming and HikariCP connection queue telemetry.
+
+\subsection{Target Peer-Reviewed Venues}
+The research contributions possess direct publication potential across two premier international venues:
+\begin{enumerate}
+  \item \textbf{ACM/SPEC International Conference on Performance Engineering (ICPE):} Target Track: System Performance and Benchmarking Methodologies. Contribution mapping: Empirical decoupling of carrier unpinning from Amdahl single-server serialization ceiling ($\mu = 1/D = 2.0\text{ req/s}$), forensic discovery of JNI wait-state diagnostic blind spot, and the dual-window steady-state analysis standard.
+  \item \textbf{IEEE Software:} Target Track: Architecture and Design. Contribution mapping: Three-Tier Concurrency Taxonomy, Five Mandatory Architectural Rules, Four Refactoring Patterns, and Master Decision Tree.
+\end{enumerate}
+
+\subsection{Cumulative Research Protocol: Java 24 GA Replication Roadmap}
+To enable immediate, independent empirical replication of this thesis's findings on Java 24 GA (JEP 491~\cite{JEP491}):
+\begin{itemize}
+  \item \textbf{Runtime Configuration:} OpenJDK 24 GA, Apple Silicon host, JVM flags: \texttt{-Djdk.virtualThreadScheduler.parallelism=1 -Xms2g -Xmx2g}.
+  \item \textbf{Workload:} k6 v1.7.1, 10 closed-loop VUs, think time $Z = 100\text{ ms}$, endpoint \texttt{/payments} ($500\text{ ms}$ serialized mutex).
+  \item \textbf{Hypotheses to Replicate:}
+    \begin{enumerate}
+      \item \emph{H1 (Unpinning):} \texttt{jdk.VirtualThreadPinned} events drop from 108 to strictly 0.
+      \item \emph{H2 (Conservation):} Throughput remains clamped to Amdahl ceiling ($X \approx 1.96\text{ req/s}$), proving unpinning does not unserialize domain locks.
+      \item \emph{H3 (Dispersion):} Evaluate whether JDK 24 \texttt{ObjectMonitor} unmounting exhibits lower sample variance than non-fair \texttt{ReentrantLock} ($\sigma = 16.53\text{ ms}$).
+    \end{enumerate}
+\end{itemize}
