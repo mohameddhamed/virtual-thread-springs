@@ -1,2 +1,7 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+
+# GitHub Linguist overrides to vendor non-Java files
+*.tex linguist-vendored
+*.py linguist-vendored
+scripts/** linguist-vendored
