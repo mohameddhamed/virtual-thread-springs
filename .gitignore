@@ -37,6 +37,8 @@ build/
 # Python cache
 __pycache__/
 *.pyc
+.venv/
+.pytest_cache/
 
 # Supervisor-provided MSc audit skills and local consultation material
 ELTE_IK_MSc_Consultation_Checkpoint_Skills_Suite/
