@@ -19,6 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lib.presentation import page_heading
 from lib.loaders import load_persistence_experiments
 from lib.migration_data import (
     CORE_RULES,
@@ -38,11 +39,11 @@ from lib.transformations import (
     apply_dark_scientific_layout,
     format_bytes,
     format_latency_ms,
-    format_throughput,
+    hover_card,
 )
 
 # Page header
-st.title("07 · Migration Guidelines & Triage Workbench")
+page_heading("07", "Migration Guidelines & Triage Workbench")
 st.markdown(
     "Evidence-bounded architectural migration framework for adopting Java 21 Virtual Threads "
     "within enterprise Spring Boot MVC systems. Calibrated against empirical findings from Strata 1–8."
@@ -50,14 +51,7 @@ st.markdown(
 
 # Setup the 8 tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "1 · Executive Overview",
-    "2 · Decision Engine & Triage",
-    "3 · Core Architectural Rules",
-    "4 · Capacity Calculators",
-    "5 · Dependency Matrix",
-    "6 · Refactoring Patterns",
-    "7 · Observability & JFR",
-    "8 · Audit Report & Export",
+    "Overview", "Triage", "Rules", "Calculators", "Dependencies", "Refactoring", "JFR", "Audit export",
 ])
 
 
@@ -128,7 +122,7 @@ with tab1:
     # Dean's Directive Disclosure Box
     st.markdown(
         """
-        <div class="callout-box" style="border-left-color: #bc8cff;">
+        <div class="callout-box callout-disclosure">
             <b>Point-of-Use AI Disclosure (Dean's Directive 1/2026):</b><br>
             Generative AI assistance (Claude 3.5 Sonnet) was utilized in drafting and formatting the checklist outlines 
             and decision tree prose in this migration guide. All architectural rules, refactoring patterns, and diagnostic 
@@ -153,8 +147,8 @@ with tab1:
     with pipe_col1:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; height: 100%;">
-                <div style="color: #58a6ff; font-weight: 700; margin-bottom: 6px;">Phase 1: Code Audit</div>
+            <div class="lab-card">
+                <div style="color: var(--lab-blue); font-weight: 700; margin-bottom: 6px;">Phase 1: Code Audit</div>
                 <ul style="font-size: 0.82rem; padding-left: 16px; margin: 0;">
                     <li>Scan <code>synchronized</code> blocks wrapping I/O or sleep</li>
                     <li>Inventory <code>ThreadLocal</code> usage across filters</li>
@@ -167,8 +161,8 @@ with tab1:
     with pipe_col2:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; height: 100%;">
-                <div style="color: #39c5bb; font-weight: 700; margin-bottom: 6px;">Phase 2: Dependencies</div>
+            <div class="lab-card">
+                <div style="color: var(--lab-teal); font-weight: 700; margin-bottom: 6px;">Phase 2: Dependencies</div>
                 <ul style="font-size: 0.82rem; padding-left: 16px; margin: 0;">
                     <li>Run <code>mvn dependency:tree -Dverbose</code></li>
                     <li>Verify JDBC drivers: pgjdbc &ge; 42.6.0, mysql &ge; 9.0.0</li>
@@ -181,8 +175,8 @@ with tab1:
     with pipe_col3:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; height: 100%;">
-                <div style="color: #f0883e; font-weight: 700; margin-bottom: 6px;">Phase 3: Database Pool</div>
+            <div class="lab-card">
+                <div style="color: var(--lab-amber); font-weight: 700; margin-bottom: 6px;">Phase 3: Database Pool</div>
                 <ul style="font-size: 0.82rem; padding-left: 16px; margin: 0;">
                     <li>Audit connection checkout lifecycles vs transactions</li>
                     <li>Calibrate HikariCP sizing to DB hardware limits</li>
@@ -195,8 +189,8 @@ with tab1:
     with pipe_col4:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; height: 100%;">
-                <div style="color: #bc8cff; font-weight: 700; margin-bottom: 6px;">Phase 4: Observability</div>
+            <div class="lab-card">
+                <div style="color: var(--lab-violet); font-weight: 700; margin-bottom: 6px;">Phase 4: Observability</div>
                 <ul style="font-size: 0.82rem; padding-left: 16px; margin: 0;">
                     <li>Deploy continuous JFR with custom thresholds</li>
                     <li>Track carrier worker queue dwell metrics</li>
@@ -328,21 +322,21 @@ with tab2:
 
     # Composite Risk Card
     risk_colors = {
-        "CRITICAL": "#f85149",
-        "HIGH": "#f0883e",
-        "MEDIUM": "#d29922",
-        "LOW": "#58a6ff",
-        "CLEAN": "#3fb950",
+        "CRITICAL": "#fb7185",
+        "HIGH": "#fdba74",
+        "MEDIUM": "#fbbf24",
+        "LOW": PALETTE["accent_blue"],
+        "CLEAN": PALETTE["accent_green"],
     }
-    comp_color = risk_colors.get(assessment.composite_risk, "#58a6ff")
+    comp_color = risk_colors.get(assessment.composite_risk, PALETTE["text_muted"])
 
     m_col1, m_col2, m_col3, m_col4 = st.columns(4)
     with m_col1:
         st.markdown(
             f"""
-            <div style="background-color: #161b22; border: 2px solid {comp_color}; border-radius: 8px; padding: 14px; text-align: center;">
-                <div style="font-size: 0.8rem; color: #8b949e; text-transform: uppercase;">Composite Readiness Risk</div>
-                <div style="font-size: 1.8rem; font-weight: 800; color: {comp_color};">{assessment.composite_risk}</div>
+            <div class="lab-card risk-summary">
+                <small>Composite readiness risk</small>
+                <span class="badge badge-status" style="--badge-color: {comp_color}">{assessment.composite_risk}</span>
             </div>
             """,
             unsafe_allow_html=True,
@@ -392,9 +386,9 @@ with tab2:
     # Dual Card / Mermaid view
     st.markdown("---")
     st.subheader("Audit Pipeline Decision Path Visualizer")
-    view_mode = st.radio("Select View Mode:", options=["Mermaid Decision Pipeline Flowchart", "Stage Cards View"], horizontal=True)
+    view_mode = st.radio("Select View Mode:", options=["Stage cards", "Mermaid diagram source"], horizontal=True)
 
-    if view_mode == "Mermaid Decision Pipeline Flowchart":
+    if view_mode == "Mermaid diagram source":
         st.markdown(
             """
             ```mermaid
@@ -444,12 +438,12 @@ with tab2:
             color = risk_colors.get(s["risk"], "#8b949e")
             st.markdown(
                 f"""
-                <div style="background-color: #161b22; border-left: 4px solid {color}; border-radius: 4px; padding: 10px 14px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 700; color: #f0f6fc;">Stage {s['stage']}: {s['name']}</span>
-                        <span style="background-color: {color}25; color: {color}; border: 1px solid {color}50; padding: 2px 8px; border-radius: 4px; font-weight: 700; font-size: 0.75rem;">{s['risk']}</span>
+                <div class="lab-card">
+                    <div class="lab-card-heading">
+                        <span style="font-weight: 700; color: var(--lab-ink);">Stage {s['stage']}: {s['name']}</span>
+                        <span class="badge badge-status" style="--badge-color: {color}">{s['risk']}</span>
                     </div>
-                    <div style="font-size: 0.85rem; color: #8b949e; margin-top: 6px;">{s['details']}</div>
+                    <div style="font-size: 0.85rem; color: var(--lab-muted); margin-top: 6px;">{s['details']}</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -477,21 +471,21 @@ with tab3:
 
     st.markdown(
         f"""
-        <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 18px; margin: 16px 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-size: 1.2rem; font-weight: 700; color: #58a6ff;">Rule {rule.rule_number}: {rule.name}</span>
+        <div class="lab-card">
+            <div class="lab-card-heading">
+                <span style="font-size: 1.2rem; font-weight: 700; color: var(--lab-blue);">Rule {rule.rule_number}: {rule.name}</span>
                 <span>
                     <span class="badge badge-primary">{rule.claim_id}</span>
                     <span class="badge badge-supporting">{rule.epistemic_badge}</span>
                 </span>
             </div>
-            <div style="font-style: italic; color: #f0f6fc; font-size: 0.95rem; border-left: 3px solid #58a6ff; padding-left: 12px; margin-bottom: 14px;">
+            <div style="font-style: italic; color: var(--lab-ink); font-size: 0.95rem; border-left: 3px solid #58a6ff; padding-left: 12px; margin-bottom: 14px;">
                 "{rule.proposition}"
             </div>
-            <div style="font-size: 0.88rem; color: #8b949e; line-height: 1.5;">
-                <b style="color: #c9d1d9;">Queueing Reality:</b> {rule.queueing_reality}<br><br>
-                <b style="color: #c9d1d9;">Empirical Grounding:</b> {rule.rationale}<br><br>
-                <b style="color: #c9d1d9;">Evidentiary Stratum:</b> {rule.evidence_stratum}
+            <div style="font-size: 0.88rem; color: var(--lab-muted); line-height: 1.5;">
+                <b style="color: var(--lab-ink);">Queueing Reality:</b> {rule.queueing_reality}<br><br>
+                <b style="color: var(--lab-ink);">Empirical Grounding:</b> {rule.rationale}<br><br>
+                <b style="color: var(--lab-ink);">Evidentiary Stratum:</b> {rule.evidence_stratum}
             </div>
         </div>
         """,
@@ -502,14 +496,8 @@ with tab3:
     st.subheader("Application Boundary & Decision Matrix")
     rule_app_c1, rule_app_c2 = st.columns(2)
 
-    with rule_app_c1:
-        st.markdown(
-            """
-            <div style="background-color: #1a3d36; border: 1px solid #39c5bb40; border-radius: 6px; padding: 14px;">
-                <div style="color: #39c5bb; font-weight: 700; margin-bottom: 6px;">✅ When to Apply:</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    with rule_app_c1.container(border=True):
+        st.badge("When to apply", color="green")
         if selected_rule_id == 1:
             st.markdown(
                 "- When measured deployment shows carrier scarcity (e.g. parallelism=1 or pinned workers).\n"
@@ -540,16 +528,9 @@ with tab3:
                 "- In Java 21 LTS: whenever ThreadLocal.set() is invoked in filters or interceptors.\n"
                 "- In Java 25 LTS: standard migration from ThreadLocal to Scoped Values."
             )
-        st.markdown("</div>", unsafe_allow_html=True)
 
-    with rule_app_c2:
-        st.markdown(
-            """
-            <div style="background-color: #3d1d24; border: 1px solid #f8514940; border-radius: 6px; padding: 14px;">
-                <div style="color: #f85149; font-weight: 700; margin-bottom: 6px;">❌ When NOT to Apply (Anti-Patterns):</div>
-            """,
-            unsafe_allow_html=True,
-        )
+    with rule_app_c2.container(border=True):
+        st.badge("Anti-patterns", color="orange")
         if selected_rule_id == 1:
             st.markdown(
                 "- Do NOT refactor when the critical section represents an application domain serialization bottleneck.\n"
@@ -580,7 +561,6 @@ with tab3:
                 "- Do NOT enable Scoped Values in Java 21 production without executive preview flag approval.\n"
                 "- Do NOT omit try-finally { remove(); } on ThreadLocal request-scoped contexts."
             )
-        st.markdown("</div>", unsafe_allow_html=True)
 
     # Jump Buttons / Navigation Guidance
     st.markdown("---")
@@ -608,9 +588,9 @@ with tab4:
     )
 
     calc_sub1, calc_sub2, calc_sub3 = st.tabs([
-        "Amdahl Mutex Saturation (Rule 1)",
-        "HikariCP Downstream Pool Sizing (Rule 3)",
-        "ThreadLocal Heap Scaling (Rule 5)",
+        "Mutex saturation",
+        "HikariCP pool",
+        "ThreadLocal heap",
     ])
 
     # 1. Mutex Saturation Calculator
@@ -672,11 +652,9 @@ with tab4:
             fig_mutex.add_trace(go.Scatter(
                 x=[10],
                 y=[1.97],
-                mode="markers+text",
+                mode="markers",
                 name="Stratum 1 Empirical (1.97 req/s, 4,960 ms)",
                 marker=dict(size=12, color=PALETTE["accent_green"], symbol="diamond"),
-                text=["Stratum 1 (1.97 req/s)"],
-                textposition="bottom right",
                 yaxis="y1",
             ))
 
@@ -687,11 +665,14 @@ with tab4:
         )
         fig_mutex = apply_dark_scientific_layout(
             fig_mutex,
-            title=f"Closed-Loop Saturation Curve (Service Demand S = {sl_crit_ms:.0f} ms)",
+            title=f"Mutex saturation · {sl_crit_ms:.0f} ms demand",
             height=400,
         )
-        fig_mutex.update_layout(margin=dict(l=50, r=60, t=50, b=50))
-        st.plotly_chart(fig_mutex, width="stretch")
+        for trace in fig_mutex.data:
+            unit_value = "%{y:,.1f} ms" if trace.yaxis == "y2" else "%{y:.3f} req/s"
+            trace.hovertemplate = hover_card(trace.name, unit_value, "Clients · %{x}",
+                                            trace.marker.color or trace.line.color)
+        st.plotly_chart(fig_mutex, width="stretch", theme=None)
 
         if abs(sl_crit_ms - 500.0) < 1e-3 and sl_vus == 10:
             st.success(
@@ -720,10 +701,10 @@ with tab4:
             wooldridge_bound = (db_cores * 2) + db_spindles
             st.markdown(
                 f"""
-                <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; margin-top: 14px;">
-                    <div style="font-size: 0.75rem; color: #8b949e;">Wooldridge Hardware Sizing Bound:</div>
-                    <div style="font-size: 1.1rem; font-weight: 700; color: #39c5bb;">{wooldridge_bound} Connections</div>
-                    <div style="font-size: 0.75rem; color: #8b949e;">(Cores × 2 + Spindles)</div>
+                <div class="lab-card">
+                    <div style="font-size: 0.75rem; color: var(--lab-muted);">Wooldridge Hardware Sizing Bound:</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: var(--lab-teal);">{wooldridge_bound} Connections</div>
+                    <div style="font-size: 0.75rem; color: var(--lab-muted);">(Cores × 2 + Spindles)</div>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -755,7 +736,7 @@ with tab4:
         fig_pool.add_trace(go.Scatter(
             x=k_range,
             y=k_tp,
-            name="Theoretical Capacity (K / T_hold)",
+            name="Modeled closed-loop throughput",
             line=dict(color=PALETTE["accent_blue"], width=2.5),
             yaxis="y1",
         ))
@@ -779,21 +760,17 @@ with tab4:
                 fig_pool.add_trace(go.Scatter(
                     x=[1],
                     y=[avg_p1_tp],
-                    mode="markers+text",
-                    name=f"Stratum 8 Empirical Pool 1 ({avg_p1_tp:.2f} req/s)",
+                    mode="markers",
+                    name="Pool 1 · measured throughput",
                     marker=dict(size=12, color=PALETTE["accent_purple"], symbol="diamond"),
-                    text=["Stratum 8 Pool 1 TP"],
-                    textposition="top right",
                     yaxis="y1",
                 ))
                 fig_pool.add_trace(go.Scatter(
                     x=[1],
                     y=[avg_p1_lat],
-                    mode="markers+text",
-                    name=f"Stratum 8 Empirical Pool 1 Latency ({avg_p1_lat:.0f} ms)",
+                    mode="markers",
+                    name="Pool 1 · measured p50",
                     marker=dict(size=10, color=PALETTE["accent_purple"], symbol="circle-open"),
-                    text=["Stratum 8 Pool 1 Lat"],
-                    textposition="bottom right",
                     yaxis="y2",
                 ))
             if p10_runs:
@@ -802,21 +779,17 @@ with tab4:
                 fig_pool.add_trace(go.Scatter(
                     x=[10],
                     y=[avg_p10_tp],
-                    mode="markers+text",
-                    name=f"Stratum 8 Empirical Pool 10 ({avg_p10_tp:.2f} req/s)",
+                    mode="markers",
+                    name="Pool 10 · measured throughput",
                     marker=dict(size=12, color=PALETTE["accent_green"], symbol="diamond"),
-                    text=["Stratum 8 Pool 10 TP"],
-                    textposition="bottom right",
                     yaxis="y1",
                 ))
                 fig_pool.add_trace(go.Scatter(
                     x=[10],
                     y=[avg_p10_lat],
-                    mode="markers+text",
-                    name=f"Stratum 8 Empirical Pool 10 Latency ({avg_p10_lat:.0f} ms)",
+                    mode="markers",
+                    name="Pool 10 · measured p50",
                     marker=dict(size=10, color=PALETTE["accent_green"], symbol="circle-open"),
-                    text=["Stratum 8 Pool 10 Lat"],
-                    textposition="top right",
                     yaxis="y2",
                 ))
 
@@ -825,7 +798,8 @@ with tab4:
             x=wooldridge_bound,
             line_dash="dash",
             line_color=PALETTE["accent_cyan"],
-            annotation_text=f"Wooldridge Bound ({wooldridge_bound} conns)",
+            annotation_text=f"Wooldridge · {wooldridge_bound} conns", line_width=1.5,
+            annotation_font_color=PALETTE["accent_cyan"], annotation_bgcolor=PALETTE["card_dark"],
             annotation_position="top right",
         )
 
@@ -836,11 +810,14 @@ with tab4:
         )
         fig_pool = apply_dark_scientific_layout(
             fig_pool,
-            title=f"HikariCP Scaling vs Little's Law (Hold Time T_hold = {h_hold_ms:.0f} ms, N = {h_vus_n} VUs)",
+            title=f"Pool scaling · {h_hold_ms:.0f} ms hold · {h_vus_n} VUs",
             height=420,
         )
-        fig_pool.update_layout(margin=dict(l=50, r=60, t=50, b=50))
-        st.plotly_chart(fig_pool, width="stretch")
+        for trace in fig_pool.data:
+            unit_value = "%{y:,.1f} ms" if trace.yaxis == "y2" else "%{y:.3f} req/s"
+            trace.hovertemplate = hover_card(trace.name, unit_value, "Connections · %{x}",
+                                            trace.marker.color or trace.line.color)
+        st.plotly_chart(fig_pool, width="stretch", theme=None)
 
         if pool_calc["timeout_vulnerable"]:
             st.error(
@@ -891,10 +868,10 @@ with tab4:
         )
         fig_mem = apply_dark_scientific_layout(
             fig_mem,
-            title=f"Theoretical Heap Retention Comparison ({sl_ctx_kb:.0f} KB Payload / Thread)",
+            title=f"Modeled heap · {sl_ctx_kb:.0f} KB per thread", hover_value="%{text}",
             height=380,
         )
-        st.plotly_chart(fig_mem, width="stretch")
+        st.plotly_chart(fig_mem, width="stretch", theme=None)
 
         st.caption(
             "Note: This calculation represents an arithmetic theoretical worst-case projection (CLM-RQ2-07). "
@@ -953,14 +930,23 @@ with tab5:
             "Evaluated Baseline": d.evaluated_baseline,
             "Resolved in Study": d.resolved_in_study or "N/A",
             "Category": d.risk_category,
-            "Risk Level": d.risk_level,
+            "Risk Level": [d.risk_level],
         })
-    st.dataframe(pd.DataFrame(dep_table_data), hide_index=True, width="stretch")
+    st.caption(f"{len(dep_table_data)} of {len(DEPENDENCIES_REGISTRY)} dependencies match the filters.")
+    if dep_table_data:
+        st.dataframe(pd.DataFrame(dep_table_data), hide_index=True, width="stretch", column_config={
+            "Component Name": st.column_config.TextColumn(pinned=True),
+            "Risk Level": st.column_config.MultiselectColumn(
+                options=["SAFE", "ACTION_REQUIRED", "HAZARDOUS"],
+                color=[PALETTE["accent_green"], PALETTE["accent_amber"], PALETTE["accent_red"]],
+            ),
+        })
+    else:
+        st.info("No dependencies match these filters.")
 
     # Detailed Accordions
     st.subheader("Detailed Technical Rationale & Remediation Actions")
     for d in filtered_deps:
-        risk_badge = f"<span class='badge' style='background-color: {'#1a3d36' if d.risk_level == 'SAFE' else '#3b331c' if d.risk_level == 'ACTION_REQUIRED' else '#3d1d24'}; color: {'#39c5bb' if d.risk_level == 'SAFE' else '#f0883e' if d.risk_level == 'ACTION_REQUIRED' else '#f85149'};'>{d.risk_level}</span>"
         with st.expander(f"{d.component_name} ({d.artifact_id}) — {d.risk_level}"):
             st.markdown(
                 f"""
@@ -995,21 +981,21 @@ with tab6:
 
     st.markdown(
         f"""
-        <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 1.15rem; font-weight: 700; color: #58a6ff;">{pat.pattern_id}: {pat.title}</span>
+        <div class="lab-card">
+            <div class="lab-card-heading">
+                <span style="font-size: 1.15rem; font-weight: 700; color: var(--lab-blue);">{pat.pattern_id}: {pat.title}</span>
                 <span>
                     <span class="badge badge-supporting">{pat.target_jdk}</span>
                     <span class="badge badge-primary">{pat.epistemic_class}</span>
                 </span>
             </div>
-            <div style="color: #8b949e; font-size: 0.88rem;">{pat.problem_statement}</div>
+            <div style="color: var(--lab-muted); font-size: 0.88rem;">{pat.problem_statement}</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    code_tab_before, code_tab_after = st.tabs(["BEFORE: Vulnerable Anti-Pattern", "AFTER: Virtual-Thread-Aware Refactored Solution"])
+    code_tab_before, code_tab_after = st.tabs(["Before · Anti-pattern", "After · Refactored Java"])
     with code_tab_before:
         st.code(pat.before_code, language="java")
     with code_tab_after:
@@ -1185,13 +1171,13 @@ with tab8:
     with dc1:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
-                <b style="color: #58a6ff;">1. Database Server Hardware Capacity:</b><br>
+            <div class="lab-card">
+                <b style="color: var(--lab-blue);">1. Database Server Hardware Capacity:</b><br>
                 Virtual threads eliminate servlet-thread limits but do not increase database CPU, disk I/O, or WAL capacity. 
                 Unconstrained traffic can overwhelm the relational engine. Coordinate with DBAs on <code>max_connections</code>.
             </div>
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px;">
-                <b style="color: #39c5bb;">2. Downstream Network & Socket Starvation:</b><br>
+            <div class="lab-card">
+                <b style="color: var(--lab-teal);">2. Downstream Network & Socket Starvation:</b><br>
                 Multiplying outbound client concurrency by 100x can saturate downstream HTTP endpoints, NAT tables, 
                 and exhaust ephemeral local ports (<code>TIME_WAIT</code> socket exhaustion). Bound outbound HTTP client pools.
             </div>
@@ -1201,13 +1187,13 @@ with tab8:
     with dc2:
         st.markdown(
             """
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px; margin-bottom: 12px;">
-                <b style="color: #f0883e;">3. Kernel & Scheduler Switching Costs:</b><br>
+            <div class="lab-card">
+                <b style="color: var(--lab-amber);">3. Kernel & Scheduler Switching Costs:</b><br>
                 Carrier threads remain subject to operating system kernel scheduling. Repeated native blocking or page faults 
                 induce scheduler context switching; evaluate with OS-level telemetry.
             </div>
-            <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 12px;">
-                <b style="color: #bc8cff;">4. Database Administrator (DBA) Coordination:</b><br>
+            <div class="lab-card">
+                <b style="color: var(--lab-violet);">4. Database Administrator (DBA) Coordination:</b><br>
                 Any changes to HikariCP connection pool configurations or transaction boundaries must be coordinated 
                 with DBA teams to prevent connection table exhaustion and memory pressure on the database server.
             </div>
@@ -1218,7 +1204,7 @@ with tab8:
     # Exportable Architectural Audit Report
     st.markdown("---")
     st.subheader("Exportable Architectural Audit Report")
-    st.markdown("Generate and download a comprehensive audit report based on the active triage evaluation from Tab 2:")
+    st.markdown("Generate and download a comprehensive audit report based on the active triage evaluation from the Triage tab.")
 
     # Generate Markdown Report
     audit_params_summary = f"""* **Target OpenJDK Runtime:** OpenJDK {q_target_jdk}

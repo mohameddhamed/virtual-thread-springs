@@ -12,6 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lib.presentation import page_heading
 from lib.loaders import load_persistence_experiments
 from lib.transformations import (
     PALETTE,
@@ -20,7 +21,7 @@ from lib.transformations import (
     format_throughput,
 )
 
-st.title("05 · Database Connection Contention")
+page_heading("05", "Database Connection Contention")
 st.markdown(
     "Evaluation of relational database access under Virtual Threads. Contrasts "
     "**Treatment A (pre-acquisition delay control; pool >98% idle)** against "
@@ -37,26 +38,10 @@ st.markdown(
         evaluating virtual thread sleep unmounting rather than connection contention (throughput &approx; 123 req/s regardless of pool size).<br>
         <b>Treatment B (Stratum 8 · Admitted Primary Ablation):</b> In <code>java21-orders-persistence-contention</code>, 
         the database connection was held across a 300 ms blocking delay via <code>ConnectionCallback</code> under 50 concurrent VUs. 
-        Throughput strictly collapsed to Little's Law capacity ceiling ($X = K / T_{\\text{hold}}$): 
-        <b>3.27 req/s for Pool 1</b> vs. <b>32.60 req/s for Pool 10</b> ($9.97\\times$ scaling).<br>
+        Throughput strictly collapsed to Little's Law capacity ceiling (<code>X = K / T<sub>hold</sub></code>):
+        <b>3.27 req/s for Pool 1</b> vs. <b>32.60 req/s for Pool 10</b> (9.97× scaling).<br>
         <i>Zero JFR pinning events</i> confirmed virtual threads unmounted cleanly via HikariCP's <code>LockSupport.parkNanos()</code>, 
         shifting the bottleneck from carrier threads to the database connection pool.
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# Migration Guidance Callout
-st.markdown(
-    """
-    <div class="callout-box" style="border-left-color: #39c5bb;">
-        <b>Engineering Migration Guidance:</b><br>
-        Stratum 8's Downstream Bottleneck Shift provides the direct empirical foundation for 
-        <b>Rule 3: The Connection Pool Sizing Fallacy</b> (<span class="badge badge-primary">CLM-MIG-03</span>). 
-        Do not scale database connection pools proportionally to virtual thread concurrency; size within database hardware 
-        capacity and enforce application-level semaphores and workload-aligned timeouts.<br>
-        👉 <i>Explore the interactive HikariCP Pool Sizing Calculator with Wooldridge hardware bounds in 
-        <b>Page 07 · Migration Guidelines</b>.</i>
     </div>
     """,
     unsafe_allow_html=True,
@@ -81,7 +66,7 @@ with comp_col1:
     t_a_tp = tp_summary[tp_summary["treatment"].str.contains("Treatment A")]
     fig_tp.add_trace(
         go.Bar(
-            name="Treatment A (Uncontended / Excluded)",
+            name="A · Excluded control",
             x=["Pool 1", "Pool 10"],
             y=t_a_tp["hold_tp"],
             marker_color=PALETTE["accent_amber"],
@@ -94,7 +79,7 @@ with comp_col1:
     t_b_tp = tp_summary[tp_summary["treatment"].str.contains("Treatment B")]
     fig_tp.add_trace(
         go.Bar(
-            name="Treatment B (Active Contention / Stratum 8)",
+            name="B · Active contention",
             x=["Pool 1", "Pool 10"],
             y=t_b_tp["hold_tp"],
             marker_color=PALETTE["accent_blue"],
@@ -103,9 +88,9 @@ with comp_col1:
         )
     )
 
-    fig_tp = apply_dark_scientific_layout(fig_tp, title="Steady-State Throughput (req/s)", height=360)
+    fig_tp = apply_dark_scientific_layout(fig_tp, title="Hold-window throughput", height=360, hover_value="%{y:,.4f} req/s")
     fig_tp.update_layout(barmode="group", yaxis_title="Throughput (req/s)", xaxis_title="HikariCP Pool Size")
-    st.plotly_chart(fig_tp, width="stretch")
+    st.plotly_chart(fig_tp, width="stretch", theme=None)
 
 with comp_col2:
     fig_lat = go.Figure()
@@ -113,7 +98,7 @@ with comp_col2:
     t_a_p50 = p50_summary[p50_summary["treatment"].str.contains("Treatment A")]
     fig_lat.add_trace(
         go.Bar(
-            name="Treatment A (Uncontended / Excluded)",
+            name="A · Excluded control",
             x=["Pool 1", "Pool 10"],
             y=t_a_p50["hold_p50"],
             marker_color=PALETTE["accent_amber"],
@@ -125,7 +110,7 @@ with comp_col2:
     t_b_p50 = p50_summary[p50_summary["treatment"].str.contains("Treatment B")]
     fig_lat.add_trace(
         go.Bar(
-            name="Treatment B (Active Contention / Stratum 8)",
+            name="B · Active contention",
             x=["Pool 1", "Pool 10"],
             y=t_b_p50["hold_p50"],
             marker_color=PALETTE["accent_blue"],
@@ -134,9 +119,9 @@ with comp_col2:
         )
     )
 
-    fig_lat = apply_dark_scientific_layout(fig_lat, title="Median Steady-State Latency (p50 ms)", height=360)
+    fig_lat = apply_dark_scientific_layout(fig_lat, title="Hold-window median latency", height=360, hover_value="%{y:,.1f} ms")
     fig_lat.update_layout(barmode="group", yaxis_title="Median Latency (ms)", xaxis_title="HikariCP Pool Size")
-    st.plotly_chart(fig_lat, width="stretch")
+    st.plotly_chart(fig_lat, width="stretch", theme=None)
 
 st.markdown("---")
 
@@ -183,4 +168,29 @@ disp_table = disp_table.rename(
     }
 )
 
-st.dataframe(disp_table, hide_index=True, width="stretch")
+st.dataframe(disp_table, hide_index=True, width="stretch", column_config={
+    "Peak Queue": st.column_config.ProgressColumn(
+        "Peak queue (VUs)", min_value=0, max_value=50, format="%.0f", color=PALETTE["accent_amber"],
+        help="Peak waiting clients on the 50-VU workload scale",
+    ),
+    "Whole TP": st.column_config.NumberColumn("Full TP (req/s)", format="%.2f"),
+    "Hold TP": st.column_config.NumberColumn("Hold TP (req/s)", format="%.2f"),
+    "Whole p50": st.column_config.NumberColumn("Full p50 (ms)", format="%.2f"),
+    "Hold p50": st.column_config.NumberColumn("Hold p50 (ms)", format="%.2f"),
+})
+
+with st.expander("Migration guidance · Pool sizing"):
+    st.markdown(
+        """
+        <div class="callout-box callout-guidance">
+            <b>Engineering Migration Guidance:</b><br>
+            Stratum 8's Downstream Bottleneck Shift provides the direct empirical foundation for
+            <b>Rule 3: The Connection Pool Sizing Fallacy</b> (<span class="badge badge-primary">CLM-MIG-03</span>).
+            Do not scale database connection pools proportionally to virtual thread concurrency; size within database hardware
+            capacity and enforce application-level semaphores and workload-aligned timeouts.<br>
+            <i>Explore the interactive HikariCP Pool Sizing Calculator with Wooldridge hardware bounds in
+            <a href="./migration_guidelines">Page 07 · Migration Guidelines</a>.</i>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )

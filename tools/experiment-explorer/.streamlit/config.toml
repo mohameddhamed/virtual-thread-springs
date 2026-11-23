@@ -1,0 +1,16 @@
+[theme]
+base = "dark"
+backgroundColor = "#0a1019"
+secondaryBackgroundColor = "#121e2c"
+textColor = "#e8eff7"
+primaryColor = "#38bdf8"
+borderColor = "#2c3a4d"
+dataframeHeaderBackgroundColor = "#192536"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+font = "Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+codeFont = "ui-monospace, SFMono-Regular, Menlo, monospace"
+
+[theme.sidebar]
+backgroundColor = "#0e1622"
+secondaryBackgroundColor = "#192536"

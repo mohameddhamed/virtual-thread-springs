@@ -12,6 +12,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lib.presentation import page_heading
 from lib.loaders import get_enriched_trials_df
 from lib.transformations import (
     PALETTE,
@@ -21,7 +22,7 @@ from lib.transformations import (
     format_throughput,
 )
 
-st.title("03 · Runtime Evolution: Java 21 vs. Java 24")
+page_heading("03", "Runtime Evolution: Java 21 vs. Java 24")
 st.markdown(
     "Empirical evaluation of **JEP 491 (Synchronize Virtual Threads without Pinning)**. "
     "Compares OpenJDK 21.0.8 LTS against OpenJDK 24.0.2 under identical single-carrier stress."
@@ -82,14 +83,18 @@ with v_col1:
         go.Bar(
             x=["J21 Sync", "J24 Sync", "J21 Lock", "J24 Lock"],
             y=vals_tp,
+            customdata=order,
             marker_color=[PALETTE["accent_red"], PALETTE["accent_blue"], PALETTE["accent_amber"], PALETTE["accent_cyan"]],
             text=[f"{v:.3f}" for v in vals_tp],
             textposition="auto",
         )
     )
-    fig_tp = apply_dark_scientific_layout(fig_tp, title="1. Steady-State Throughput (req/s)", height=340)
+    fig_tp = apply_dark_scientific_layout(
+        fig_tp, title="Hold-window throughput", height=340,
+        hover_value="%{y:,.4f} req/s", hover_heading="%{customdata}",
+    )
     fig_tp.update_layout(yaxis=dict(range=[0, 2.5]), yaxis_title="Throughput (req/s)")
-    st.plotly_chart(fig_tp, width="stretch")
+    st.plotly_chart(fig_tp, width="stretch", theme=None)
     st.caption("Throughput is virtually identical (~1.967 req/s) across both runtimes.")
 
 # 2. JFR Pinning Events Comparison
@@ -102,14 +107,18 @@ with v_col2:
         go.Bar(
             x=["J21 Sync", "J24 Sync", "J21 Lock", "J24 Lock"],
             y=vals_jfr,
+            customdata=order,
             marker_color=[PALETTE["accent_red"], PALETTE["accent_blue"], PALETTE["accent_amber"], PALETTE["accent_cyan"]],
-            text=[f"{int(v)}" for v in vals_jfr],
+            texttemplate="%{y:,.2~f}",
             textposition="auto",
         )
     )
-    fig_jfr = apply_dark_scientific_layout(fig_jfr, title="2. JFR Pinning Events (>= 20ms)", height=340)
+    fig_jfr = apply_dark_scientific_layout(
+        fig_jfr, title="JFR pins · ≥20 ms", height=340,
+        hover_value="%{y:.2f} events (mean)", hover_heading="%{customdata}",
+    )
     fig_jfr.update_layout(yaxis_title="Pinning Event Count")
-    st.plotly_chart(fig_jfr, width="stretch")
+    st.plotly_chart(fig_jfr, width="stretch", theme=None)
     st.caption("Java 24 object monitors emit strictly 0 pinning events (JEP 491).")
 
 # 3. p95 Latency Comparison
@@ -122,14 +131,18 @@ with v_col3:
         go.Bar(
             x=["J21 Sync", "J24 Sync", "J21 Lock", "J24 Lock"],
             y=vals_p95,
+            customdata=order,
             marker_color=[PALETTE["accent_red"], PALETTE["accent_blue"], PALETTE["accent_amber"], PALETTE["accent_cyan"]],
             text=[f"{v:.0f} ms" for v in vals_p95],
             textposition="auto",
         )
     )
-    fig_p95 = apply_dark_scientific_layout(fig_p95, title="3. Steady-State p95 Latency (ms)", height=340)
+    fig_p95 = apply_dark_scientific_layout(
+        fig_p95, title="Hold-window p95 latency", height=340,
+        hover_value="%{y:,.1f} ms", hover_heading="%{customdata}",
+    )
     fig_p95.update_layout(yaxis_title="p95 Latency (ms)")
-    st.plotly_chart(fig_p95, width="stretch")
+    st.plotly_chart(fig_p95, width="stretch", theme=None)
     st.caption("p95 latency jumps to ~9,001 ms under unpinned monitor queueing.")
 
 st.markdown("---")
@@ -179,7 +192,7 @@ for group_name in order:
         "Full p50 (ms)": f"{full_p50_stats['mean']:.1f} ± {full_p50_stats['std']:.1f}",
         "Hold p50 (ms)": f"{p50_stats['mean']:.1f} ± {p50_stats['std']:.1f}",
         "Hold p95 (ms)": f"{p95_stats['mean']:.1f} ± {p95_stats['std']:.1f}",
-        "JFR Pins": jfr_count,
+        "JFR pins (first trial)": jfr_count,
     })
 
 st.dataframe(pd.DataFrame(summary_rows), hide_index=True, width="stretch")

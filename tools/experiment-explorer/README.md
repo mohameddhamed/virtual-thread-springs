@@ -17,6 +17,8 @@ The **Virtual Threads Experiment Explorer** is a read-only, publication-grade sc
 
 ---
 
+For the page-by-page interface review, CSS and Plotly examples, and visual regression steps, see the [Explorer interface guide](UI_GUIDE.md).
+
 ## 2. Technology Stack & Architectural Principles
 
 - **Python 3.11+**
@@ -128,7 +130,7 @@ When presenting to your academic supervisor, focus on the scientific software la
 ### Step 5: Trial Explorer & Evidence Traceability (`06 · Individual Trial Explorer`)
 - Select run `20261015-142534`.
 - Show that every metric is traceable back to its underlying k6 JSON, manifest, and JFR binary.
-- Trigger the **live cryptographic SHA-256 audit badge** to demonstrate empirical rigor and defensibility.
+- Open **Provenance & downloads** to inspect the verification status and full recorded and disk SHA-256 values.
 
 ### Step 6: Engineering Migration Guidance & Triage Workbench (`07 · Migration Guidelines`)
 - Demonstrate the **8-tab interactive workbench** synthesizing Chapter 7:

@@ -12,17 +12,16 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lib.presentation import page_heading
 from lib.loaders import get_enriched_trials_df
 from lib.transformations import (
     PALETTE,
-    aggregate_by_condition,
     apply_dark_scientific_layout,
     compute_descriptive_stats,
-    format_latency_ms,
-    format_throughput,
+    hover_card,
 )
 
-st.title("02 · Synchronization Matrix")
+page_heading("02", "Synchronization Matrix")
 st.markdown(
     "Evaluation of monitor pinning, carrier starvation, and lock serialization in Java 21 Spring Boot MVC. "
     "Investigates whether replacing `synchronized` with `ReentrantLock` resolves the application bottleneck."
@@ -33,14 +32,15 @@ st.sidebar.header("Synchronization Filters")
 carrier_filter = st.sidebar.radio(
     "Carrier Scheduler Environment:",
     options=[
-        "Stratum 1 · Single-Carrier Mechanism Isolation (parallelism=1, maxPoolSize=1)",
-        "Stratum 5 · Historical 8-Carrier Default Baseline (parallelism=8, maxPoolSize=256)",
+        "Stratum 1 · Single-carrier isolation",
+        "Stratum 5 · Historical 8-carrier baseline",
     ],
     index=0,
 )
 
 is_stratum_1 = "Stratum 1" in carrier_filter
 target_stratum_id = 1 if is_stratum_1 else 5
+st.sidebar.caption("parallelism=1 · maxPoolSize=1" if is_stratum_1 else "parallelism=8 · maxPoolSize=256")
 
 trials_df = get_enriched_trials_df()
 sync_df = trials_df[trials_df["stratum_id"] == target_stratum_id].copy()
@@ -54,14 +54,11 @@ if is_stratum_1:
     st.markdown(
         """
         <div class="callout-box">
-            <b>Core Thesis Finding: Decoupling of Carrier Unpinning from Application Serialization</b><br>
-            Under single-carrier stress (<code>parallelism=1</code>), refactoring from <code>synchronized</code> 
-            to <code>ReentrantLock</code> completely eliminated all <b>108–110 JFR pinning events</b> (dropping to strictly <b>0</b>), 
-            allowing virtual threads to unmount during blocking.<br>
-            However, <b>steady-state throughput remained virtually unchanged</b> (<b>1.967 req/s</b> vs. <b>1.956 req/s</b>, &Delta; = 0.56%; 
-            whole-run throughput was 1.964 req/s for both), and median latency remained &approx; 4,982 ms.<br>
-            <b>Scientific Takeaway:</b> The bottleneck was application-level serialization (the 500 ms mutual exclusion critical section governed by Amdahl's Law), 
-            not carrier thread pinning.
+            <strong>Single carrier · Pinning fell from 108–110 events to zero</strong><br>
+            With <code>synchronized</code> and <code>ReentrantLock</code>, hold-window throughput averaged
+            <b>1.967</b> and <b>1.956 req/s</b>, respectively (Δ = 0.56%). Both averaged <b>1.964 req/s</b>
+            over the full run. Median latency stayed near 4,982 ms. The 500 ms critical section continued
+            to serialize requests after the refactor allowed carrier unmounting.
         </div>
         """,
         unsafe_allow_html=True,
@@ -79,27 +76,11 @@ else:
         unsafe_allow_html=True,
     )
 
-# Migration Guidance Callout
-st.markdown(
-    """
-    <div class="callout-box" style="border-left-color: #39c5bb;">
-        <b>Engineering Migration Guidance:</b><br>
-        These empirical synchronization measurements form the evidentiary basis for 
-        <b>Rule 1: The Mutex Refactoring Rule</b> (<span class="badge badge-primary">CLM-MIG-01</span>) and 
-        <b>Pattern 1: Safe Mutex Refactoring</b>. Unpinning carrier threads only recovers carrier availability 
-        for unrelated work—it does not relieve endpoint serialization governed by Amdahl's Law.<br>
-        👉 <i>Explore interactive Amdahl capacity sizing and production-grade refactoring patterns in 
-        <b>Page 07 · Migration Guidelines</b>.</i>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
 # 3. Two-Panel Flagship Comparison (Steady-State Throughput vs JFR Pinning)
-st.subheader("Flagship Comparison: Steady-State Throughput vs. JFR Pinning Events")
+st.subheader("Throughput and carrier pinning")
 
 # Diagnostic ceiling toggle
-include_nolock = st.checkbox(
+include_nolock = st.toggle(
     "Include diagnostic ceiling (no-lock · 16.5 req/s)",
     value=False,
     help="Toggle display of no-lock. Disabled by default so mutual-exclusion treatments (1.96-1.97 req/s) can be clearly inspected without axis compression.",
@@ -126,97 +107,61 @@ for t in filtered_treatments:
         })
 plot_df = pd.DataFrame(plot_rows)
 
-panel_col1, panel_col2 = st.columns([1, 1])
+# Horizontal offsets keep trials with identical measurements individually inspectable.
+# Both panels use identical treatment positions and the original, unshifted y values.
+treatment_colors = {
+    "synchronized": PALETTE["condition_sync"], "reentrant-lock": PALETTE["condition_lock"],
+    "platform-synchronized": PALETTE["condition_platform"], "no-lock": PALETTE["condition_nolock"],
+}
+treatment_ticks = {"platform-synchronized": "platform<br>synchronized", "reentrant-lock": "reentrant<br>lock"}
 
+
+def treatment_panel(metric: str, title: str, axis_title: str, value: str, mean_value: str) -> go.Figure:
+    means = plot_df.groupby("condition_id")[metric].mean().reindex(filtered_treatments)
+    positions = list(range(len(filtered_treatments)))
+    fig = go.Figure(go.Bar(
+        x=positions, y=means.values, width=.56, opacity=.76,
+        marker_color=[treatment_colors[t] for t in filtered_treatments],
+        customdata=filtered_treatments, name="Treatment mean",
+        hovertemplate=hover_card("%{customdata}", mean_value, "Treatment mean"),
+    ))
+    for i, treatment in enumerate(filtered_treatments):
+        trials = plot_df[plot_df["condition_id"] == treatment]
+        offsets = np.linspace(-.17, .17, len(trials)) if len(trials) > 1 else np.array([0.])
+        fig.add_scatter(
+            x=i + offsets, y=trials[metric], mode="markers", cliponaxis=False,
+            marker=dict(size=9, color="#f4f9ff", line=dict(width=1.5, color=PALETTE["bg_dark"])),
+            customdata=trials[["run_id", "trial_id"]], name=treatment,
+            hovertemplate=hover_card(treatment, value, "Run %{customdata[0]} · Trial %{customdata[1]}",
+                                     treatment_colors[treatment]),
+        )
+    apply_dark_scientific_layout(fig, title=title, height=365)
+    fig.update_layout(showlegend=False, yaxis_title=axis_title)
+    fig.update_xaxes(tickmode="array", tickvals=positions, layer="below traces",
+                     ticktext=[treatment_ticks.get(t, t) for t in filtered_treatments],
+                     range=[-.5, len(positions)-.5])
+    return fig
+
+
+st.caption("Bars show treatment means. Each white dot is one trial. Hover a dot for its run ID and recorded value.")
+panel_col1, panel_col2 = st.columns(2)
 with panel_col1:
-    fig_tp = go.Figure()
-
-    agg_df = plot_df.groupby("condition_id")["steady_throughput"].mean().reindex(filtered_treatments)
-    colors = [
-        PALETTE["condition_sync"] if t == "synchronized"
-        else PALETTE["condition_lock"] if t == "reentrant-lock"
-        else PALETTE["condition_platform"] if t == "platform-synchronized"
-        else PALETTE["condition_nolock"]
-        for t in filtered_treatments
-    ]
-
-    fig_tp.add_trace(
-        go.Bar(
-            x=filtered_treatments,
-            y=agg_df.values,
-            marker_color=colors,
-            opacity=0.65,
-            name="Mean Steady-State Throughput",
-            hoverinfo="skip",
-        )
-    )
-
-    # Individual trial scatter overlay
-    for t in filtered_treatments:
-        sub = plot_df[plot_df["condition_id"] == t]
-        fig_tp.add_trace(
-            go.Scatter(
-                x=[t] * len(sub),
-                y=sub["steady_throughput"],
-                mode="markers",
-                marker=dict(size=10, color="#ffffff", line=dict(width=1.5, color="#000000")),
-                name=f"{t} trials",
-                text=[f"Run: {r['run_id']}<br>Trial: {r['trial_id']}<br>TP: {r['steady_throughput']:.4f} req/s" for _, r in sub.iterrows()],
-                hoverinfo="text",
-                showlegend=False,
-            )
-        )
-
+    fig_tp = treatment_panel("steady_throughput", "Hold-window throughput", "Throughput (req/s)",
+                             "%{y:.4f} req/s", "%{y:.4f} req/s")
     if include_nolock:
         fig_tp.add_hline(
-            y=16.67,
-            line_dash="dash",
-            line_color=PALETTE["accent_purple"],
-            annotation_text="Theoretical Closed-Loop Ceiling: 16.67 req/s",
-            annotation_position="top right",
+            y=16.67, line_dash="dash", line_width=1.5, line_color=PALETTE["accent_purple"],
+            annotation_text="Model ceiling · 16.67 req/s", annotation_position="bottom left",
+            annotation_bgcolor=PALETTE["card_dark"],
         )
-
-    fig_tp = apply_dark_scientific_layout(fig_tp, title="Steady-State Throughput (15s–45s Hold Window)", height=380)
-    fig_tp.update_layout(yaxis_title="Throughput (req/s)", xaxis_title="Treatment Condition")
-    if not include_nolock:
-        fig_tp.update_layout(yaxis=dict(range=[0, 2.5]))
-    st.plotly_chart(fig_tp, width="stretch")
+    else:
+        fig_tp.update_yaxes(range=[0, 2.5])
+    st.plotly_chart(fig_tp, width="stretch", theme=None)
 
 with panel_col2:
-    fig_jfr = go.Figure()
-
-    agg_jfr = plot_df.groupby("condition_id")["jfr_pinning_count"].mean().reindex(filtered_treatments)
-
-    fig_jfr.add_trace(
-        go.Bar(
-            x=filtered_treatments,
-            y=agg_jfr.values,
-            marker_color=colors,
-            opacity=0.65,
-            name="Mean JFR Pinning Events",
-            hoverinfo="skip",
-        )
-    )
-
-    # Overlay trial dots
-    for t in filtered_treatments:
-        sub = plot_df[plot_df["condition_id"] == t]
-        fig_jfr.add_trace(
-            go.Scatter(
-                x=[t] * len(sub),
-                y=sub["jfr_pinning_count"],
-                mode="markers",
-                marker=dict(size=10, color="#ffffff", line=dict(width=1.5, color="#000000")),
-                name=f"{t} trials",
-                text=[f"Run: {r['run_id']}<br>Trial: {r['trial_id']}<br>Pinning Events: {int(r['jfr_pinning_count'])}" for _, r in sub.iterrows()],
-                hoverinfo="text",
-                showlegend=False,
-            )
-        )
-
-    fig_jfr = apply_dark_scientific_layout(fig_jfr, title="JFR jdk.VirtualThreadPinned Events (>= 20ms)", height=380)
-    fig_jfr.update_layout(yaxis_title="Pinning Event Count", xaxis_title="Treatment Condition")
-    st.plotly_chart(fig_jfr, width="stretch")
+    fig_jfr = treatment_panel("jfr_pinning_count", "JFR pinning events · ≥20 ms", "Recorded events",
+                              "%{y:d} events", "%{y:.2f} events")
+    st.plotly_chart(fig_jfr, width="stretch", theme=None)
 
 # Diagnostic warning for no-lock
 if include_nolock:
@@ -225,7 +170,7 @@ if include_nolock:
         <div class="callout-warning">
             <b>Methodological Invariant Caveat: <code>no-lock</code> is Strictly Diagnostic</b><br>
             The <code>no-lock</code> treatment achieves steady throughput of &approx; 16.5 req/s 
-            (closely matching the theoretical closed-loop ceiling $X = N / (S + Z) = 10 / (0.500 + 0.100) = 16.67\\text{ req/s}$) 
+            (theoretical closed-loop ceiling <code>X = N / (S + Z) = 10 / (0.500 + 0.100) = 16.67 req/s</code>)
             because it completely bypasses mutual exclusion. It violates transactional safety and payment state consistency. 
             It is plotted solely as a theoretical unconstrained hardware ceiling, not an operational design candidate.
         </div>
@@ -252,9 +197,9 @@ with lat_col1:
     fig_lat.add_trace(go.Bar(x=agg_lat["condition_id"], y=agg_lat["p95"], name="p95", marker_color=PALETTE["accent_amber"]))
     fig_lat.add_trace(go.Bar(x=agg_lat["condition_id"], y=agg_lat["p99"], name="p99", marker_color=PALETTE["accent_red"]))
 
-    fig_lat = apply_dark_scientific_layout(fig_lat, title="Steady-State Latency Percentiles (p50 / p95 / p99)", height=350)
+    fig_lat = apply_dark_scientific_layout(fig_lat, title="Hold-window latency", height=350, hover_value="%{y:,.1f} ms")
     fig_lat.update_layout(barmode="group", yaxis_title="Latency (ms)", xaxis_title="Treatment")
-    st.plotly_chart(fig_lat, width="stretch")
+    st.plotly_chart(fig_lat, width="stretch", theme=None)
 
 with lat_col2:
     st.markdown(
@@ -321,3 +266,19 @@ display_df = display_df.rename(
     }
 )
 st.dataframe(display_df, hide_index=True, width="stretch")
+
+with st.expander("Migration guidance · Mutex refactoring"):
+    st.markdown(
+        """
+        <div class="callout-box callout-guidance">
+            <b>Engineering Migration Guidance:</b><br>
+            These empirical synchronization measurements form the evidentiary basis for
+            <b>Rule 1: The Mutex Refactoring Rule</b> (<span class="badge badge-primary">CLM-MIG-01</span>) and
+            <b>Pattern 1: Safe Mutex Refactoring</b>. Unpinning carrier threads only recovers carrier availability
+            for unrelated work—it does not relieve endpoint serialization governed by Amdahl's Law.<br>
+            <i>Explore interactive Amdahl capacity sizing and production-grade refactoring patterns in
+            <a href="./migration_guidelines">Page 07 · Migration Guidelines</a>.</i>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )

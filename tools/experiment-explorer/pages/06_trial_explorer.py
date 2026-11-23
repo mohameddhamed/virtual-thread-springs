@@ -7,15 +7,13 @@ APP_DIR = Path(__file__).resolve().parents[1]
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
-import json
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from lib.presentation import page_heading
 from lib.loaders import get_enriched_trials, load_telemetry_series
 from lib.provenance import (
-    REPO_ROOT,
-    compute_file_sha256,
     get_raw_file_bytes,
     read_manifest_file,
     verify_file_integrity,
@@ -25,9 +23,11 @@ from lib.transformations import (
     apply_dark_scientific_layout,
     format_latency_ms,
     format_throughput,
+    hover_card,
+    shade_workload_stages,
 )
 
-st.title("06 · Individual Trial Explorer")
+page_heading("06", "Individual Trial Explorer")
 st.markdown(
     "Full empirical audit drill-down for every benchmark trial. "
     "Inspect execution parameters, dual-window metrics, telemetry, and verify raw cryptographic provenance."
@@ -52,6 +52,10 @@ run_ids = [t.run_id for t in filtered_trials]
 
 # Default to the famous 20261015-142534 (Stratum 1 ReentrantLock trial 1) or first available
 default_idx = run_ids.index("20261015-142534") if "20261015-142534" in run_ids else 0
+
+if not run_ids:
+    st.info("This stratum has no normalized trials. Select another stratum to inspect a run.")
+    st.stop()
 
 selected_run_id = st.sidebar.selectbox(
     "Select Run Identifier:",
@@ -79,212 +83,176 @@ with id_c4:
     st.markdown(f"**Scheduler:** `{trial.carrier_category}`")
     st.caption(f"parallelism={trial.parallelism}, maxPool={trial.max_pool_size}")
 
-st.markdown("---")
+measurements, telemetry, provenance = st.tabs(["Measurements", "Host telemetry", "Provenance & downloads"])
 
-# 3. Dual-Window Measurement Panel
-st.subheader("Dual-Window Measurement Verification")
-st.markdown(
-    "Comparing the **Full 55-Second Run** against the **30-Second Steady-State Hold Window [15s, 45s]**."
-)
-
-dw_col1, dw_col2 = st.columns(2)
-
-with dw_col1:
-    st.markdown("#### Full Run Window [0, 55.0s]")
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.metric("Requests", f"{trial.metrics.full_reqs}")
-    with m2:
-        st.metric("Throughput", f"{trial.metrics.full_throughput:.2f} req/s")
-    with m3:
-        st.metric("p50 (Median)", format_latency_ms(trial.metrics.full_p50))
-    with m4:
-        st.metric("p95 Latency", format_latency_ms(trial.metrics.full_p95))
-
-with dw_col2:
-    st.markdown("#### Steady-State Hold Window [15.0s, 45.0s]")
-    h1, h2, h3, h4 = st.columns(4)
-    with h1:
-        st.metric("Requests", f"{trial.metrics.steady_reqs}")
-    with h2:
-        delta_tp_str = f"{trial.metrics.throughput_delta_pct:+.1f}% vs full"
-        st.metric("Throughput", f"{trial.metrics.steady_throughput:.2f} req/s", delta=delta_tp_str)
-    with h3:
-        delta_p50_str = f"{trial.metrics.p50_delta_pct:+.1f}% vs full"
-        st.metric("p50 (Median)", format_latency_ms(trial.metrics.steady_p50), delta=delta_p50_str)
-    with h4:
-        st.metric("p95 Latency", format_latency_ms(trial.metrics.steady_p95))
-
-# JFR Pinning Status Card
-st.markdown("#### JVM Instrumentation & JFR Event Capture")
-jfr_c1, jfr_c2, jfr_c3 = st.columns(3)
-with jfr_c1:
-    st.metric("JFR Recording Available", "YES" if trial.jfr_available else "NO")
-with jfr_c2:
-    pin_count_str = str(trial.jfr_pinning_count) if trial.jfr_pinning_count is not None else "0"
-    st.metric("VirtualThreadPinned Events", pin_count_str, help="jdk.VirtualThreadPinned events with threshold >= 20ms")
-with jfr_c3:
-    if trial.jfr_pinning_count and trial.jfr_pinning_count > 0:
-        st.markdown(
-            f"""
-            <div style="margin-top: 15px; padding: 10px; background-color: #3d1d24; border: 1px solid #f85149; border-radius: 6px; color: #f85149;">
-                <b>Carrier Pinning Detected:</b> {trial.jfr_pinning_count} events recorded at <code>PaymentService.processPayment</code>.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            """
-            <div style="margin-top: 15px; padding: 10px; background-color: #1d3b2a; border: 1px solid #3fb950; border-radius: 6px; color: #3fb950;">
-                <b>Clean Carrier State:</b> 0 pinning events recorded in companion JFR binary.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-st.markdown("---")
-
-# 4. Companion Telemetry Inspection (if available)
-st.subheader("Host Telemetry Series (CPU Utilization & Active Threads)")
-
-telemetry_df = load_telemetry_series(trial.run_id)
-
-if telemetry_df is not None and not telemetry_df.empty:
-    fig_t = go.Figure()
-    fig_t.add_vrect(x0=0, x1=15, fillcolor="rgba(88, 166, 255, 0.08)", layer="below", line_width=0, annotation_text="Ramp-Up (0-15s)", annotation_font_size=10)
-    fig_t.add_vrect(x0=15, x1=45, fillcolor="rgba(57, 197, 187, 0.12)", layer="below", line_width=0, annotation_text="Steady Hold (15-45s)", annotation_font_size=10)
-    fig_t.add_vrect(x0=45, x1=55, fillcolor="rgba(139, 148, 158, 0.08)", layer="below", line_width=0, annotation_text="Ramp-Down (45-55s)", annotation_font_size=10)
-
-    fig_t.add_trace(
-        go.Scatter(
-            x=telemetry_df["elapsed_s"],
-            y=telemetry_df["cpu_percent"],
-            name="CPU Utilization (%)",
-            line=dict(color=PALETTE["accent_blue"], width=2),
-        )
+with measurements:
+    # 3. Dual-Window Measurement Panel
+    st.subheader("Dual-Window Measurement Verification")
+    st.markdown(
+        "Comparing the **Full 55-Second Run** against the **30-Second Steady-State Hold Window [15s, 45s]**."
     )
 
-    if "threads" in telemetry_df.columns:
+    m = trial.metrics
+    rows = [
+        ("Requests", str(m.full_reqs), str(m.steady_reqs), "—"),
+        ("Throughput", format_throughput(m.full_throughput), format_throughput(m.steady_throughput),
+         f"{m.throughput_delta_pct:+.1f}%"),
+        ("p50 latency", format_latency_ms(m.full_p50), format_latency_ms(m.steady_p50), f"{m.p50_delta_pct:+.1f}%"),
+        ("p95 latency", format_latency_ms(m.full_p95), format_latency_ms(m.steady_p95), "—"),
+    ]
+    body = "".join(
+        f'<tr><th scope="row">{label}</th><td>{full}</td><td>{hold}</td><td>{delta}</td></tr>'
+        for label, full, hold, delta in rows
+    )
+    st.html(f"""
+        <div class="window-ledger" tabindex="0" role="region" aria-label="Dual-window measurements">
+        <table><thead><tr><th scope="col">Measure</th><th scope="col">Full run <small>0–55 s</small></th>
+        <th scope="col">Hold <small>15–45 s</small></th><th scope="col">Δ vs full</th></tr></thead>
+        <tbody>{body}</tbody></table></div>
+    """)
+
+    st.subheader("JFR event capture")
+    jfr_count = trial.jfr_pinning_count if trial.jfr_available else None
+    jfr_c1, jfr_c2 = st.columns(2)
+    jfr_c1.metric("Companion JFR recording", "Available" if trial.jfr_available else "Unavailable")
+    jfr_c2.metric("VirtualThreadPinned events", jfr_count if jfr_count is not None else "N/A",
+                  help="jdk.VirtualThreadPinned events with a duration of at least 20 ms")
+    if jfr_count is None:
+        st.badge("Pin count unavailable", color="gray")
+    elif jfr_count > 0:
+        st.badge("Carrier pinning detected", color="orange")
+    else:
+        st.badge("Zero recorded pins at the 20 ms threshold", color="blue")
+
+with telemetry:
+    # 4. Companion Telemetry Inspection (if available)
+    st.subheader("Host Telemetry Series (CPU Utilization & Active Threads)")
+
+    telemetry_df = load_telemetry_series(trial.run_id)
+
+    if telemetry_df is not None and not telemetry_df.empty:
+        fig_t = go.Figure()
         fig_t.add_trace(
             go.Scatter(
                 x=telemetry_df["elapsed_s"],
-                y=telemetry_df["threads"],
-                name="OS Threads",
-                yaxis="y2",
-                line=dict(color=PALETTE["accent_purple"], width=1.5, dash="dot"),
+                y=telemetry_df["cpu_percent"],
+                name="Process CPU",
+                hovertemplate=hover_card("Process CPU", "%{y:.2f}%", "Elapsed · %{x:.1f} s", PALETTE["accent_blue"]),
+                line=dict(color=PALETTE["accent_blue"], width=2),
             )
         )
 
-    fig_t = apply_dark_scientific_layout(fig_t, title=f"Companion Telemetry Stream: Run {trial.run_id}", height=340)
-    fig_t.update_layout(
-        xaxis_title="Elapsed Time (s)",
-        yaxis_title="CPU Utilization (%)",
-        yaxis2=dict(
-            title=dict(text="OS Thread Count", font=dict(color=PALETTE["accent_purple"], size=11)),
-            overlaying="y",
-            side="right",
-            gridcolor="#21262d",
-            tickfont=dict(color=PALETTE["accent_purple"], size=10),
-        ),
+        if "threads" in telemetry_df.columns:
+            fig_t.add_trace(
+                go.Scatter(
+                    x=telemetry_df["elapsed_s"],
+                    y=telemetry_df["threads"],
+                    name="OS threads",
+                    hovertemplate=hover_card("OS threads", "%{y:,d}", "Elapsed · %{x:.1f} s", PALETTE["accent_purple"]),
+                    yaxis="y2",
+                    line=dict(color=PALETTE["accent_purple"], width=1.5, dash="dot"),
+                )
+            )
+
+        shade_workload_stages(fig_t)
+        fig_t = apply_dark_scientific_layout(fig_t, title=f"Host telemetry · {trial.run_id}", height=390)
+        fig_t.update_layout(
+            xaxis_title="Elapsed Time (s)",
+            yaxis_title="CPU Utilization (%)",
+            yaxis2=dict(
+                title=dict(text="OS Thread Count", font=dict(color=PALETTE["accent_purple"], size=11)),
+                overlaying="y",
+                side="right",
+                showgrid=False, automargin=True,
+                tickfont=dict(color=PALETTE["accent_purple"], size=10),
+            ),
+        )
+        st.plotly_chart(fig_t, width="stretch", theme=None)
+    else:
+        st.info(f"No companion telemetry file found for run {trial.run_id}.")
+
+with provenance:
+    # 5. Cryptographic Provenance & SHA-256 Validation
+    st.subheader("Cryptographic Provenance & SHA-256 Hash Ledger")
+    st.markdown(
+        "Live physical existence check and SHA-256 hash validation against recorded metadata."
     )
-    st.plotly_chart(fig_t, width="stretch")
-else:
-    st.info(f"No companion telemetry file found for run {trial.run_id}.")
 
-st.markdown("---")
+    status_colors = {
+        "Verified match": PALETTE["accent_green"], "Present · no reference hash": "#43566e",
+        "Missing file": PALETTE["accent_red"], "Hash mismatch": PALETTE["accent_red"],
+    }
+    status_labels = {
+        "VERIFIED": "Verified match", "UNHASHED_PRESENT": "Present · no reference hash",
+        "MISSING_FILE": "Missing file", "HASH_MISMATCH": "Hash mismatch",
+    }
+    prov_items = []
+    for role, path, expected in (
+        ("Execution manifest", trial.manifest_path, None),
+        ("k6 result JSONL", trial.result_path, trial.result_sha256),
+        ("JFR recording", trial.jfr_path, trial.jfr_sha256),
+    ):
+        if path:
+            check = verify_file_integrity(path, expected)
+            prov_items.append({
+                "Artifact": role, "Verification": [status_labels[check["status"]]],
+                "Repository path": path, "Recorded SHA-256": expected or "No reference hash",
+                "Disk SHA-256": check["actual_sha256"] or "Unavailable",
+            })
 
-# 5. Cryptographic Provenance & SHA-256 Validation
-st.subheader("Cryptographic Provenance & SHA-256 Hash Ledger")
-st.markdown(
-    "Live physical existence check and SHA-256 hash validation against recorded metadata."
-)
-
-prov_items = []
-
-# Manifest
-if trial.manifest_path:
-    ver_mf = verify_file_integrity(trial.manifest_path, None)
-    prov_items.append({
-        "Artifact Role": "Execution Manifest",
-        "Repository Path": trial.manifest_path,
-        "File Exists?": "YES" if ver_mf["exists"] else "MISSING",
-        "Recorded SHA-256": "N/A (Reference Root)",
-        "Disk SHA-256": ver_mf["actual_sha256"][:16] + "..." if ver_mf["actual_sha256"] else "N/A",
-        "Cryptographic Match": "VERIFIED PRESENT" if ver_mf["exists"] else "FAILED",
+    st.dataframe(pd.DataFrame(prov_items), hide_index=True, width="stretch", column_config={
+        "Artifact": st.column_config.TextColumn(pinned=True),
+        "Verification": st.column_config.MultiselectColumn(width="medium", options=list(status_colors),
+                                                          color=list(status_colors.values())),
+        "Recorded SHA-256": st.column_config.TextColumn(width="large"),
+        "Disk SHA-256": st.column_config.TextColumn(width="large"),
     })
 
-# Result
-if trial.result_path:
-    ver_res = verify_file_integrity(trial.result_path, trial.result_sha256)
-    prov_items.append({
-        "Artifact Role": "k6 Result JSONL",
-        "Repository Path": trial.result_path,
-        "File Exists?": "YES" if ver_res["exists"] else "MISSING",
-        "Recorded SHA-256": trial.result_sha256[:16] + "..." if trial.result_sha256 else "UNHASHED",
-        "Disk SHA-256": ver_res["actual_sha256"][:16] + "..." if ver_res["actual_sha256"] else "N/A",
-        "Cryptographic Match": "MATCH (VERIFIED)" if ver_res["match"] else "MISMATCH",
-    })
+    st.markdown("---")
 
-# JFR
-if trial.jfr_path:
-    ver_jfr = verify_file_integrity(trial.jfr_path, trial.jfr_sha256)
-    prov_items.append({
-        "Artifact Role": "JFR Binary Recording",
-        "Repository Path": trial.jfr_path,
-        "File Exists?": "YES" if ver_jfr["exists"] else "MISSING",
-        "Recorded SHA-256": trial.jfr_sha256[:16] + "..." if trial.jfr_sha256 else "UNHASHED",
-        "Disk SHA-256": ver_jfr["actual_sha256"][:16] + "..." if ver_jfr["actual_sha256"] else "N/A",
-        "Cryptographic Match": "MATCH (VERIFIED)" if ver_jfr["match"] else "MISMATCH",
-    })
+    # 6. Artifact Downloads & Raw Manifest Viewer
+    st.subheader("Raw Artifact Download & Manifest Inspection")
 
-st.dataframe(pd.DataFrame(prov_items), hide_index=True, width="stretch")
+    dl1, dl2, dl3 = st.columns(3)
 
-st.markdown("---")
+    with dl1:
+        if trial.result_path:
+            b_res = get_raw_file_bytes(trial.result_path)
+            if b_res:
+                st.download_button(
+                    "Download Raw k6 Result JSON",
+                    data=b_res,
+                    file_name=f"k6-{trial.run_id}.json",
+                    mime="application/json",
+                    width="stretch",
+                )
 
-# 6. Artifact Downloads & Raw Manifest Viewer
-st.subheader("Raw Artifact Download & Manifest Inspection")
+    with dl2:
+        if trial.manifest_path:
+            b_mf = get_raw_file_bytes(trial.manifest_path)
+            if b_mf:
+                st.download_button(
+                    "Download Execution Manifest JSON",
+                    data=b_mf,
+                    file_name=f"manifest-{trial.run_id}.json",
+                    mime="application/json",
+                    width="stretch",
+                )
 
-dl1, dl2, dl3 = st.columns(3)
+    with dl3:
+        if trial.telemetry_path:
+            b_telem = get_raw_file_bytes(trial.telemetry_path)
+            if b_telem:
+                st.download_button(
+                    "Download Companion Telemetry CSV",
+                    data=b_telem,
+                    file_name=f"telemetry-{trial.run_id}.csv",
+                    mime="text/csv",
+                    width="stretch",
+                )
 
-with dl1:
-    if trial.result_path:
-        b_res = get_raw_file_bytes(trial.result_path)
-        if b_res:
-            st.download_button(
-                "Download Raw k6 Result JSON",
-                data=b_res,
-                file_name=f"k6-{trial.run_id}.json",
-                mime="application/json",
-                width="stretch",
-            )
-
-with dl2:
+    # Expandable JSON Manifest Viewer
     if trial.manifest_path:
-        b_mf = get_raw_file_bytes(trial.manifest_path)
-        if b_mf:
-            st.download_button(
-                "Download Execution Manifest JSON",
-                data=b_mf,
-                file_name=f"manifest-{trial.run_id}.json",
-                mime="application/json",
-                width="stretch",
-            )
-
-with dl3:
-    if trial.telemetry_path:
-        b_telem = get_raw_file_bytes(trial.telemetry_path)
-        if b_telem:
-            st.download_button(
-                "Download Companion Telemetry CSV",
-                data=b_telem,
-                file_name=f"telemetry-{trial.run_id}.csv",
-                mime="text/csv",
-                width="stretch",
-            )
-
-# Expandable JSON Manifest Viewer
-if trial.manifest_path:
-    with st.expander("Inspect Raw JSON Manifest"):
-        mf_content = read_manifest_file(trial.manifest_path)
-        st.json(mf_content)
+        with st.expander("Inspect Raw JSON Manifest"):
+            mf_content = read_manifest_file(trial.manifest_path)
+            st.json(mf_content)

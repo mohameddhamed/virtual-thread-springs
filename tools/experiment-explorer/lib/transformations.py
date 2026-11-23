@@ -79,66 +79,88 @@ def aggregate_by_condition(
     return pd.DataFrame(rows)
 
 
-# Dark Scientific Color Palette
+# The plotting field stays opaque for legible exports as well as on-screen use.
 PALETTE = {
-    "bg_dark": "#0e1117",
-    "card_dark": "#161b22",
-    "border_dark": "#30363d",
-    "text_primary": "#f0f6fc",
-    "text_muted": "#8b949e",
-    "accent_blue": "#58a6ff",
-    "accent_cyan": "#39c5bb",
-    "accent_amber": "#f0883e",
-    "accent_red": "#f85149",
-    "accent_purple": "#bc8cff",
-    "accent_green": "#3fb950",
-    "condition_sync": "#f85149",      # Red for monitor pinning
-    "condition_lock": "#58a6ff",      # Clean blue for ReentrantLock
-    "condition_platform": "#8b949e",  # Neutral grey for platform
-    "condition_nolock": "#bc8cff",    # Purple for diagnostic ceiling
+    "bg_dark": "#0d1117",
+    "card_dark": "#111b29",
+    "border_dark": "#2c3a4d",
+    "text_primary": "#e8eff7",
+    "text_muted": "#a5b4c8",
+    "accent_blue": "#38bdf8",
+    "accent_cyan": "#2dd4bf",
+    "accent_amber": "#f59e0b",
+    "accent_red": "#f43f5e",
+    "accent_purple": "#a855f7",
+    "accent_green": "#6ee7b7",
+    "condition_sync": "#f43f5e",
+    "condition_lock": "#38bdf8",
+    "condition_platform": "#94a3b8",
+    "condition_nolock": "#a855f7",
 }
+COLORWAY = [PALETTE[f"accent_{tone}"] for tone in ("blue", "cyan", "purple", "amber", "red", "green")]
+SANS = "Inter, -apple-system, BlinkMacSystemFont, sans-serif"
+MONO = "JetBrains Mono, SFMono-Regular, Menlo, monospace"
 
 
-def apply_dark_scientific_layout(fig: go.Figure, title: str = "", height: int = 420) -> go.Figure:
-    """Apply polished, restrained dark scientific styling to Plotly figures."""
+def hover_card(heading: str, value: str, detail: str = "", color: str = "#9dd4d5") -> str:
+    """Build a Plotly hovertemplate. Callers supply the trace's units and precision."""
+    return (
+        f"<span style='color:{color}'>●</span> <b>{heading}</b><br>{value}"
+        + (f"<br>{detail}" if detail else "")
+        + "<extra></extra>"
+    )
+
+
+def shade_workload_stages(fig: go.Figure) -> None:
+    """Mark the protocol intervals on an existing elapsed-time plot."""
+    for start, end, label, shade in (
+        (0, 15, "Ramp-up", "rgba(56,189,248,.065)"),
+        (15, 45, "Hold", "rgba(45,212,191,.11)"),
+        (45, 55, "Ramp-down", "rgba(168,85,247,.08)"),
+    ):
+        fig.add_vrect(x0=start, x1=end, fillcolor=shade, layer="below", line_width=0)
+        fig.add_annotation(
+            x=(start + end) / 2, y=1, yref="paper", yanchor="bottom", showarrow=False,
+            text=label, font=dict(size=10, color=PALETTE["text_muted"]),
+        )
+    fig.update_xaxes(tickmode="array", tickvals=[0, 15, 30, 45, 55], ticksuffix=" s")
+
+
+def apply_dark_scientific_layout(
+    fig: go.Figure, title: str = "", height: int = 420, *, hover_value: str = "", hover_heading: str = "%{x}",
+) -> go.Figure:
+    """Style a figure without changing its observations, axis ranges or trace bindings."""
     fig.update_layout(
         template="plotly_dark",
-        title=dict(
-            text=f"<b>{title}</b>" if title else "",
-            font=dict(size=14, color=PALETTE["text_primary"], family="monospace"),
-            x=0.02,
-            y=0.96,
-        ),
-        paper_bgcolor=PALETTE["card_dark"],
-        plot_bgcolor="#0d1117",
-        font=dict(family="sans-serif", size=12, color=PALETTE["text_primary"]),
-        margin=dict(l=50, r=30, t=50, b=50),
-        height=height,
-        hovermode="closest",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=11),
-            bgcolor="rgba(22,27,34,0.7)",
-            bordercolor=PALETTE["border_dark"],
-            borderwidth=1,
-        ),
-        xaxis=dict(
-            gridcolor="#21262d",
-            zerolinecolor="#30363d",
-            tickfont=dict(size=11, color=PALETTE["text_muted"]),
-            title_font=dict(size=12, color=PALETTE["text_primary"]),
-        ),
-        yaxis=dict(
-            gridcolor="#21262d",
-            zerolinecolor="#30363d",
-            tickfont=dict(size=11, color=PALETTE["text_muted"]),
-            title_font=dict(size=12, color=PALETTE["text_primary"]),
-        ),
+        title=dict(text=f"<b>{title}</b>" if title else "", x=0.035, xanchor="left",
+                   y=.96, yanchor="top", font=dict(size=15, family=SANS)),
+        paper_bgcolor=PALETTE["card_dark"], plot_bgcolor=PALETTE["bg_dark"],
+        colorway=COLORWAY, font=dict(family=SANS, size=12, color=PALETTE["text_primary"]),
+        height=height, margin=dict(l=22, r=22, t=62, b=35),
+        hovermode="closest", bargap=.32,
+        hoverlabel=dict(bgcolor="#182737", bordercolor="#506476", align="left",
+                        font=dict(family=MONO, size=12, color="#f4f9ff"), namelength=-1),
+        legend=dict(orientation="h", yanchor="top", y=-.24, xanchor="left", x=0,
+                    font=dict(size=11, color=PALETTE["text_muted"]), bgcolor="rgba(0,0,0,0)"),
     )
+    axis_style = dict(
+        automargin=True, gridcolor="#1f2937", zerolinecolor=PALETTE["border_dark"],
+        tickfont=dict(family=MONO, size=11, color=PALETTE["text_muted"]),
+        title_font=dict(size=12, color=PALETTE["text_primary"]), title_standoff=9,
+        separatethousands=True,
+    )
+    fig.update_xaxes(**axis_style, showgrid=False, zeroline=False)
+    fig.update_yaxes(**axis_style)
+    for trace in fig.data:
+        if trace.type == "pie":
+            fig.update_layout(uniformtext=dict(minsize=11, mode="hide"))
+            trace.update(marker_line=dict(width=2, color=PALETTE["card_dark"]),
+                         textinfo="percent", textposition="inside",
+                         hovertemplate=hover_card("%{label}", hover_value or "%{value:,}", "%{percent} of total"))
+        elif hover_value and trace.type in ("bar", "scatter"):
+            color = trace.marker.color if trace.type == "bar" else trace.line.color
+            trace.hovertemplate = hover_card(hover_heading, hover_value, trace.name or "",
+                                             color if isinstance(color, str) else PALETTE["text_muted"])
     return fig
 
 
