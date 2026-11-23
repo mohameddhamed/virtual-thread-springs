@@ -22,6 +22,7 @@ from streamlit.testing.v1 import AppTest
         "pages/04_native_boundary.py",
         "pages/05_persistence.py",
         "pages/06_trial_explorer.py",
+        "pages/07_migration_guidelines.py",
     ],
 )
 def test_page_renders_without_exception(page_script: str):

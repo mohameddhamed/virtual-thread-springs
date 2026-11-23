@@ -47,20 +47,23 @@ tools/experiment-explorer/
 │   ├── 03_runtime_comparison.py# Cross-runtime evaluation (Java 21 vs Java 24 JEP 491)
 │   ├── 04_native_boundary.py   # Native JNI blocking & silent carrier starvation
 │   ├── 05_persistence.py       # Relational persistence contention (Treatment A vs B)
-│   └── 06_trial_explorer.py    # Trial drill-down with live SHA-256 validation & downloads
+│   ├── 06_trial_explorer.py    # Trial drill-down with live SHA-256 validation & downloads
+│   └── 07_migration_guidelines.py # Chapter 7 interactive workbench & 6-stage triage pipeline
 ├── lib/
 │   ├── __init__.py
 │   ├── schemas.py              # Strict dataclass schemas & strata definitions
 │   ├── loaders.py              # Authoritative file loaders with caching
 │   ├── transformations.py      # Descriptive statistics & Plotly dark scientific styling
-│   └── provenance.py           # File presence & SHA-256 cryptographic verification
+│   ├── provenance.py           # File presence & SHA-256 cryptographic verification
+│   └── migration_data.py       # Domain models, queueing math, registries & audit pipeline
 └── tests/
     ├── __init__.py
     ├── test_data_contract.py   # Population, schemas & 504 vs 543 reconciliation tests
     ├── test_metrics_integrity.py# Dual-window metrics, pinning & thesis findings tests
     ├── test_pages_render.py    # Headless Streamlit AppTest page execution & rendering tests
     ├── test_provenance_and_files.py # 226 raw file existence & SHA-256 validation tests
-    └── test_transformations.py # Statistical aggregation, dispersion & Plotly layout tests
+    ├── test_transformations.py # Statistical aggregation, dispersion & Plotly layout tests
+    └── test_migration_guidelines.py # Queueing math, memory scaling & triage pipeline tests
 ```
 
 ---
@@ -126,3 +129,11 @@ When presenting to your academic supervisor, focus on the scientific software la
 - Select run `20261015-142534`.
 - Show that every metric is traceable back to its underlying k6 JSON, manifest, and JFR binary.
 - Trigger the **live cryptographic SHA-256 audit badge** to demonstrate empirical rigor and defensibility.
+
+### Step 6: Engineering Migration Guidance & Triage Workbench (`07 · Migration Guidelines`)
+- Demonstrate the **8-tab interactive workbench** synthesizing Chapter 7:
+  - **Tab 2 (Triage Wizard):** Walk through the non-short-circuiting 6-stage audit pipeline, triggering dynamic composite risk calculations and prescribed actions.
+  - **Tab 4 (Capacity Calculators):** Show the interactive Amdahl saturation curve and HikariCP pool sizing calculator with live empirical Stratum 8 overlay matching Little's Law within 5%.
+  - **Tab 5 (Ecosystem Matrix):** Filter across the 14 verified dependencies to demonstrate risk classification (pgjdbc, MySQL 9.0, Jackson, Commons Pool 2, SQLite).
+  - **Tab 6 (Refactoring Patterns):** Review production-grade Before vs. After Java diffs and explain the `CallerRunsPolicy` carrier-starvation trap.
+  - **Tab 8 (Exportable Audit Report):** Generate and export comprehensive Markdown and JSON architectural audit reports.

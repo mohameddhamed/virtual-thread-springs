@@ -79,6 +79,22 @@ else:
         unsafe_allow_html=True,
     )
 
+# Migration Guidance Callout
+st.markdown(
+    """
+    <div class="callout-box" style="border-left-color: #39c5bb;">
+        <b>Engineering Migration Guidance:</b><br>
+        These empirical synchronization measurements form the evidentiary basis for 
+        <b>Rule 1: The Mutex Refactoring Rule</b> (<span class="badge badge-primary">CLM-MIG-01</span>) and 
+        <b>Pattern 1: Safe Mutex Refactoring</b>. Unpinning carrier threads only recovers carrier availability 
+        for unrelated work—it does not relieve endpoint serialization governed by Amdahl's Law.<br>
+        👉 <i>Explore interactive Amdahl capacity sizing and production-grade refactoring patterns in 
+        <b>Page 07 · Migration Guidelines</b>.</i>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 # 3. Two-Panel Flagship Comparison (Steady-State Throughput vs JFR Pinning)
 st.subheader("Flagship Comparison: Steady-State Throughput vs. JFR Pinning Events")
 

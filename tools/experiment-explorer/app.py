@@ -138,6 +138,7 @@ pages = [
     st.Page("pages/04_native_boundary.py", title="04 · JNI Native Boundary", icon=":material/memory:"),
     st.Page("pages/05_persistence.py", title="05 · Database Persistence", icon=":material/database:"),
     st.Page("pages/06_trial_explorer.py", title="06 · Individual Trial Explorer", icon=":material/biotech:"),
+    st.Page("pages/07_migration_guidelines.py", title="07 · Migration Guidelines", icon=":material/menu_book:"),
 ]
 
 nav = st.navigation(pages)

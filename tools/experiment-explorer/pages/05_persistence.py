@@ -46,6 +46,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Migration Guidance Callout
+st.markdown(
+    """
+    <div class="callout-box" style="border-left-color: #39c5bb;">
+        <b>Engineering Migration Guidance:</b><br>
+        Stratum 8's Downstream Bottleneck Shift provides the direct empirical foundation for 
+        <b>Rule 3: The Connection Pool Sizing Fallacy</b> (<span class="badge badge-primary">CLM-MIG-03</span>). 
+        Do not scale database connection pools proportionally to virtual thread concurrency; size within database hardware 
+        capacity and enforce application-level semaphores and workload-aligned timeouts.<br>
+        👉 <i>Explore the interactive HikariCP Pool Sizing Calculator with Wooldridge hardware bounds in 
+        <b>Page 07 · Migration Guidelines</b>.</i>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 pers_records = load_persistence_experiments()
 df_pers = pd.DataFrame([r.__dict__ for r in pers_records])
 

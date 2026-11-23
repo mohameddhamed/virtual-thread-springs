@@ -45,6 +45,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Migration Guidance Callout
+st.markdown(
+    """
+    <div class="callout-box" style="border-left-color: #39c5bb;">
+        <b>Engineering Migration Guidance:</b><br>
+        The discovery of silent carrier starvation across foreign function boundaries establishes 
+        <b>Rule 2: The Native JNI Isolation Rule</b> (<span class="badge badge-primary">CLM-MIG-02</span>) and 
+        <b>Pattern 2: Platform Thread Offloading with AbortPolicy</b>. Foreign native calls that can block 
+        must never execute directly on virtual threads; they must be offloaded to dedicated bounded platform executors.<br>
+        👉 <i>Inspect the complete refactored executor configuration, CallerRunsPolicy trap analysis, and POSIX 
+        cancellation semantics in <b>Page 07 · Migration Guidelines</b>.</i>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 trials_df = get_enriched_trials_df()
 jni_df = trials_df[trials_df["stratum_id"] == 3].copy()
 

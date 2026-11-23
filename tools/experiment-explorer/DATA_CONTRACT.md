@@ -183,3 +183,59 @@ All experimental evidence in the repository is partitioned into eight non-overla
 * **Hash Verification:** 100% of admitted files must match recorded SHA-256 hashes in `normalized-evidence.json` and manifests.
 * **JFR Event Zero Semantics:** In JFR analysis, a count of 0 is an explicit, verified event absence ($\ge 20\text{ ms}$ threshold), not a missing or uncollected value.
 * **Diagnostic Conditions:** The `no-lock` treatment is strictly a diagnostic throughput upper-bound ceiling. It fails the mutual exclusion invariant and must never be presented as an application candidate.
+
+---
+
+## 7. Migration Guidance & Architectural Decision Data Model
+
+Synthesizes Chapter 7 Migration Guidance, the Claim-to-Evidence Ledger, and empirical findings into formal computational and structural models (`lib/migration_data.py`).
+
+### 7.1 Domain Dataclasses
+* `MigrationRule`: Encapsulates a core architectural rule, its ledger claim mapping, epistemic class badge, exact proposition text, queueing reality, and empirical grounding.
+* `DependencyEntry`: Encapsulates an ecosystem artifact, evaluated baseline, resolved study version, risk category, risk level (`SAFE`, `ACTION_REQUIRED`, `HAZARDOUS`), rationale, and remediation action.
+* `RefactoringPattern`: Encapsulates a correctness-preserving code pattern (`PAT-01`, `PAT-02`, `PAT-03A`, `PAT-03B`), target JDK version, problem statement, syntax-highlighted Java before/after listings, and architectural invariants/gotchas.
+* `TriageAssessment`: Output contract of the 6-stage audit pipeline containing composite risk (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `CLEAN`), stage findings, prescribed actions, prescribed rules, and prescribed patterns.
+
+### 7.2 Analytical Queueing Math Contracts
+* `calculate_service_demand_capacity(service_demand_ms, concurrent_vus, think_time_ms)`:
+  * Amdahl's Law theoretical capacity ceiling: $X_{\text{max}} = 1 / S$.
+  * Interactive Response Time Law (Little's Law closed-loop equilibrium): $R = (N / X) - Z = N \times S$ (when $Z=0$).
+  * Calibrated against Stratum 1 (PaymentService mutex): $S = 500\text{ ms}, N = 10 \implies X = 2.0\text{ req/s}, R = 5,000\text{ ms}$ (matches empirical $1.97\text{ req/s}$ and $4,960\text{ ms}$ within 2%).
+* `calculate_downstream_pool_capacity(pool_size, hold_time_ms, concurrent_vus, connection_timeout_ms, arrival_rate_rps)`:
+  * Downstream Bottleneck Shift (Little's Law for $K$ parallel servers): $X_{\text{max}} = K / T_{\text{hold}}$.
+  * Saturated closed-loop response time: $R = (N / K) \times T_{\text{hold}}$, queue wait $W_q = (N/K - 1) \times T_{\text{hold}}$.
+  * Calibrated against Stratum 8 (Orders persistence contention):
+    * Pool 1 ($K=1, T_{\text{hold}}=300\text{ ms}, N=50$): $X = 3.33\text{ req/s}, R = 15,000\text{ ms}$ (empirical $3.27\text{ req/s}, 15,123\text{ ms}$).
+    * Pool 10 ($K=10, T_{\text{hold}}=300\text{ ms}, N=50$): $X = 33.33\text{ req/s}, R = 1,500\text{ ms}$ (empirical $32.60\text{ req/s}, 1,431\text{ ms}$).
+  * Open-loop timeout cascade detection: flags timeout vulnerability when $W_q > \text{connectionTimeout}$.
+* `calculate_threadlocal_heap_footprint(concurrent_virtual_threads, context_payload_kb, platform_pool_workers)`:
+  * Bounded platform pool: $M_{\text{platform}} = N_{\text{workers}} \times M_{\text{context}}$.
+  * Unbounded virtual threads: $M_{\text{virtual}} = N_{\text{virtual}} \times M_{\text{context}}$.
+  * Evaluated against CLM-RQ2-07 ($100,000$ virtual threads $\times 50\text{ KB} = 5,120,000,000\text{ bytes} \approx 5.0\text{ GB}$).
+
+### 7.3 Authoritative Registries
+* **5 Core Architectural Rules:**
+  1. `CLM-MIG-01`: The Mutex Refactoring Rule (`[MEASURED & INTERPRETED]`)
+  2. `CLM-MIG-02`: The Native JNI Isolation Rule (`[MEASURED & INTERPRETED]`)
+  3. `CLM-MIG-03`: The Connection Pool Sizing Fallacy (`[MEASURED & EXTERNALLY SUPPORTED]`)
+  4. `CLM-MIG-04`: The Production Observability Rule (`[EXTERNALLY SUPPORTED & INTERPRETED]`)
+  5. `CLM-RQ2-07`: ThreadLocal Memory Hygiene (`[THEORETICAL PROJECTION & EXTERNALLY SUPPORTED]`)
+* **14 Ecosystem Dependencies:**
+  * 5 from Chapter 7 Table 7.1: PostgreSQL (`pgjdbc`), MySQL Connector/J, Jackson Databind, Tomcat Embedded, HikariCP.
+  * 9 extended from Invariant Ledger: MariaDB Connector/J, SQLite JDBC, Apache HttpClient 5, Apache Commons Pool 2, Spring Boot Executable (Fat JAR ClassLoader), Spring Framework Core, Logback Classic, Apache Log4j 2, OpenTelemetry Java / Micrometer.
+* **4 Correctness-Preserving Refactoring Patterns:**
+  * `PAT-01`: Safe Mutex Refactoring (`LegacyPaymentService` $\to$ `RefactoredPaymentService`)
+  * `PAT-02`: Foreign Function (JNI) Platform Thread Offloading with `AbortPolicy`
+  * `PAT-03A`: Defensive ThreadLocal Lifecycle Encapsulation (`try-finally { remove(); }`)
+  * `PAT-03B`: Modern Scoped Values Standardization (Java 25 JEP 506 / Preview JEP 446) with `RuntimeServletExceptionBridge`
+
+### 7.4 Six-Stage Non-Short-Circuiting Triage Audit Pipeline
+* Every component passes through all 6 stages unconditionally:
+  1. Stage 1: Dependency Tree Resolution
+  2. Stage 2: Native / Foreign Function Boundary
+  3. Stage 3: Synchronized Monitors around Blocking I/O
+  4. Stage 4: Database Connection Pool Demarcation
+  5. Stage 5: Context Propagation & ThreadLocal Lifecycle
+  6. Stage 6: Observability, Compute Qualification & JFR Thresholds
+* Emits composite risk rating, stage scorecards, prescribed corrective actions, and linked rules/patterns.
+
