@@ -88,15 +88,19 @@ public void executeTransaction() {
     }
 }
 \end{verbatim}
+\textit{Architectural Caveat:} Refactoring \texttt{synchronized(this)} to an internal \texttt{private final ReentrantLock} alters instance monitor semantics. Engineering teams must confirm that external callers do not rely on coordinating via monitor synchronization directly on the service instance.
 
-\paragraph{Pattern 2: JNI Platform Thread Offloading.}
-To isolate unmanaged native syscalls from the virtual thread carrier pool:
+\paragraph{Pattern 2: Bounded Bulkhead with Explicit Rejection.}
+To isolate unmanaged native syscalls from the virtual thread carrier pool without unbounded queue accumulation:
 \begin{verbatim}
 @Service
 public class NativeIsolationService {
-    private final ExecutorService nativeExecutor =
-        Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors());
+    private static final int CORES = Runtime.getRuntime().availableProcessors();
+    private final ThreadPoolExecutor nativeExecutor = new ThreadPoolExecutor(
+        CORES, CORES, 0L, TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(100),
+        new ThreadPoolExecutor.CallerRunsPolicy()
+    );
 
     public CompletableFuture<String> executeNativeCall() {
         return CompletableFuture.supplyAsync(() -> {
@@ -122,6 +126,26 @@ public void processOrder() {
     transactionTemplate.execute(status -> {
         return orderRepository.save(order); // Connection leased < 1 ms
     });
+}
+\end{verbatim}
+
+\paragraph{Pattern 4: Request Context Isolation and ThreadLocal Hygiene.}
+To avoid memory accumulation and cross-task context leakage when thousands of virtual threads are spawned:
+\begin{verbatim}
+// CORRECT: Prefer ScopedValue (Java 21+) or strictly clean ThreadLocal
+public class RequestContextFilter implements Filter {
+    private static final ThreadLocal<RequestContext> CONTEXT = new ThreadLocal<>();
+
+    @Override
+    public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
+            throws IOException, ServletException {
+        try {
+            CONTEXT.set(new RequestContext(req));
+            chain.doFilter(req, res);
+        } finally {
+            CONTEXT.remove(); // Mandatory cleanup prevents carrier memory retention
+        }
+    }
 }
 \end{verbatim}
 
@@ -194,11 +218,11 @@ To assist practitioners, the transferability boundary matrix delineates findings
 \subsection{Architectural and Operational Relevance}
 Enabling virtual threads removes the implicit admission control historically provided by bounded platform thread pools. Software architects must introduce explicit, bounded bulkheads at the HTTP ingress tier, minimize critical section durations, and isolate foreign functions. SRE teams must abandon legacy \texttt{ThreadMXBean} metrics in favor of JFR continuous event streaming and HikariCP connection queue telemetry.
 
-\subsection{Target Peer-Reviewed Venues}
-The research contributions possess direct publication potential across two premier international venues:
+\subsection{Prospective Peer-Reviewed Venues and Dissemination}
+The empirical insights and formalizations presented in this thesis establish foundational criteria for prospective future research dissemination across two premier venues:
 \begin{enumerate}
-  \item \textbf{ACM/SPEC International Conference on Performance Engineering (ICPE):} Target Track: System Performance and Benchmarking Methodologies. Contribution mapping: Empirical decoupling of carrier unpinning from Amdahl single-server serialization ceiling ($\mu = 1/D = 2.0\text{ req/s}$), forensic discovery of JNI wait-state diagnostic blind spot, and the dual-window steady-state analysis standard.
-  \item \textbf{IEEE Software:} Target Track: Architecture and Design. Contribution mapping: Three-Tier Concurrency Taxonomy, Five Mandatory Architectural Rules, Four Refactoring Patterns, and Master Decision Tree.
+  \item \textbf{ACM/SPEC International Conference on Performance Engineering (ICPE):} Potential Focus: Empirical evaluation of carrier unpinning versus Amdahl single-server serialization ceilings, forensic discovery of JNI wait-state diagnostic blind spots, and the dual-window steady-state analysis standard.
+  \item \textbf{IEEE Software:} Potential Focus: Three-Tier Concurrency Taxonomy, architectural refactoring patterns, and the master migration decision matrix.
 \end{enumerate}
 
 \subsection{Cumulative Research Protocol: Java 24 GA Replication Roadmap}

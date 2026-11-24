@@ -29,7 +29,7 @@ Table~\ref{tab:result-provenance} establishes the formal Result Provenance Ledge
     \addlinespace
     Amdahl Throughput Invariance (\texttt{CLM-RQ1-04}) & Factorial comparison: \texttt{synchronized} vs.\ \texttt{ReentrantLock} & Steady-state throughput: $1.967$ vs.\ $1.956\text{ req/s}$ ($<0.6\%$ delta) & Stratum~1, 6 trials; Table~\ref{tab:primary-sync-matrix} \\
     \addlinespace
-    AQS Barging Dispersion (\texttt{CLM-RQ1-05}) & $N=3$ process repetitions; trial-level variance & Median latency standard deviation: $\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$ ($>23\times$) & Stratum~1 \& Stratum~5; Table~\ref{tab:aqs-dispersion} \\
+    AQS Barging Dispersion (\texttt{CLM-RQ1-05}) & $N=3$ process repetitions; trial-level variance & Median latency standard deviation: $\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$ ($23.6\times$ SD ratio) & Stratum~1 \& Stratum~5; Table~\ref{tab:aqs-dispersion} \\
     \addlinespace
     JEP 491 Monitor Unpinning (\texttt{CLM-RQ1-06}) & Java 24.0.2 vs.\ Java 21 LTS \texttt{synchronized} & JFR pinning events drop from 108 to 0; throughput caps at $1.967\text{ req/s}$ & Stratum~2, 6 trials; Table~\ref{tab:jdk-evolution} \\
     \addlinespace
@@ -83,7 +83,10 @@ Table~\ref{tab:primary-sync-matrix} reports the exact trial-level and aggregate 
   \item \textbf{Monitor Pinning Invariant (\texttt{CLM-RQ1-01}):} In every synchronized trial, JFR recorded exactly \textbf{108} qualifying \texttt{jdk.VirtualThreadPinned} events, matching completed HTTP transactions 1:1.
   \item \textbf{Suppression of Pinning via \texttt{ReentrantLock}}\\ (\texttt{CLM-RQ1-03}): Replacing \texttt{synchronized} with \texttt{ReentrantLock} reduced qualifying pinning events from 108 to strictly \textbf{0}.
   \item \textbf{Throughput Invariance Across Mutex Implementations (\texttt{CLM-RQ1-04}):} Steady-state throughput remained identical at \textbf{$1.967\text{ req/s}$} for \texttt{synchronized} versus \textbf{$1.956\text{ req/s}$} for \texttt{reentrant-lock} (a minor delta of $0.011\text{ req/s}$ or $0.56\%$). Both match the single-server Amdahl ceiling ($\mu = 1/0.500\text{ s} = 2.0\text{ req/s}$).
-  \item \textbf{The Ramp-Up Distortion (\texttt{CLM-METH-02}):} In \texttt{platform-synchronized}, whole-run median latency was $3\,917.56\text{ ms}$, whereas steady-state hold median latency was $4\,929.49\text{ ms}$. Incorporating the uncrowded 15-second ramp-up artificially depressed median latency by \textbf{$1\,011.93\text{ ms}$ ($-25.83\%$).}
+  \item \textbf{The Ramp-Up Distortion (\texttt{CLM-METH-02}):} In \texttt{platform-synchronized}, whole-run median latency was $3\,917.56\text{ ms}$, whereas steady-state hold median latency was $4\,929.49\text{ ms}$. Incorporating the uncrowded 15-second ramp-up artificially depressed median latency by \textbf{$1\,011.93\text{ ms}$ ($-20.53\%$ relative to the steady-state baseline)}:
+  \begin{equation}
+    \frac{3\,917.56\text{ ms} - 4\,929.49\text{ ms}}{4\,929.49\text{ ms}} = -20.53\%.
+  \end{equation}
   \item \textbf{Diagnostic Upper Bound (\texttt{no-lock}):} Eliminating mutual exclusion increased throughput from $1.967\text{ req/s}$ to \textbf{$16.489\text{ req/s}$} and reduced median latency to \textbf{$506.61\text{ ms}$}.
 \end{enumerate}
 
@@ -115,7 +118,7 @@ Table~\ref{tab:aqs-dispersion} details the trial-level dispersion metrics calcul
   \end{tabularx}
 \end{table}
 
-Under single-carrier scheduling, \texttt{synchronized} exhibited an exceptionally narrow median latency range of $\Delta = 1.28\text{ ms}$ ($\sigma = 0.70\text{ ms}$), whereas \texttt{reentrant-lock} exhibited $\Delta = 29.78\text{ ms}$ ($\sigma = 16.53\text{ ms}$). This constitutes a \textbf{23-fold variance difference} ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$), consistent with the direct-CAS barging behavior of AQS \texttt{NonfairSync}.
+Under single-carrier scheduling, \texttt{synchronized} exhibited an exceptionally narrow median latency range of $\Delta = 1.28\text{ ms}$ ($\sigma = 0.70\text{ ms}$), whereas \texttt{reentrant-lock} exhibited $\Delta = 29.78\text{ ms}$ ($\sigma = 16.53\text{ ms}$). This constitutes a \textbf{23.6-fold standard deviation ratio} ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$; trial-level variance ratio $\approx 558$). This between-trial median dispersion across 3 process repetitions reflects descriptive variation consistent with non-fair locking mechanics in uncrowded single-carrier scheduling (noting that HotSpot intrinsic monitors also do not guarantee strict FIFO ordering).
 
 \subsection{Java 24 Runtime Evolution: JEP 491 Unpinning (Stratum 2)}
 Table~\ref{tab:jdk-evolution} compares the runtime performance of Java 21 LTS against early-access OpenJDK 24.0.2 under identical mutual exclusion workloads.
@@ -133,7 +136,7 @@ Table~\ref{tab:jdk-evolution} compares the runtime performance of Java 21 LTS ag
     OpenJDK 21.0.8 & \texttt{synchronized} & $1.964$ & $1.967$ & $4\,966.79$ & $4\,983.33$ & \textbf{108} (Pinned) \\
     OpenJDK 21.0.8 & \texttt{reentrant-lock} & $1.964$ & $1.956$ & $4\,981.95$ & $4\,997.78$ & \textbf{0} (Unmounted) \\
     OpenJDK 24.0.2 & \texttt{synchronized} & $2.000$ & $1.967$ & $4\,944.67$ & $\mathbf{9\,000.77}$ & \textbf{0} (JEP 491) \\
-    OpenJDK 24.0.2 & \texttt{reentrant-lock} & $1.982$ & $1.967$ & $4\,952.60$ & $4\,968.27$ & \textbf{0} (Unmounted) \\
+    OpenJDK 24.0.2 & \texttt{reentrant-lock} & $1.982$ & $1.967$ & $4\,952.60$ & $4\,968.27$ & \textbf{0} (No events $\ge 20\text{ms}$) \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -156,14 +159,18 @@ Table~\ref{tab:jni-telemetry} summarizes the results across nine repeated trials
     \toprule
     \textbf{Execution Condition} & \textbf{Steady [$\text{req/s}$]} & \textbf{$p50$ [$\text{ms}$]} & \textbf{Pins} & \textbf{Avg CPU} & \textbf{Carrier OS State} \\
     \midrule
-    \texttt{blocking-jni} (9-run Mean) & $\mathbf{1.967}$ & $\mathbf{4\,963.36}$ & $\mathbf{0}$ & $\mathbf{1.04\% \pm 0.12\%}$ & Darwin\slash Mach Kernel Wait \\
-    \texttt{native-short} (Baseline) & $1\,143.9$ & $0.78$ & $0$ & $38.2\% \pm 4.1\%$ & Active User Execution \\
-    \texttt{pure-java-sleep} (Control) & $1.967$ & $4\,956.1$ & $0$ & $1.1\% \pm 0.1\%$ & HotSpot Yield / Parked \\
+    \texttt{blocking-jni} (9-run Mean) & $\mathbf{1.967}$ & $\mathbf{4\,963.36}$ & $\mathbf{0}$ & $\mathbf{1.04\% \pm 0.12\%}$ & Negligible CPU (Kernel Sleep) \\
+    \texttt{native-short} (Baseline) & $76.05$ & $1.10$ & $0$ & $38.2\% \pm 4.1\%$ & Active User Execution \\
+    \texttt{pure-java-sleep} (Control) & $13.00$ & $505.23$ & $0$ & $1.1\% \pm 0.1\%$ & HotSpot Yield / Parked \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-The empirical findings establish that blocking POSIX system calls silently capture the carrier thread: throughput collapses to \textbf{$1.967\text{ req/s}$} with \textbf{exactly 0 JFR pinning events}, while process CPU consumption remains negligible at \textbf{$1.04\% \pm 0.12\%$} (peak steady-state $\le 8.5\%$).
+The empirical findings establish that blocking POSIX system calls silently capture the carrier thread: throughput collapses to \textbf{$1.967\text{ req/s}$} with \textbf{exactly 0 qualifying JFR pinning events ($\ge 20\text{ ms}$)}, while process CPU consumption remains negligible at \textbf{$1.04\% \pm 0.12\%$} (consistent with kernel sleep without user-space spinning). For \texttt{native-short}, the Interactive Response Time Law sets an upper bound on throughput:
+\begin{equation}
+  X \le \frac{N}{R + Z} = \frac{10}{0.0011\text{ s} + 0.100\text{ s}} \approx 98.9\text{ req/s},
+\end{equation}
+which is consistent with the empirical steady-state measurement of $76.05\text{ req/s}$ (correcting the preliminary draft artifact of $1\,143.9\text{ req/s}$ which inadvertently calculated inverted service time rather than closed-loop system throughput). In \texttt{pure-java-sleep}, 10 concurrent VUs executing managed \texttt{Thread.sleep(500ms)} achieve $13.00\text{ req/s}$ ($714$ total transactions, $p50 = 505.23\text{ ms}$), demonstrating that managed yields permit carrier reuse whereas native blocking locks the carrier thread in kernel wait.
 
 \subsection{Two-Treatment Factorial Persistence Ablation (Stratum 8)}
 Table~\ref{tab:persistence-contention} details the results of the Two-Treatment Factorial Persistence Ablation under 50 concurrent virtual users across HikariCP pool sizes 1 and 10.

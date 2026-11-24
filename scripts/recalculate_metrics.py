@@ -21,7 +21,7 @@ import json
 import math
 import statistics
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,18 +53,18 @@ def parse_k6_file(path: Path) -> dict:
         raise FileNotFoundError(f"k6 result file not found: {path}")
 
     # First pass: find initial point timestamp (t0) and collect relevant points
-    t0 = None
     t_max = None
-    points: list[tuple[datetime, str, dict]] = []
+    points: list[tuple[datetime, str, dict, float | None]] = []
+    initiation_times: list[datetime] = []
 
     with path.open("r", encoding="utf-8", errors="replace") as f:
         for line in f:
             # Fast filter: only inspect lines containing Point metrics for duration or reqs
-            if '"type":"Point"' not in line:
+            if '"Point"' not in line:
                 continue
-            if '"metric":"http_req_duration"' in line:
+            if 'http_req_duration' in line:
                 metric = "http_req_duration"
-            elif '"metric":"http_reqs"' in line:
+            elif 'http_reqs' in line:
                 metric = "http_reqs"
             else:
                 continue
@@ -84,14 +84,19 @@ def parse_k6_file(path: Path) -> dict:
             except ValueError:
                 continue
 
-            if t0 is None or t < t0:
-                t0 = t
+            val = None
+            if metric == "http_req_duration":
+                val = float(data.get("value", 0.0))
+                # Workload clock anchor: initiation time is completion time minus duration
+                init_t = t - timedelta(milliseconds=val)
+                initiation_times.append(init_t)
+
             if t_max is None or t > t_max:
                 t_max = t
 
-            points.append((t, metric, data))
+            points.append((t, metric, data, val))
 
-    if t0 is None:
+    if not points:
         return {
             "full_reqs": 0,
             "full_duration_s": 55.0,
@@ -119,6 +124,12 @@ def parse_k6_file(path: Path) -> dict:
             "actual_span_s": 0.0,
         }
 
+    # Scenario-start clock anchoring: use earliest request initiation
+    if initiation_times:
+        t0 = min(initiation_times)
+    else:
+        t0 = min(t for t, _, _, _ in points)
+
     actual_span_s = (t_max - t0).total_seconds() if t_max else 0.0
 
     full_durations: list[float] = []
@@ -128,18 +139,18 @@ def parse_k6_file(path: Path) -> dict:
     full_failures = 0
     steady_failures = 0
 
-    for t, metric, data in points:
+    for t, metric, data, val in points:
         elapsed = (t - t0).total_seconds()
         in_steady = 15.0 <= elapsed <= 45.0
         tags = data.get("tags", {})
         is_expected = tags.get("expected_response") != "false"
 
         if metric == "http_req_duration":
-            val = float(data.get("value", 0.0))
+            duration_val = val if val is not None else float(data.get("value", 0.0))
             if is_expected:
-                full_durations.append(val)
+                full_durations.append(duration_val)
                 if in_steady:
-                    steady_durations.append(val)
+                    steady_durations.append(duration_val)
 
         elif metric == "http_reqs":
             full_reqs += 1
@@ -150,7 +161,7 @@ def parse_k6_file(path: Path) -> dict:
                 if not is_expected:
                     steady_failures += 1
 
-    full_duration_s = 55.0
+    full_duration_s = actual_span_s if actual_span_s > 0 else 55.0
     steady_duration_s = 30.0
 
     full_tp = full_reqs / full_duration_s

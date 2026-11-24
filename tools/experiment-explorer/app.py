@@ -29,6 +29,7 @@ pages = [
     st.Page("pages/05_persistence.py", title="05 · Database Persistence", icon=":material/database:"),
     st.Page("pages/06_trial_explorer.py", title="06 · Individual Trial Explorer", icon=":material/biotech:"),
     st.Page("pages/07_migration_guidelines.py", title="07 · Migration Guidelines", icon=":material/menu_book:"),
+    st.Page("pages/08_find_my_next_step.py", title="08 · Find My Next Step", icon=":material/route:"),
 ]
 
 nav = st.navigation(pages, position="hidden")

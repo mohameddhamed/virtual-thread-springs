@@ -1,0 +1,53 @@
+\chapter{Institutional Statements, Own-Result Declarations, and TDK Summary}
+\label{app:own-results-tdk}
+
+\section{Scope Evolution and Supervisory Reconciliation Note}
+\label{sec:scope-evolution-note}
+
+This dissertation operates under the approved Eötvös Loránd University Faculty of Informatics MSc Registration \texttt{IK-ZVMSC\_EN2\_155} (officially ratified on 2026.10.27). Under this governing registration:
+\begin{itemize}
+  \item \textbf{Internal Faculty Supervisor:} Dr.~habil.\ Tamás Kozsik (Associate Professor, Head of Department of Programming Languages and Compilers, ELTE).
+  \item \textbf{External Research Advisor:} Gregory Reynolds Morse (Lecturer and MSc in Computer Science, ELTE).
+\end{itemize}
+This formal registration supersedes the preliminary July 2 working draft outline. Concurrently, with the agreement of the supervisory team, the experimental methodology evolved from a high-level 50/100/200-VU recovery synopsis into a controlled, reproducible single-carrier (\texttt{parallelism=1}) and multi-carrier mechanistic isolation study. This shift enabled rigorous, deterministic measurement of runtime lock unpinning, JNI carrier monopolization, and connection-pool queuing equilibria.
+
+\section{Saját Eredmények Nyilatkozata (Hungarian Own-Result Statement)}
+\label{sec:hungarian-own-results}
+
+Alulírott Hamed Mohamed (\texttt{DG1EWF}), az Eötvös Loránd Tudományegyetem Informatikai Karának okleveles informatikus (MSc) szakos hallgatója kijelentem, hogy a jelen diplomamunkában bemutatott elméleti és rendszerszintű eredmények, a szoftveres mérőkörnyezet megvalósítása, valamint a kísérleti mérések kiértékelése saját önálló munkám eredménye. A kutatás során Dr.~habil.\ Kozsik Tamás belső egyetemi témavezető és Gregory Reynolds Morse külső konzulens szakmai iránymutatásával dolgoztam.
+
+A diplomamunka legfontosabb önálló eredményei az alábbiak:
+\begin{enumerate}
+  \item \textbf{A virtuális szálak és az Amdahl-féle sorosítás szétválasztása:} Kísérletileg bizonyítottam, hogy míg a \texttt{synchronized} blokkok \texttt{ReentrantLock}-ra történő cseréje Java 21 alatt teljes mértékben megszünteti a JFR hordozószál-rögzítési (\texttt{jdk.VirtualThreadPinned}) eseményeket (108-ról 0-ra csökkentve azokat), a rendszer átviteli kapacitása szigorúan az egykiszolgálós Amdahl-plafonhoz kötött marad ($1.956$ vs.\ $1.967\text{ req/s}$, ahol $\mu = 1/0.500\text{ s} = 2.0\text{ req/s}$). Ezzel igazoltam, hogy a virtuális szálak alkalmazása nem képes megkerülni a doménszintű kritikus szakaszok sorosító korlátait.
+  \item \textbf{A JNI hordozószál-kiéheztetés diagnosztikai vakfoltjának feltárása:} Mérésekkel kimutattam, hogy a natív C POSIX rendszerhívások (\texttt{nanosleep}) alatti blokkolódás némán leköti a hordozószálat (a folyamat átvitele $1.967\text{ req/s}$-re esik vissza), miközben a JFR pontosan \textbf{0} rögzítési eseményt detektál, a CPU kihasználtság pedig alacsony ($1.04\% \pm 0.12\%$). Ez rávilágít a jelenlegi JVM megfigyelhetőségi eszköztár egy kritikus hiányosságára.
+  \item \textbf{A perzisztens adatbázis-szűkkeresztmetszetek formalizálása:} Igazoltam, hogy blokkoló relációs adatbázis-kapcsolatok tartása esetén a virtuális szálak nem rögzítik a hordozószálakat, azonban a torlódás teljes egészében áttevődik a HikariCP kapcsolatkészletre, ahol a Little-törvény szerinti kapacitásplafon ($X \le K / E[T_{\text{hold}}]$) lép érvénybe.
+  \item \textbf{Mérnöki migrációs keretrendszer:} Megalkottam a Háromszintű Párhuzamossági Taxonómiát, öt kötelező architekturális szabályt, négy refaktorálási mintát és egy determinisztikus migrációs döntési fát a vállalati Spring Boot MVC rendszerek biztonságos átállásához.
+\end{enumerate}
+
+\section{Statement of Independent Contribution (English Own-Result Statement)}
+\label{sec:english-own-results}
+
+I, Hamed Mohamed (\texttt{DG1EWF}), candidate for the Master of Science in Computer Science (Software Architecture Specialisation) at Eötvös Loránd University, hereby declare that the theoretical models, systems implementations, empirical evaluations, and architectural conclusions presented in this thesis represent my own original and independent work, conducted under the academic supervision of Dr.~habil.\ Tamás Kozsik and research advising of Gregory Reynolds Morse.
+
+The primary independent scientific and architectural contributions of this research are:
+\begin{enumerate}
+  \item \textbf{Decoupling Unpinning from Amdahl Serialization Ceilings:} Formulated and empirically demonstrated the Schedulability Fallacy in Java 21: refactoring intrinsic monitors (\texttt{synchronized}) to \texttt{ReentrantLock} completely suppressed JFR pinning events (from 108 to 0) but preserved the identical throughput ($1.956$ vs.\ $1.967\text{ req/s}$), proving that carrier unmounting cannot bypass domain critical section serialization ($\mu = 1/D = 2.0\text{ req/s}$).
+  \item \textbf{Forensic Identification of the JNI Diagnostic Blind Spot:} Discovered and cataloged the HotSpot carrier captivity anomaly, whereby unmanaged foreign POSIX downcalls monopolize carrier threads in non-spinning kernel waits without triggering JFR \texttt{jdk.VirtualThreadPinned} events, collapsing throughput with zero telemetry warnings.
+  \item \textbf{Empirical Proof of Downstream Queue Shifting:} Proved via factorial ablation that virtual threads cleanly unmount across JDBC blocking waits, yet system capacity remains bounded by Little's Law ($X \le K / E[T_{\text{hold}}]$), shifting queue buildup into connection pools.
+  \item \textbf{Production Migration Engineering Framework:} Synthesized the Three-Tier Concurrency Taxonomy, five mandatory architectural rules, four production-grade refactoring patterns (including bounded bulkhead offloading and thread-local hygiene), and an actionable migration decision tree.
+\end{enumerate}
+
+\section{TDK Konferencia Kivonat és Összefoglaló (TDK Résumé)}
+\label{sec:tdk-resume}
+
+\textbf{1. A kutatás indoklása (Background and Motivation):}  
+A modern felhőalapú mikroszolgáltatásokban a skálázhatóság elsődleges követelmény. A Java 21-ben megjelent virtuális szálak (JEP 444) azt ígérik, hogy a platformszálak korlátainak feloldásával a klasszikus szálankénti kéréskezelési modell (thread-per-request) újra versenyképessé válik a reaktív programozással szemben. A gyakorlatban azonban sok migráció kudarcot vall az Ütemezhetőségi Tévedés miatt, amely figyelmen kívül hagyja az alkalmazásszintű zárolásokat és a háttérrendszerek korlátait.
+
+\textbf{2. Alkalmazott módszerek (Methods):}  
+A kutatás egy valósághű, mérésekhez felkészített Spring Boot 3.5.12 MVC keretrendszerre épülő kísérleti környezetet alkalmaz. A vizsgálat 125 önálló mérést végzett 8 kísérleti rétegben. A terhelést zárt hurkú k6 tesztek biztosították egy- és nyolcszálas hordozókörnyezetben. A telemetria folyamatos Java Flight Recorder (JFR) eseményrögzítést, operációs rendszer szintű CPU- és memóriamérést, valamint egy kétablakos (tranziens ramp-up és egyensúlyi hold-window) kiértékelési szabványt ötvözött.
+
+\textbf{3. Saját eredmények (Own Results):}  
+A kísérletek bizonyították, hogy a \texttt{synchronized} monitorok kiváltása \texttt{ReentrantLock}-kal megszünteti a virtuális szálak rögzítését, de az átviteli sebességet szigorúan az Amdahl-törvény szabja meg ($1.967\text{ req/s}$). A natív JNI hívások alatti blokkolódás némán blokkolja a hordozószálat nulla JFR hibaüzenet mellett. Az adatbázis-kezelés során a virtuális szálak a kapcsolatkészlet szűk keresztmetszeteit a sorok áthelyeződésével felerősítik.
+
+\textbf{4. Következtetések (Conclusions):}  
+A virtuális szálak bevezetése nem mechanikus frissítés, hanem strukturális tervezést igénylő folyamat. A bemutatott migrációs keretrendszer, a peremhálózati bulkheadek beépítése és a döntési fa garantálja a vállalati rendszerek megbízható és skálázható átállását.

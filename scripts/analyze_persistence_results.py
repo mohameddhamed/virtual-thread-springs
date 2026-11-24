@@ -3,7 +3,7 @@ import json
 import glob
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 import numpy as np
 
 # Manifest timestamps for the 6 runs:
@@ -29,8 +29,9 @@ def analyze_k6_json(json_path):
     
     t0 = None
     timestamps = []
+    initiation_times = []
     
-    # First pass: find t0 (first completed point)
+    # First pass: find t0 (earliest request initiation)
     with open(json_path, "r", encoding="utf-8") as f:
         for line in f:
             if not line.strip(): continue
@@ -39,14 +40,18 @@ def analyze_k6_json(json_path):
             except Exception:
                 continue
             if record.get("metric") == "orders_duration" and record.get("type") == "Point":
+                val = float(record["data"]["value"])
                 t_str = record["data"]["time"]
                 t = parse_iso8601(t_str)
                 timestamps.append(t)
+                initiation_times.append(t - timedelta(milliseconds=val))
     
     if not timestamps:
         return {}
     
-    t0 = min(timestamps)
+    t0 = min(initiation_times) if initiation_times else min(timestamps)
+    t_max = max(timestamps)
+    actual_span_s = (t_max - t0).total_seconds() if t_max else 55.0
     
     with open(json_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -62,13 +67,13 @@ def analyze_k6_json(json_path):
                 rel_sec = (t - t0).total_seconds()
                 
                 durations_all.append(val)
-                if 15.0 <= rel_sec < 45.0:
+                if 15.0 <= rel_sec <= 45.0:
                     durations_hold.append(val)
                     
     total_reqs = len(durations_all)
     hold_reqs = len(durations_hold)
     
-    whole_tp = total_reqs / 55.0
+    whole_tp = total_reqs / (actual_span_s if actual_span_s > 0 else 55.0)
     hold_tp = hold_reqs / 30.0
     
     return {

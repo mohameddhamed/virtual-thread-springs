@@ -52,7 +52,7 @@ st.markdown(
 # Setup the 8 tabs
 tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Overview", "Triage", "Rules", "Calculators", "Dependencies", "Refactoring", "JFR", "Audit export",
-])
+], key="migration_section", on_change="rerun")
 
 
 # ==============================================================================

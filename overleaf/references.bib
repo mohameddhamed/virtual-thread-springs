@@ -24,15 +24,15 @@
 }
 
 % 1. Concurrency Foundations, Memory Models, and Synchronization
-@article{Bacon2001,
-  author    = {Bacon, David F. and Attanasio, Clement R. and Lee, David F. and Rajan, V. T. and Smith, Stephen},
-  title     = {Java without the Overhead: Thin Locks},
-  journal   = {ACM SIGPLAN Notices},
-  volume    = {36},
-  number    = {5},
-  pages     = {63--72},
-  year      = {2001},
-  doi       = {10.1145/381694.378814}
+@inproceedings{Bacon2001,
+  author    = {Bacon, David F. and Konuru, Ravi and Murthy, C. Harsha and Serrano, Mauricio J.},
+  title     = {Thin Locks: Featherweight Synchronization for {Java}},
+  booktitle = {Proceedings of the ACM SIGPLAN 1998 Conference on Programming Language Design and Implementation (PLDI '98)},
+  pages     = {258--268},
+  publisher = {ACM},
+  address   = {Montreal, Quebec, Canada},
+  year      = {1998},
+  doi       = {10.1145/277650.277734}
 }
 
 @article{Dijkstra1965,
@@ -235,14 +235,14 @@
 }
 
 @inproceedings{Bulej2017,
-  author    = {Bulej, Lubom{\'i}r and Bure{\v{s}}, Tom{\'a}{\v{s}} and Keznikl, Ji{\v{r}}{\'i} and T{\r{u}}ma, Petr and Hork{\'y}, Vojt{\v{e}}ch},
-  title     = {Unit Testing Performance in Java},
+  author    = {Stefan, Philipp and Hork{\'y}, Vojt{\v{e}}ch and Bulej, Lubom{\'i}r and T{\r{u}}ma, Petr},
+  title     = {Unit Testing Performance in {Java} Projects: Are We There Yet?},
   booktitle = {Proceedings of the 8th ACM/SPEC on International Conference on Performance Engineering (ICPE '17)},
-  pages     = {175--186},
+  pages     = {401--412},
   publisher = {ACM},
-  address   = {New York, NY},
+  address   = {L'Aquila, Italy},
   year      = {2017},
-  doi       = {10.1145/3030207.3030222}
+  doi       = {10.1145/3030207.3030226}
 }
 
 @inproceedings{Georges2007,
@@ -394,11 +394,11 @@
 }
 
 @article{Charlak2026,
-  author    = {Charlak, Daniel and Brzezi{\'n}ski, Jerzy and Kozie{\l}, Grzegorz},
-  title     = {Comparative Analysis of Reactive Programming and Java Virtual Threads},
+  author    = {Brzezi{\'n}ski, Jakub and Charlak, Daniel and Kozie{\l}, Grzegorz},
+  title     = {Comparative Analysis of Reactive Programming and {Java} Virtual Threads},
   journal   = {Journal of Computer Sciences Institute},
-  volume    = {38},
-  pages     = {94--101},
+  volume    = {39},
+  pages     = {154--160},
   year      = {2026},
   doi       = {10.35784/jcsi.9409}
 }
@@ -423,22 +423,33 @@
 }
 
 @inproceedings{Likus2025,
-  author    = {Likus, Pawe{\l} and Kru{\.z}el, Filip},
-  title     = {Analysis of Virtual Threads in Spring Applications},
+  author    = {Liku{\'s}, Patryk and Kru{\.z}el, Filip},
+  title     = {Analysis of Virtual Threads in {Spring} Applications},
   booktitle = {Proceedings of the 39th ECMS International Conference on Modelling and Simulation (ECMS 2025)},
-  pages     = {555--562},
+  pages     = {555--561},
   publisher = {European Council for Modelling and Simulation},
   year      = {2025},
   doi       = {10.7148/2025-0555}
 }
 
+@article{Lea2005AQS,
+  author    = {Lea, Doug},
+  title     = {The \texttt{java.util.concurrent} Synchronizer Framework},
+  journal   = {Science of Computer Programming},
+  volume    = {58},
+  number    = {3},
+  pages     = {293--309},
+  year      = {2005},
+  doi       = {10.1016/j.scico.2005.07.007}
+}
+
 @inproceedings{Navarro2023,
-  author    = {Navarro, Juan and S{\'a}nchez, Pedro and Morales, Francisco},
-  title     = {Considerations for Integrating Virtual Threads in a Java Framework: A Quarkus Example in a Resource-Constrained Environment},
-  booktitle = {Proceedings of the 14th ACM/SPEC International Conference on Performance Engineering (ICPE '23 Companion)},
-  pages     = {99--104},
+  author    = {Navarro, Arthur and Ponge, Julien and Le Mou{\"e}l, Fr{\'e}d{\'e}ric and Escoffier, Cl{\'e}ment},
+  title     = {Considerations for Integrating Virtual Threads in a {Java} Framework: A {Quarkus} Example in a Resource-Constrained Environment},
+  booktitle = {Proceedings of the 17th ACM International Conference on Distributed and Event-based Systems (DEBS '23)},
+  pages     = {103--114},
   publisher = {ACM},
-  address   = {New York, NY},
+  address   = {Neuchatel, Switzerland},
   year      = {2023},
   doi       = {10.1145/3583678.3596895}
 }

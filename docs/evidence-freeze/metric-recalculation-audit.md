@@ -1,7 +1,7 @@
 # Metric Recalculation Audit & Window Sensitivity Report
 
 **Document Status:** Empirical Evidence Freeze (Stage 1.1 - Workstream 3)  
-**Generated:** 2026-11-02 19:23:07  
+**Generated:** 2026-11-24 13:57:00  
 **Scope:** 76 Canonical Trials in `normalized-evidence.json` + Reconciliation Audit Pilot (`run-10vus-20261008-142445.json`)  
 **Executable Generator:** `scripts/recalculate_metrics.py`  
 **Target CSV Artifact:** `docs/evidence-freeze/metric-recalculations.csv`  
@@ -14,7 +14,7 @@ During the experimental audit (documented in `docs/experiment-audit.md` and `doc
 
 This recalculation audit provides the definitive empirical resolution across all 76 trial records and resolves the specific calculation anomaly noted in `docs/experiment-audit-triage-reconciliation.md` Section 3.1. Key findings include:
 
-1. **Resolution of Throughput vs. Latency Variance Bug:** In Section 3.1 of the triage reconciliation, the author reported a comparison for `results/run-10vus-20261008-142445.json` ($109 / 55\text{s} = 1.98\text{ req/s}$ vs $59 / 30\text{s} = 1.97\text{ req/s}$) and claimed a variance of "< 0.2%". The exact unrounded relative difference in throughput is **0.7645%** (or **0.015152 req/s**), whereas the relative difference in p50 latency is **0.1840%** (+9.10 ms). The author inadvertently conflated the p50 latency delta (+0.18%) with the throughput delta.
+1. **Resolution of Throughput vs. Latency Variance Bug:** In Section 3.1 of the triage reconciliation, the author reported a comparison for `results/run-10vus-20261008-142445.json` ($109 / 55\text{s} = 1.98\text{ req/s}$ vs $59 / 30\text{s} = 1.97\text{ req/s}$) and claimed a variance of "< 0.2%". The exact unrounded relative difference in throughput is **0.7645%** (or **0.015152 req/s**), whereas the relative difference in p50 latency is **0.1820%** (+9.10 ms). The author inadvertently conflated the p50 latency delta (+0.18%) with the throughput delta.
 2. **Workload-Dependent Window Sensitivity:** The impact of whole-window aggregation is bifurcated by workload regime:
    - **Saturated Bottleneck Regimes (Critical Section Monopolization):** For saturated workloads (`native-blocking`, `payments-synchronized`, `payments-reentrant-lock`), throughput is strictly limited by the 500 ms mutual exclusion bottleneck ($1 / 0.500\text{s} = 2.0\text{ req/s}$). Under 10 concurrent VUs, queueing begins in the first seconds of ramp-up; consequently, full-run throughput is **1.96 - 2.00 req/s** vs. steady-state throughput of **1.96 - 1.97 req/s**, representing a minimal throughput variance of **< 0.8%**.
    - **Unsaturated / Ramping Workloads:** In workloads where concurrency ramps up linearly without early queue saturation (`products`, `orders`, `cpu-control`, `pure-java-sleep`), throughput during ramp-up ($t \in [0, 15\text{s}]$) is lower due to lower instantaneous VU counts. Whole-window throughput is consequently **15% to 28% lower** than steady-state throughput.
@@ -69,7 +69,7 @@ In `docs/experiment-audit-triage-reconciliation.md` Section 3.1, the author eval
 | :--- | :---: | :---: | :---: | :---: |
 | **Completed Requests** | 109 | 59 | -50 requests | Full run includes ramp-up/down |
 | **Calculated Throughput** | $109 / 55\text{s} = \mathbf{1.98\text{ req/s}}$ | $59 / 30\text{s} = \mathbf{1.97\text{ req/s}}$ | -0.01 req/s | $< 0.5\%$ variance |
-| **Median Latency (p50)** | **4945.43 ms** | **4954.53 ms** | +9.10 ms | $+0.18\%$ variance |
+| **Median Latency (p50)** | **4945.43 ms** | **4954.43 ms** | +9.00 ms | $+0.18\%$ variance |
 | **Tail Latency (p95)** | **4961.84 ms** | **4962.20 ms** | +0.36 ms | $< 0.01\%$ variance |
 | **Tail Latency (p99)** | **4963.14 ms** | **4965.34 ms** | +2.20 ms | $< 0.05\%$ variance |
 
@@ -87,8 +87,8 @@ A rigorous re-execution confirms the exact numbers and clarifies the source of t
    $$\Delta X_{\%} = \frac{5}{654} \times 100\% = \mathbf{0.764526\%} \approx \mathbf{0.765\%}$$
 
 2. **Median Latency Relative Difference:**
-   $$\text{p50}_{\text{full}} = 4945.43\text{ ms}, \quad \text{p50}_{\text{steady}} = 4954.53\text{ ms}$$
-   $$\Delta p_{50\%} = \frac{9.10}{4945.43} \times 100\% = \mathbf{0.183968\%} \approx \mathbf{0.184\%}$$
+   $$\text{p50}_{\text{full}} = 4945.43\text{ ms}, \quad \text{p50}_{\text{steady}} = 4954.43\text{ ms}$$
+   $$\Delta p_{50\%} = \frac{9.00}{4945.43} \times 100\% = \mathbf{0.182047\%} \approx \mathbf{0.184\%}$$
 
 3. **Root Cause Analysis:**
    - The author observed $+0.18\%$ for the median latency (p50) delta in the table.
@@ -104,26 +104,26 @@ The table below aggregates all 76 trial records grouped by experimental conditio
 
 | Run Set | Condition | $N$ | Full TP (req/s) | Steady TP (req/s) | TP $\Delta$ (%) | Full p50 (ms) | Steady p50 (ms) | p50 $\Delta$ (%) | Steady p95 (ms) | Steady p99 (ms) | Failures |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `cpu-control-20261008` | `cpu-control` | 1 | 70.69 | 90.23 | 27.64% | 9.41 | 9.44 | 0.34% | 12.65 | 25.80 | 0 |
-| `java21-cpu-control` | `cpu-platform` | 3 | 67.81 | 86.61 | 27.73% | 13.89 | 13.79 | 0.76% | 20.24 | 23.77 | 0 |
-| `java21-cpu-control` | `cpu-virtual` | 3 | 70.73 | 90.54 | 28.01% | 9.15 | 9.03 | 1.37% | 13.21 | 34.46 | 0 |
-| `java21-endpoint-isolation` | `orders-platform` | 3 | 19.22 | 24.44 | 27.15% | 307.25 | 307.11 | 0.05% | 311.56 | 313.27 | 0 |
-| `java21-endpoint-isolation` | `orders-virtual` | 3 | 19.05 | 24.11 | 26.53% | 311.43 | 311.35 | 0.03% | 318.56 | 320.82 | 0 |
-| `java21-endpoint-isolation` | `products-platform` | 3 | 75.27 | 96.29 | 27.92% | 2.56 | 2.61 | 1.83% | 5.88 | 7.30 | 0 |
-| `java21-endpoint-isolation` | `products-virtual` | 3 | 75.77 | 96.98 | 27.99% | 2.41 | 2.33 | 3.44% | 6.57 | 8.30 | 0 |
-| `java21-primary-matrix` | `no-lock` | 3 | 12.96 | 16.49 | 27.19% | 506.66 | 506.61 | 0.01% | 509.32 | 517.97 | 0 |
-| `java21-primary-matrix` | `platform-synchronized` | 3 | 2.00 | 1.97 | 1.65% | 3917.56 | 4929.49 | 25.83% | 8976.32 | 8980.73 | 0 |
-| `java21-primary-repeat` | `payments-reentrant-lock` | 3 | 1.96 | 1.96 | 0.41% | 4975.99 | 4981.95 | 0.12% | 4997.78 | 5000.81 | 0 |
-| `java21-primary-repeat` | `payments-synchronized` | 3 | 1.96 | 1.97 | 0.15% | 4957.57 | 4966.78 | 0.19% | 4983.33 | 4988.85 | 0 |
-| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 12.92 | 16.42 | 27.10% | 507.65 | 507.40 | 0.05% | 512.74 | 516.84 | 0 |
-| `java21-synchronization-20261008-repeated` | `platform-synchronized` | 3 | 2.00 | 1.97 | 1.65% | 3934.02 | 4949.34 | 25.81% | 9009.55 | 9023.16 | 0 |
-| `java21-synchronization-20261008-repeated` | `reentrant-lock` | 3 | 1.98 | 1.97 | 0.46% | 4941.81 | 4948.10 | 0.13% | 4970.49 | 4971.31 | 0 |
-| `java21-synchronization-20261008-repeated` | `synchronized` | 3 | 2.00 | 1.97 | 1.65% | 3923.29 | 4931.26 | 25.69% | 7962.29 | 8135.76 | 0 |
-| `java24-lock-repeat` | `payments-reentrant-lock` | 3 | 1.98 | 1.97 | 0.76% | 4948.65 | 4952.60 | 0.08% | 4968.27 | 4973.38 | 0 |
-| `java24-sync-repeat` | `payments-synchronized` | 3 | 2.00 | 1.97 | 1.65% | 3934.30 | 4944.67 | 25.68% | 9000.77 | 9013.85 | 0 |
-| `native-boundary-20261008-repeated` | `blocking-jni` | 9 | 1.98 | 1.97 | 0.46% | 4954.44 | 4963.36 | 0.18% | 4996.70 | 5001.57 | 0 |
-| `native-boundary-20261008-repeated` | `native-short` | 9 | 76.27 | 97.42 | 27.74% | 1.07 | 1.05 | 1.59% | 4.46 | 7.75 | 0 |
-| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 12.98 | 16.48 | 27.01% | 505.51 | 505.33 | 0.04% | 509.92 | 516.63 | 0 |
+| `cpu-control-20261008` | `cpu-control` | 1 | 70.72 | 90.03 | 27.31% | 9.41 | 9.44 | 0.37% | 12.67 | 25.80 | 0 |
+| `java21-cpu-control` | `cpu-platform` | 3 | 67.86 | 86.69 | 27.74% | 13.89 | 13.79 | 0.75% | 20.23 | 23.74 | 0 |
+| `java21-cpu-control` | `cpu-virtual` | 3 | 70.81 | 90.54 | 27.87% | 9.15 | 9.03 | 1.37% | 13.21 | 34.46 | 0 |
+| `java21-endpoint-isolation` | `orders-platform` | 3 | 19.23 | 24.51 | 27.49% | 307.25 | 307.15 | 0.03% | 311.67 | 313.27 | 0 |
+| `java21-endpoint-isolation` | `orders-virtual` | 3 | 19.03 | 24.22 | 27.30% | 311.43 | 311.38 | 0.01% | 318.50 | 320.82 | 0 |
+| `java21-endpoint-isolation` | `products-platform` | 3 | 75.37 | 96.24 | 27.70% | 2.56 | 2.61 | 1.91% | 5.88 | 7.30 | 0 |
+| `java21-endpoint-isolation` | `products-virtual` | 3 | 75.87 | 96.99 | 27.83% | 2.41 | 2.33 | 3.44% | 6.57 | 8.30 | 0 |
+| `java21-primary-matrix` | `no-lock` | 3 | 12.92 | 16.50 | 27.71% | 506.66 | 506.62 | 0.01% | 509.36 | 517.97 | 0 |
+| `java21-primary-matrix` | `platform-synchronized` | 3 | 1.98 | 1.97 | 0.46% | 3917.56 | 4931.24 | 25.88% | 8976.32 | 8980.73 | 0 |
+| `java21-primary-repeat` | `payments-reentrant-lock` | 3 | 1.96 | 1.96 | 0.10% | 4975.99 | 4981.76 | 0.12% | 4997.78 | 5000.81 | 0 |
+| `java21-primary-repeat` | `payments-synchronized` | 3 | 1.97 | 1.97 | 0.10% | 4957.57 | 4966.72 | 0.18% | 4983.33 | 4988.85 | 0 |
+| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 12.85 | 16.44 | 27.98% | 507.65 | 507.46 | 0.04% | 512.80 | 516.84 | 0 |
+| `java21-synchronization-20261008-repeated` | `platform-synchronized` | 3 | 1.97 | 1.97 | 0.05% | 3934.02 | 4950.26 | 25.83% | 9009.55 | 9023.16 | 0 |
+| `java21-synchronization-20261008-repeated` | `reentrant-lock` | 3 | 1.97 | 1.97 | 0.15% | 4941.81 | 4947.90 | 0.12% | 4970.49 | 4971.31 | 0 |
+| `java21-synchronization-20261008-repeated` | `synchronized` | 3 | 1.98 | 1.97 | 0.56% | 3923.29 | 4932.85 | 25.73% | 7962.29 | 8135.76 | 0 |
+| `java24-lock-repeat` | `payments-reentrant-lock` | 3 | 1.97 | 1.97 | 0.15% | 4948.65 | 4952.29 | 0.07% | 4968.27 | 4973.38 | 0 |
+| `java24-sync-repeat` | `payments-synchronized` | 3 | 1.97 | 1.97 | 0.10% | 3934.30 | 4944.67 | 25.68% | 9000.77 | 9013.85 | 0 |
+| `native-boundary-20261008-repeated` | `blocking-jni` | 9 | 1.97 | 1.97 | 0.05% | 4954.44 | 4963.06 | 0.17% | 4996.42 | 5001.57 | 0 |
+| `native-boundary-20261008-repeated` | `native-short` | 9 | 76.32 | 97.44 | 27.67% | 1.07 | 1.05 | 1.59% | 4.46 | 7.75 | 0 |
+| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 12.94 | 16.48 | 27.31% | 505.51 | 505.36 | 0.03% | 509.95 | 516.88 | 0 |
 
 ### 4.1 Granular Observations
 1. **Throughput Divergence in Ramping Workloads:** In `java21-endpoint-isolation` (products: 75.3 vs 96.3 req/s; orders: 19.1 vs 24.1 req/s) and `cpu-control` (70.7 vs 90.5 req/s), full-run throughput is ~21-22% lower than steady-state throughput. This is an expected artifact of averaging over the 15-second linear VU ramp-up.
@@ -138,51 +138,51 @@ To determine whether the $N=3$ process trials are statistically defensible as me
 
 | Run Set | Condition | $N$ | Min p50 (ms) | Max p50 (ms) | Median p50 (ms) | Mean p50 (ms) | Std Dev (ms) | Spread $\Delta$ (ms) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `cpu-control-20261008` | `cpu-control` | 1 | 9.441 | 9.441 | 9.441 | 9.441 | 0.000 | **0.0** |
-| `java21-cpu-control` | `cpu-platform` | 3 | 13.629 | 13.965 | 13.77 | 13.788 | 0.169 | **0.336** |
-| `java21-cpu-control` | `cpu-virtual` | 3 | 8.871 | 9.126 | 9.09 | 9.029 | 0.138 | **0.255** |
-| `java21-endpoint-isolation` | `orders-platform` | 3 | 306.26 | 308.236 | 306.824 | 307.107 | 1.018 | **1.976** |
-| `java21-endpoint-isolation` | `orders-virtual` | 3 | 307.922 | 313.683 | 312.436 | 311.347 | 3.031 | **5.761** |
-| `java21-endpoint-isolation` | `products-platform` | 3 | 2.189 | 2.981 | 2.663 | 2.611 | 0.399 | **0.792** |
+| `cpu-control-20261008` | `cpu-control` | 1 | 9.444 | 9.444 | 9.444 | 9.444 | 0.000 | **0.0** |
+| `java21-cpu-control` | `cpu-platform` | 3 | 13.632 | 13.965 | 13.77 | 13.789 | 0.167 | **0.333** |
+| `java21-cpu-control` | `cpu-virtual` | 3 | 8.871 | 9.127 | 9.09 | 9.029 | 0.138 | **0.256** |
+| `java21-endpoint-isolation` | `orders-platform` | 3 | 306.299 | 308.347 | 306.816 | 307.154 | 1.065 | **2.048** |
+| `java21-endpoint-isolation` | `orders-virtual` | 3 | 307.958 | 313.675 | 312.519 | 311.384 | 3.023 | **5.717** |
+| `java21-endpoint-isolation` | `products-platform` | 3 | 2.189 | 2.981 | 2.669 | 2.613 | 0.399 | **0.792** |
 | `java21-endpoint-isolation` | `products-virtual` | 3 | 2.262 | 2.369 | 2.353 | 2.328 | 0.058 | **0.107** |
-| `java21-primary-matrix` | `no-lock` | 3 | 506.498 | 506.694 | 506.632 | 506.608 | 0.100 | **0.196** |
-| `java21-primary-matrix` | `platform-synchronized` | 3 | 4922.599 | 4937.326 | 4928.544 | 4929.49 | 7.409 | **14.727** |
-| `java21-primary-repeat` | `payments-reentrant-lock` | 3 | 4962.924 | 4992.702 | 4990.229 | 4981.952 | 16.525 | **29.778** |
-| `java21-primary-repeat` | `payments-synchronized` | 3 | 4965.977 | 4967.259 | 4967.12 | 4966.785 | 0.703 | **1.282** |
-| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 507.08 | 507.713 | 507.417 | 507.403 | 0.317 | **0.633** |
-| `java21-synchronization-20261008-repeated` | `platform-synchronized` | 3 | 4946.601 | 4951.54 | 4949.889 | 4949.343 | 2.514 | **4.939** |
-| `java21-synchronization-20261008-repeated` | `reentrant-lock` | 3 | 4936.77 | 4968.946 | 4938.596 | 4948.104 | 18.073 | **32.176** |
-| `java21-synchronization-20261008-repeated` | `synchronized` | 3 | 4927.795 | 4935.031 | 4930.962 | 4931.263 | 3.627 | **7.236** |
-| `java24-lock-repeat` | `payments-reentrant-lock` | 3 | 4950.372 | 4956.204 | 4951.21 | 4952.595 | 3.153 | **5.832** |
+| `java21-primary-matrix` | `no-lock` | 3 | 506.501 | 506.713 | 506.636 | 506.617 | 0.107 | **0.212** |
+| `java21-primary-matrix` | `platform-synchronized` | 3 | 4922.599 | 4937.326 | 4933.782 | 4931.236 | 7.687 | **14.727** |
+| `java21-primary-repeat` | `payments-reentrant-lock` | 3 | 4962.924 | 4992.112 | 4990.229 | 4981.755 | 16.335 | **29.188** |
+| `java21-primary-repeat` | `payments-synchronized` | 3 | 4965.767 | 4967.259 | 4967.12 | 4966.715 | 0.824 | **1.492** |
+| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 507.222 | 507.756 | 507.417 | 507.465 | 0.270 | **0.534** |
+| `java21-synchronization-20261008-repeated` | `platform-synchronized` | 3 | 4946.601 | 4952.65 | 4951.54 | 4950.264 | 3.220 | **6.049** |
+| `java21-synchronization-20261008-repeated` | `reentrant-lock` | 3 | 4936.77 | 4968.946 | 4937.975 | 4947.897 | 18.239 | **32.176** |
+| `java21-synchronization-20261008-repeated` | `synchronized` | 3 | 4931.278 | 4935.042 | 4932.234 | 4932.851 | 1.956 | **3.764** |
+| `java24-lock-repeat` | `payments-reentrant-lock` | 3 | 4950.321 | 4956.204 | 4950.347 | 4952.291 | 3.389 | **5.883** |
 | `java24-sync-repeat` | `payments-synchronized` | 3 | 4941.119 | 4948.774 | 4944.112 | 4944.668 | 3.858 | **7.655** |
-| `native-boundary-20261008-repeated` | `blocking-jni` | 9 | 4947.012 | 4980.8 | 4958.436 | 4963.357 | 12.733 | **33.788** |
+| `native-boundary-20261008-repeated` | `blocking-jni` | 9 | 4947.012 | 4980.147 | 4958.408 | 4963.055 | 12.656 | **33.135** |
 | `native-boundary-20261008-repeated` | `native-short` | 9 | 0.786 | 1.258 | 1.135 | 1.05 | 0.179 | **0.472** |
-| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 504.597 | 505.908 | 505.303 | 505.334 | 0.367 | **1.311** |
+| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 504.597 | 505.843 | 505.344 | 505.358 | 0.360 | **1.246** |
 
 ### 5.1 Steady-State Throughput Dispersion Analysis
 
 | Run Set | Condition | $N$ | Min TP (req/s) | Max TP (req/s) | Median TP (req/s) | Mean TP (req/s) | Std Dev (req/s) | Spread $\Delta$ (req/s) |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `cpu-control-20261008` | `cpu-control` | 1 | 90.2330 | 90.2330 | 90.2330 | 90.2330 | 0.0000 | **0.0000** |
-| `java21-cpu-control` | `cpu-platform` | 3 | 86.4670 | 86.7000 | 86.6670 | 86.6110 | 0.1260 | **0.2330** |
+| `cpu-control-20261008` | `cpu-control` | 1 | 90.0330 | 90.0330 | 90.0330 | 90.0330 | 0.0000 | **0.0000** |
+| `java21-cpu-control` | `cpu-platform` | 3 | 86.6330 | 86.7330 | 86.7000 | 86.6890 | 0.0510 | **0.1000** |
 | `java21-cpu-control` | `cpu-virtual` | 3 | 90.5000 | 90.5670 | 90.5670 | 90.5440 | 0.0390 | **0.0670** |
-| `java21-endpoint-isolation` | `orders-platform` | 3 | 24.3330 | 24.5330 | 24.4670 | 24.4440 | 0.1020 | **0.2000** |
-| `java21-endpoint-isolation` | `orders-virtual` | 3 | 24.0000 | 24.3330 | 24.0000 | 24.1110 | 0.1920 | **0.3330** |
-| `java21-endpoint-isolation` | `products-platform` | 3 | 96.2000 | 96.3330 | 96.3330 | 96.2890 | 0.0770 | **0.1330** |
-| `java21-endpoint-isolation` | `products-virtual` | 3 | 96.9000 | 97.0330 | 97.0000 | 96.9780 | 0.0690 | **0.1330** |
-| `java21-primary-matrix` | `no-lock` | 3 | 16.4670 | 16.5000 | 16.5000 | 16.4890 | 0.0190 | **0.0330** |
+| `java21-endpoint-isolation` | `orders-platform` | 3 | 24.3330 | 24.6000 | 24.6000 | 24.5110 | 0.1540 | **0.2670** |
+| `java21-endpoint-isolation` | `orders-virtual` | 3 | 24.0000 | 24.3330 | 24.3330 | 24.2220 | 0.1920 | **0.3330** |
+| `java21-endpoint-isolation` | `products-platform` | 3 | 96.0330 | 96.3670 | 96.3330 | 96.2440 | 0.1840 | **0.3330** |
+| `java21-endpoint-isolation` | `products-virtual` | 3 | 96.9330 | 97.0330 | 97.0000 | 96.9890 | 0.0510 | **0.1000** |
+| `java21-primary-matrix` | `no-lock` | 3 | 16.5000 | 16.5000 | 16.5000 | 16.5000 | 0.0000 | **0.0000** |
 | `java21-primary-matrix` | `platform-synchronized` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `java21-primary-repeat` | `payments-reentrant-lock` | 3 | 1.9330 | 1.9670 | 1.9670 | 1.9560 | 0.0190 | **0.0330** |
 | `java21-primary-repeat` | `payments-synchronized` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
-| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 16.4000 | 16.4330 | 16.4330 | 16.4220 | 0.0190 | **0.0330** |
+| `java21-synchronization-20261008-repeated` | `no-lock` | 3 | 16.4330 | 16.4670 | 16.4330 | 16.4440 | 0.0190 | **0.0330** |
 | `java21-synchronization-20261008-repeated` | `platform-synchronized` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `java21-synchronization-20261008-repeated` | `reentrant-lock` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `java21-synchronization-20261008-repeated` | `synchronized` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `java24-lock-repeat` | `payments-reentrant-lock` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `java24-sync-repeat` | `payments-synchronized` | 3 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
 | `native-boundary-20261008-repeated` | `blocking-jni` | 9 | 1.9670 | 1.9670 | 1.9670 | 1.9670 | 0.0000 | **0.0000** |
-| `native-boundary-20261008-repeated` | `native-short` | 9 | 97.0000 | 98.0000 | 97.2670 | 97.4220 | 0.3650 | **1.0000** |
-| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 16.4330 | 16.5330 | 16.5000 | 16.4810 | 0.0340 | **0.1000** |
+| `native-boundary-20261008-repeated` | `native-short` | 9 | 97.0000 | 98.0000 | 97.3000 | 97.4370 | 0.3560 | **1.0000** |
+| `native-boundary-20261008-repeated` | `pure-java-sleep` | 9 | 16.4330 | 16.5000 | 16.5000 | 16.4780 | 0.0290 | **0.0670** |
 
 ### 5.2 Dispersion Findings by Architectural Category
 1. **Diagnostic Controls (`no-lock`, `native-short`, `products`):** Exhibited negligible within-treatment spread ($\Delta \le 0.47\text{ ms}$, standard deviation $\le 0.18\text{ ms}$). Execution time is dominated entirely by the fast-path return or sleep.

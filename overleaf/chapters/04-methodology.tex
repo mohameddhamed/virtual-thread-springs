@@ -29,15 +29,15 @@ To transition the canonical research questions (RQ1 and RQ2) into empirically ve
     \midrule
     RQ1 & Virtual Threads + \texttt{synchronized} & Platform Threads + \texttt{synchronized} & Throughput ($X$), $p50$, $p95$, $p99$ latency, JFR pins & Carrier pinning confirmed if JFR records events $\ge 20\text{ ms}$; carrier starvation confirmed if throughput collapses under \texttt{parallelism=1}. \\
     \addlinespace
-    RQ1 & Virtual Threads + \texttt{ReentrantLock} & Virtual Threads + \texttt{synchronized} & Throughput ($X$), latency distributions, $\sigma$ dispersion & Unpinning confirmed if JFR events $= 0$; Amdahl serialization confirmed if throughput remains identical ($1.956$ vs.\ $1.967\text{ req/s}$). \\
+    RQ1 & Virtual Threads + \texttt{ReentrantLock} & Virtual Threads + \texttt{synchronized} & Throughput ($X$), latency distributions, $\sigma$ dispersion & Unpinning confirmed if JFR events $= 0$; Amdahl serialization confirmed if throughput remains within $\pm 5\%$ of service capacity $\mu = 1/D = 2.0\text{ req/s}$. \\
     \addlinespace
-    RQ1 & AQS non-fair lock dispersion & Virtual Threads + \texttt{synchronized} & Latency standard deviation ($\sigma$) and range ($\Delta$) & AQS direct-CAS barging confirmed if \texttt{ReentrantLock} dispersion exceeds \texttt{synchronized} by $> 5\times$ ($\sigma = 16.53\text{ ms}$ vs.\ $0.70\text{ ms}$). \\
+    RQ1 & AQS non-fair lock dispersion & Virtual Threads + \texttt{synchronized} & Latency standard deviation ($\sigma$) and range ($\Delta$) & AQS non-fair lock trial-level dispersion confirmed if \texttt{ReentrantLock} standard deviation exceeds \texttt{synchronized} by $> 5\times$ across process repetitions. \\
     \addlinespace
-    RQ1 & Java 24 JEP 491 runtime & Java 21 LTS Virtual Threads + \texttt{synchronized} & JFR pinning count, throughput ($X$) & JEP 491 monitor unpinning confirmed if JFR pinning events drop from 108 to 0 while throughput remains bounded at $\approx 1.97\text{ req/s}$. \\
+    RQ1 & Java 24 JEP 491 runtime & Java 21 LTS Virtual Threads + \texttt{synchronized} & JFR pinning count, throughput ($X$) & JEP 491 monitor unpinning confirmed if JFR pinning events drop to strictly 0 while throughput remains bounded by Amdahl ceiling $1/D$. \\
     \addlinespace
-    RQ2 & Native JNI POSIX \texttt{nanosleep()} & Pure Java managed \texttt{Thread.sleep()} & Throughput ($X$), JFR pinning count, process \%CPU & Carrier capture confirmed if throughput drops to $1.97\text{ req/s}$; observability blind spot confirmed if JFR pinning is strictly 0 and CPU is $1.04\% \pm 0.12\%$. \\
+    RQ2 & Native JNI POSIX \texttt{nanosleep()} & Pure Java managed \texttt{Thread.sleep()} & Throughput ($X$), JFR pinning count, process \%CPU & Carrier capture confirmed if throughput drops to serialized Amdahl rate $1/D$ while JFR pinning remains 0 and CPU remains negligible (non-spinning kernel wait). \\
     \addlinespace
-    RQ2 & Persistence holding (Stratum~8) & Pre-acquisition delay (Treatment A) \& Pool 10 & Throughput ($X$), HikariCP active/pending queues & Pool saturation confirmed if Pool 1 caps throughput to $3.27\text{ req/s}$ with 49 queued VUs, while Pool 10 scales to $32.60\text{ req/s}$ with 0 JFR pins. \\
+    RQ2 & Persistence holding (Stratum~8) & Pre-acquisition delay (Treatment A) \& Pool 10 & Throughput ($X$), HikariCP active/pending queues & Pool saturation confirmed if single-connection pool caps throughput to $X \le 1/E[T_{\text{hold}}]$ with queuing, while expanded pool scales linearly up to concurrency bounds with 0 JFR pins. \\
     \bottomrule
   \end{tabularx}
 \end{table}

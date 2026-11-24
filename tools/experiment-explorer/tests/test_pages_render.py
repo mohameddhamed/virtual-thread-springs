@@ -23,6 +23,7 @@ from streamlit.testing.v1 import AppTest
         "pages/05_persistence.py",
         "pages/06_trial_explorer.py",
         "pages/07_migration_guidelines.py",
+        "pages/08_find_my_next_step.py",
     ],
 )
 def test_page_renders_without_exception(page_script: str):

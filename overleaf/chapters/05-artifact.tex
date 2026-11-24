@@ -160,12 +160,11 @@ Benchmark execution was fully automated by \texttt{run-benchmark.sh}:
 \section{Verification Suite and Artifact Provenance Tooling}
 \label{sec:verification-tooling}
 
-The testbed is hardened with an automated JUnit 5 test suite executing 8 test suites with 100\% passing assertions (\texttt{rtk mvn test}):
+The testbed is hardened with an automated JUnit 5 test suite executing 8 unit and integration tests across 3 classes with 100\% passing assertions (\texttt{rtk mvn test}):
 \begin{itemize}
-  \item \texttt{PaymentControllerTest}: Verifies mutual exclusion and sequential consistency across all lock modes.
-  \item \texttt{OrderControllerTest}: Validates JDBC queries and \texttt{ThreadLocal} context cleanup.
-  \item \texttt{NativeControllerTest}: Validates JNI shared library linking and syscall return codes.
-  \item \texttt{ProductControllerTest} \& \texttt{CpuControllerTest}: Verify fast-path persistence and compute workloads.
+  \item \texttt{ApplicationBehaviorTests}: Verifies Spring application context, payment mutual exclusion across locking strategies, thread-local request headers, and order database workflows (4 tests).
+  \item \texttt{NativeBlockingTests}: Validates JNI shared library loading, native downcalls, POSIX syscall behavior, and duration measurement (3 tests).
+  \item \texttt{VirtualThreadsDemoApplicationTests}: Validates full Spring Boot MVC context bootstrap and virtual thread executor wiring (1 test).
 \end{itemize}
 
 Furthermore, three standalone Python tools ensure complete reproducibility:

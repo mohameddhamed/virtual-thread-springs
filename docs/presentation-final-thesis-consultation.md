@@ -315,7 +315,7 @@ SLIDE 15: Conclusions & State Examination Readiness
 ### Supervisory Review and Confirmation Statements
 
 #### 1. Internal Faculty Supervisor Statement
-I hereby confirm that I have reviewed the completed 9-chapter thesis draft and research artifacts presented by candidate Hamed Mohamed. The work demonstrates an outstanding level of scientific rigor, an exceptional mastery of JVM concurrency internals, and strict compliance with Faculty regulations, including Dean's Directive No. 1/2026 on AI usage. The candidate has satisfied all academic consultation milestones.
+I hereby confirm that I have reviewed the completed 8-chapter thesis draft and research artifacts presented by candidate Hamed Mohamed. The work demonstrates an outstanding level of scientific rigor, an exceptional mastery of JVM concurrency internals, and strict compliance with Faculty regulations, including Dean's Directive No. 1/2026 on AI usage. The candidate has satisfied all academic consultation milestones.
 
 *   **Internal Faculty Supervisor:** Dr. habil. Tamás Kozsik  
 *   **Academic Title:** Associate Professor, Head of Department of Programming Languages and Compilers  

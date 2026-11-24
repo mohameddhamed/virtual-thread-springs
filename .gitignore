@@ -67,3 +67,6 @@ telecom-codes-exam-annotated-solution/
 topic-selection-assessment.json
 topic-selection-report.md
 topic-selection-summary.json
+
+.agents/
+.claude/
