@@ -76,13 +76,13 @@ However, JEP 491 explicitly does \textbf{not} eliminate all forms of carrier pin
 \section{Synchronization Primitives: Intrinsic Monitors vs. Explicit Locks}
 \label{sec:sync-primitives}
 
-In Java, mutual exclusion can be achieved through two distinct mechanisms with contrasting runtime implementations:
+Correct concurrent access to shared mutable state requires sequential consistency~\cite{Lamport1979} and formal happens-before visibility under the Java Memory Model (JSR-133)~\cite{Manson2005}, both of which Java preserves even when a virtual thread remounts onto a different carrier thread after yielding. In Java, mutual exclusion relies on two mechanisms with contrasting runtime implementations:
 
 \subsection{Language-Level Intrinsic Monitors (\texttt{synchronized})}
-Intrinsic monitors are built directly into the Java language and bytecode specification~\cite{JLS21,JVMS21}. Every Java object possesses an intrinsic monitor represented in the object's mark word. In HotSpot, monitor acquisition uses biased locking (historically) and thin locks optimized via atomic compare-and-swap (CAS) operations~\cite{Bacon2001}. When contention occurs, the thin lock is inflated into a heavyweight C++ \texttt{ObjectMonitor} containing OS-level mutexes and wait queues. In Java 21, because the inflated \texttt{ObjectMonitor} maintains direct pointers to the calling OS thread, virtual threads cannot yield while holding it.
+Descending from Dijkstra's formulation of mutual exclusion~\cite{Dijkstra1965} and Hoare's structured monitor abstraction with condition wait queues~\cite{Hoare1974}, intrinsic monitors are built directly into the Java language and bytecode specification~\cite{JLS21,JVMS21}. Every Java object possesses an intrinsic monitor represented in the object's mark word. In HotSpot, monitor acquisition uses biased locking (historically) and thin locks optimized via atomic compare-and-swap (CAS) operations~\cite{Bacon2001}. When contention occurs, the thin lock is inflated into a heavyweight C++ \texttt{ObjectMonitor} containing OS-level mutexes and wait queues. In Java 21, because the inflated \texttt{ObjectMonitor} maintains direct pointers to the calling OS thread, virtual threads cannot yield while holding it.
 
 \subsection{Explicit Locks and the AbstractQueuedSynchronizer (AQS)}
-The \texttt{java.util.concurrent.locks} framework, engineered by Doug Lea~\cite{Lea2000}, implements synchronization in user space via the \texttt{AbstractQueuedSynchronizer} (AQS)~\cite{Lea2005AQS}, which is derived from the CLH (Craig, Landin, and H{\"a}gersten) lock queue algorithm, adapted to support thread blocking and unparking via \texttt{LockSupport}.
+The \texttt{java.util.concurrent.locks} framework, engineered by Doug Lea~\cite{Lea2000}, implements synchronization in user space via the \texttt{AbstractQueuedSynchronizer} (AQS)~\cite{Lea2005AQS}. Drawing on scalable FIFO queue-lock designs such as CLH (Craig, Landin, and H{\"a}gersten) and MCS queue locks~\cite{MellorCrummey1991}, AQS adapts wait-queue node handoffs to support thread blocking and unparking via \texttt{LockSupport}.
 
 In \texttt{ReentrantLock}, thread parking and unparking are managed through \path{LockSupport.park()} and \path{LockSupport.unpark()}. When a virtual thread encounters contention on a \texttt{ReentrantLock}:
 \begin{enumerate}
