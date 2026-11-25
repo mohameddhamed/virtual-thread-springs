@@ -48,7 +48,7 @@ To transition the canonical research questions (RQ1 and RQ2) into empirically ve
 The experimental testbed comprises open-source software libraries, standard compilation toolchains, and dedicated bare-metal hardware:
 \begin{itemize}
   \item \textbf{Hardware Platform:} Dedicated bare-metal Apple M1 processor (8 physical execution cores: 4 Firestorm performance cores, 4 Icestorm efficiency cores), 8~GB unified LPDDR4X memory, Darwin 25.2.0 (macOS 15.2, arm64).
-  \item \textbf{Software Stack:} Java 21 LTS (Azul Zulu 21.0.8, OpenJDK HotSpot 64-bit Server VM), early-access OpenJDK 24.0.2 (build 24+36), Spring Boot 3.5.12, embedded Apache Tomcat 10.1.52, HikariCP 6.3.3, and PostgreSQL 42.7.10 JDBC driver.
+  \item \textbf{Software Stack:} Java 21 LTS (Azul Zulu 21.0.8, OpenJDK HotSpot 64-bit Server VM), OpenJDK 24.0.2 (build 24.0.2+12), Spring Boot 3.5.12, embedded Apache Tomcat 10.1.52, HikariCP 6.3.3, and PostgreSQL 42.7.10 JDBC driver.
   \item \textbf{Workload Generator:} Grafana k6 (v1.7.1)~\cite{GrafanaK6} compiled for Darwin arm64.
   \item \textbf{Telemetry Daemons:} JDK Flight Recorder (JFR) loaded via HotSpot \path{profile.jfc}, with a BSD \texttt{ps} polling daemon sampling process CPU utilization at 1.0-second intervals.
 \end{itemize}
@@ -74,7 +74,7 @@ To maintain forensic traceability and prevent conflating exploratory runs with r
     Stratum 8 & Two-Treatment Persistence Ablation & 6 & Admitted (Primary) & HikariCP pool size 1 vs.\ 10 connection-holding ablation \\
     Template & Run Manifest Reference Schema & 1 & Metadata Only & Canonical JSON schema specification \\
     \midrule
-    \textbf{Total} & \textbf{Complete Repository Inventory} & \textbf{126} & \textbf{504 Artifacts} & \textbf{Cryptographically SHA-256 verified} \\
+    \textbf{Total} & \textbf{Complete Repository Inventory} & \textbf{126} & \textbf{543 Artifacts} & \textbf{Cryptographically SHA-256 verified} \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -114,11 +114,12 @@ Any experimental observation deviating from this theoretical expectation indicat
 
 A central methodological contribution of this dissertation is the formalization of the \textbf{Dual-Window Reporting Standard} (addressing \texttt{CLM-METH-02}):
 \begin{itemize}
-  \item \textbf{Whole-Run Window ($t \in [0\text{ s}, 55\text{ s}]$):} Computes metrics across all completed requests over the entire test duration ($55.0\text{ s}$ denominator).
-  \item \textbf{Steady-State Hold Window ($t \in [15\text{ s}, 45\text{ s}]$):} Isolates requests whose completion timestamps fall strictly within the 30-second constant-load hold stage ($30.0\text{ s}$ denominator).
+  \item \textbf{Scenario-Start Clock Anchoring ($t_0$):} To prevent initiation delays from misaligning metric time windows, the temporal origin $t_0$ is anchored at the earliest request initiation timestamp across all completed client requests ($t_{\text{init}} = t_{\text{completion}} - \text{duration}$).
+  \item \textbf{Whole-Run Window:} Computes metrics across all completed requests over the observed test duration ($t_{\text{max}} - t_0$).
+  \item \textbf{Steady-State Hold Window ($t \in [15\text{ s}, 45\text{ s}]$):} Isolates requests whose completion timestamps fall strictly within $t_{\text{completion}} - t_0 \in [15.0\text{ s}, 45.0\text{ s}]$, evaluated against the fixed 30.0-second hold denominator.
 \end{itemize}
 
-During the 15-second ramp-up stage, the server queue is sparsely populated, yielding transient response times between $500\text{ ms}$ and $3\,900\text{ ms}$. In ramp-sensitive workloads (such as \texttt{platform-synchronized}), aggregating over the whole run depresses median latency to $\approx 3\,920\text{ ms}$, creating a \textbf{25.8\% under-reporting distortion} relative to the true steady-state queueing equilibrium ($\approx 4\,930\text{ ms}$). Reporting both windows side-by-side guarantees complete transparency and eliminates warm-up bias~\cite{Traini2022}.
+During the 15-second ramp-up stage, the server queue is sparsely populated, yielding transient response times between $500\text{ ms}$ and $3\,900\text{ ms}$. In ramp-sensitive workloads (such as \texttt{platform-synchronized}), whole-run median latency was $3\,917.56\text{ ms}$ compared to steady-state hold median latency of $4\,931.24\text{ ms}$. Aggregating across the whole run thus introduces a \textbf{20.56\% shortfall} relative to the true steady-state queueing baseline (or conversely, steady-state hold reflects a \textbf{25.87\% increase} over whole-run aggregation). Reporting both windows side-by-side guarantees complete transparency and eliminates warm-up bias~\cite{Traini2022}.
 
 \section{Telemetry Pipeline and Correctness Invariants}
 \label{sec:telemetry-correctness}
@@ -127,7 +128,7 @@ The experimental infrastructure coordinates three independent telemetry layers:
 \begin{enumerate}
   \item \textbf{Client Stream (k6):} Raw JSON lines streams recording microsecond-accurate request start timestamps, durations, and HTTP response codes.
   \item \textbf{JVM Runtime Stream (JFR):} Continuous flight recordings capturing \texttt{jdk.VirtualThreadPinned} events. Crucially, HotSpot filters pinning events shorter than $20\text{ ms}$ (\texttt{threshold=20ms}). Thus, zero recorded events confirms the absence of pinning events $\ge 20\text{ ms}$, but does not preclude sub-20ms micro-pins (\texttt{CLM-METH-04}).
-  \item \textbf{Host Telemetry Stream (OS):} Periodic process sampling recording overall JVM CPU utilization ($\%cpu$). During JNI POSIX sleep, process CPU averages $1.04\% \pm 0.12\%$, proving that the carrier thread is suspended in a kernel wait state rather than busy-spinning (\texttt{CLM-RQ2-02}).
+  \item \textbf{Host Telemetry Stream (OS):} Periodic process sampling recording overall JVM CPU utilization ($\%cpu$). During JNI POSIX sleep, process CPU averages approximately $1\%$, proving that the carrier thread is suspended in a kernel wait state rather than busy-spinning (\texttt{CLM-RQ2-02}).
 \end{enumerate}
 
 Every trial admitted into the primary corpus must satisfy seven strict correctness gates: HTTP 200 status on 100\% of requests, sequential consistency in transactional endpoints, clean zero-exit process termination, driver carrier-safety verification (\texttt{pgjdbc >= 42.6.0}), cryptographic SHA-256 manifest matching, and membership in pre-registered evidence strata.
@@ -157,7 +158,7 @@ Table~\ref{tab:validity-threats} summarizes the primary threats to validity and 
     \addlinespace
     Statistical Validity & Small sample size ($N=3$ process repetitions) & Repetitions reported strictly as descriptive engineering bounds ($\sigma, \Delta$); inferential testing ($p$-values, ANOVA) excluded. \\
     \addlinespace
-    Reproducibility & Historical glob expansion inventory discrepancy & Audited master inventory of 504 physical disk files with 100\% SHA-256 checksum agreement on recorded comparisons. \\
+    Reproducibility & Historical glob expansion inventory discrepancy & Audited master inventory of 543 physical disk files with 100\% SHA-256 checksum agreement on recorded comparisons. \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -165,4 +166,4 @@ Table~\ref{tab:validity-threats} summarizes the primary threats to validity and 
 \section{Academic Ethics and AI Disclosure}
 \label{sec:ethics-ai-methodology}
 
-In strict compliance with ELTE Faculty of Informatics Dean's Directive~1/2026~\cite{elteikAiPolicy}, generative AI assistance (Anthropic Claude 3.5 Sonnet) was utilized solely for prose polishing, structural outlining, and python script scaffolding. Zero empirical benchmark measurements, latency figures, or flight recordings were generated by artificial intelligence. All empirical findings originate from physical hardware executions and were independently verified through cryptographic hashing and mathematical recalculation.
+AI assistance is documented under Dean's Directive~1/2026~\cite{elteikAiPolicy}. See Appendix~\ref{app:ethics-ai}. Table~\ref{tab:ai-usage-breakdown} records earlier assistance with prose, outlines, Python scaffolding and unit test templates. The appendix also records the Codex editorial pass and PDF verification. Zero empirical benchmark measurements, latency figures, or flight recordings were generated by artificial intelligence. All empirical findings originate from physical hardware executions and were independently verified through cryptographic hashing and mathematical recalculation.

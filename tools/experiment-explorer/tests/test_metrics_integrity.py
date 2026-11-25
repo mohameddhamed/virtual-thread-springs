@@ -66,9 +66,9 @@ def test_synchronization_flagship_findings():
     assert abs(mean_sync_tp - 1.9667) < 0.001
     assert abs(mean_lock_tp - 1.9556) < 0.001
 
-    # Full-run throughput: 1.964 req/s for both
-    assert abs(mean_sync_full - 1.9636) < 0.001
-    assert abs(mean_lock_full - 1.9636) < 0.001
+    # Full-run throughput with actual elapsed span: ~1.965 req/s vs ~1.958 req/s
+    assert abs(mean_sync_full - 1.9654) < 0.001
+    assert abs(mean_lock_full - 1.9584) < 0.001
 
     # Pinning events: synchronized has 108–110, ReentrantLock has strictly 0
     for t in s1_sync:

@@ -1,6 +1,6 @@
 # Virtual Thread Springs — Spring Boot + Java 21
 
-> 📄 **MSc Thesis Document:** The complete compiled 96-page thesis PDF is located at [**`overleaf/main.pdf`**](overleaf/main.pdf) ([Direct Download](https://raw.githubusercontent.com/mohameddhamed/virtual-thread-springs/main/overleaf/main.pdf)).  
+> 📄 **MSc Thesis Document:** The complete compiled 100-page thesis PDF is located at [**`overleaf/main.pdf`**](overleaf/main.pdf) ([Direct Download](https://raw.githubusercontent.com/mohameddhamed/virtual-thread-springs/main/overleaf/main.pdf)).  
 > 🛠️ **LaTeX Sources:** Complete TeX Live 2025 source tree is located in [**`overleaf/`**](overleaf/).
 
 A research demo application built for the thesis:

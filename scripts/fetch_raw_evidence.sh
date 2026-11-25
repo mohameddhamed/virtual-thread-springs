@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 RESULTS_DIR="${REPO_ROOT}/results"
 CHECKSUMS_FILE="${RESULTS_DIR}/SHA256SUMS"
 ARCHIVE_NAME="virtual-threads-raw-evidence.tar.gz"
-REMOTE_URL="${RAW_EVIDENCE_URL:-https://zenodo.org/record/placeholder/files/${ARCHIVE_NAME}}"
+REMOTE_URL="${RAW_EVIDENCE_URL:-}"
 
 echo "==> Verifying raw benchmark evidence in ${RESULTS_DIR}..."
 
@@ -56,7 +56,7 @@ echo "==> Local files missing or mismatched. Attempting archive retrieval..."
 if [ -f "${REPO_ROOT}/${ARCHIVE_NAME}" ]; then
   echo "==> Unpacking local ${ARCHIVE_NAME}..."
   tar -xzf "${REPO_ROOT}/${ARCHIVE_NAME}" -C "${RESULTS_DIR}"
-else
+elif [ -n "${REMOTE_URL}" ]; then
   echo "==> Fetching from remote URL: ${REMOTE_URL}..."
   if command -v curl >/dev/null 2>&1; then
     curl -fSL "${REMOTE_URL}" -o "${REPO_ROOT}/${ARCHIVE_NAME}"
@@ -67,6 +67,10 @@ else
     exit 1
   fi
   tar -xzf "${REPO_ROOT}/${ARCHIVE_NAME}" -C "${RESULTS_DIR}"
+else
+  echo "Error: Local evidence files incomplete in ${RESULTS_DIR} and RAW_EVIDENCE_URL is not set." >&2
+  echo "Please place ${ARCHIVE_NAME} in repository root or set RAW_EVIDENCE_URL to your archive endpoint." >&2
+  exit 1
 fi
 
 echo "==> Re-running SHA-256 verification..."

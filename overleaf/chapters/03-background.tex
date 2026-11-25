@@ -194,18 +194,18 @@ In a \textbf{closed-loop} system (such as Grafana k6 with fixed Virtual Users $N
 where:
 \begin{itemize}
   \item $N$ is the constant number of concurrent users (closed-loop population).
-  \item $X$ is the achieved throughput ($\text{req/s}$).
-  \item $R$ is the client-observed response time / residence time ($\text{s}$).
+  \item $X$ is the achieved system throughput ($\text{req/s}$).
+  \item $R$ is the theoretical mean client-observed response time / residence time ($E[R]$, in $\text{s}$).
   \item $Z$ is the client think time between consecutive requests ($\text{s}$).
 \end{itemize}
 
-Rearranging Equation~\ref{eq:closed-loop} yields the theoretical response time:
+Rearranging Equation~\ref{eq:closed-loop} yields the theoretical mean response time:
 \begin{equation}
   \label{eq:response-time}
-  R = \frac{N}{X} - Z
+  E[R] = \frac{N}{X} - Z
 \end{equation}
 
-When throughput $X$ plateaus at a system bottleneck, increasing the user population $N$ linearly inflates response time $R$.
+When throughput $X$ plateaus at a system bottleneck, increasing the user population $N$ linearly inflates mean cycle time and response time. Under stationary equilibrium and low-variance unimodal service distributions, sample medians ($p50$) provide an empirical proxy for comparing with theoretical closed-loop response-time projections.
 
 \subsection{Amdahl's Law and Single-Server Serialization}
 Amdahl's Law~\cite{Amdahl1967} defines the maximum speedup $S$ attainable by parallelizing a workload with a strictly serial fraction $s$:

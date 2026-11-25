@@ -37,7 +37,7 @@ The source tree is organized under root package \texttt{com.\allowbreak thesis.\
 \subsection{Framework Bill of Materials and Pinned Dependencies}
 To eliminate version ambiguity, all runtime dependencies are statically pinned in \texttt{pom.xml}:
 \begin{itemize}
-  \item \textbf{Java Runtime:} OpenJDK 64-Bit Server VM (Azul Zulu 21.0.8 / OpenJDK 21.0.8, bytecode version 21). Comparative replication trials utilized OpenJDK 24.0.2 (build 24+36).
+  \item \textbf{Java Runtime:} OpenJDK 64-Bit Server VM (Azul Zulu 21.0.8 / OpenJDK 21.0.8, bytecode version 21). Comparative replication trials utilized OpenJDK 24.0.2 (build 24.0.2+12).
   \item \textbf{Framework Stack:} Spring Boot 3.5.12 pulling Spring Framework 6.2.x.
   \item \textbf{Embedded Servlet Container:} Apache Tomcat 10.1.52.
   \item \textbf{Connection Pool:} HikariCP 6.3.3.
@@ -111,7 +111,7 @@ When \texttt{nativeSleep(500)} is invoked:
   \item The POSIX \texttt{nanosleep()} system call places the physical OS platform thread into an interruptible Darwin/Mach wait state. The carrier thread yields its CPU core to the OS kernel scheduler.
   \item Because execution occurs outside JVM bytecode interpretation, no bytecode safe-points are reached and \texttt{Continuation.yield()} is never called. The virtual thread remains rigidly bound to the carrier.
   \item The JFR \texttt{jdk.VirtualThreadPinned} event triggers only when yield fails. Because yield is never attempted, JFR records strictly \textbf{0 pinning events} across all 27 native trials, creating a complete diagnostic blind spot.
-  \item Process telemetry sampled at 1.0-second intervals confirms that process CPU utilization remains at $1.04\% \pm 0.12\%$, disproving busy-wait myths.
+  \item Process telemetry sampled at 1.0-second intervals confirms that process CPU utilization remains at approximately $1\%$, disproving busy-wait myths.
 \end{enumerate}
 
 \section[Persistence Layer and HikariCP Connection Pooling]{Persistence Layer and HikariCP\\ Connection Pooling}
@@ -139,11 +139,11 @@ Under Treatment B, connection checkout duration is strictly $T_{\text{hold}} = 0
 \section{Request Context and ThreadLocal Lifecycle}
 \label{sec:threadlocal-lifecycle}
 
-In \texttt{OrderService}, request-scoped context is stored in a static \texttt{ThreadLocal<String>} variable. In platform thread containers, memory overhead is bounded by pool size ($200 \times M_{\text{context}}$). Under Virtual Threads, where concurrency can reach $100\,000$ simultaneous threads, heap memory scales linearly:
+In \texttt{OrderService}, request-scoped context is stored in a static \texttt{ThreadLocal<String>} variable. In platform thread containers, memory overhead is bounded by pool size ($200 \times M_{\text{context}}$). Under Virtual Threads, where concurrency can reach $100\,000$ simultaneous threads, heap memory scales linearly as an analytical projection:
 \begin{equation}
   \text{Memory}_{\text{virtual}} = N_{\text{concurrent}} \times M_{\text{context}}
 \end{equation}
-If $M_{\text{context}} = 50\text{ KB}$ (e.g., tokens, tracing spans), heap overhead reaches $5.0\text{ GB}$. While \texttt{OrderService} enforces cleanup via \texttt{REQUEST\_CONTEXT.remove()} in a \texttt{finally} block, thread-local caching anti-patterns represent a major architectural vulnerability under virtual threads.
+If $M_{\text{context}} = 50\text{ KB}$ (e.g., tokens, tracing spans), heap overhead reaches an analytical projection of $5.0\text{ GB}$. While \texttt{OrderService} enforces cleanup via \texttt{REQUEST\_CONTEXT.remove()} in a \texttt{finally} block, thread-local caching anti-patterns represent a major architectural vulnerability under virtual threads.
 
 \section{Benchmarking Harness and Telemetry Pipeline}
 \label{sec:benchmarking-harness}
@@ -160,7 +160,7 @@ Benchmark execution was fully automated by \texttt{run-benchmark.sh}:
 \section{Verification Suite and Artifact Provenance Tooling}
 \label{sec:verification-tooling}
 
-The testbed is hardened with an automated JUnit 5 test suite executing 8 unit and integration tests across 3 classes with 100\% passing assertions (\texttt{rtk mvn test}):
+The testbed is hardened with an automated JUnit 5 test suite executing 8 unit and integration tests across 3 classes with 100\% passing assertions (\texttt{./mvnw test} or \texttt{mvn test}):
 \begin{itemize}
   \item \texttt{ApplicationBehaviorTests}: Verifies Spring application context, payment mutual exclusion across locking strategies, thread-local request headers, and order database workflows (4 tests).
   \item \texttt{NativeBlockingTests}: Validates JNI shared library loading, native downcalls, POSIX syscall behavior, and duration measurement (3 tests).

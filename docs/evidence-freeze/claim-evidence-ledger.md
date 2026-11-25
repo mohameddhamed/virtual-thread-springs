@@ -63,7 +63,7 @@ All 125 physical executions (+1 schema template) in the repository are strictly 
 * **Raw Evidence Artifacts:**
   * Results: `results/run-10vus-20261015-142646.json`, `run-10vus-20261015-142750.json`, `run-10vus-20261015-142854.json`
   * Script: `scripts/recalculate_metrics.py`
-* **Analysis & Verification:** Measured steady-state throughput is $1.967\text{ req/s}$ ($X_{\text{steady}} = 59 / 30.0\text{s}$), with steady-state median latency of $4966.78\text{ ms}$. Derived upper bound from 500 ms mutual exclusion is $1 / 0.500\text{s} = 2.000\text{ req/s}$.
+* **Analysis & Verification:** Measured steady-state throughput is $1.967\text{ req/s}$ ($X_{\text{steady}} = 59 / 30.0\text{s}$), with steady-state median latency of $4966.72\text{ ms}$. Derived upper bound from 500 ms mutual exclusion is $1 / 0.500\text{s} = 2.000\text{ req/s}$.
 * **Boundaries & Limitations:** Specific to single-carrier scheduler constraint. Does not represent unconstrained multi-core throughput where additional carriers remain unpinned.
 * **Thesis Destination:** Chapter 5 (Section 5.2), Chapter 6 (Section 6.1).
 * **Admission Decision:** **Admit as Primary Quantitative Finding.**
@@ -92,7 +92,7 @@ All 125 physical executions (+1 schema template) in the repository are strictly 
 * **Raw Evidence Artifacts:**
   * Metrics CSV: `docs/evidence-freeze/metric-recalculations.csv` (rows 10 and 11).
   * Report: `docs/evidence-freeze/metric-recalculation-audit.md#L182-L215`.
-* **Analysis & Verification:** Steady-state throughput: `synchronized` = $1.967\text{ req/s}$ vs. `reentrant-lock` = $1.963\text{ req/s}$ ($\Delta = 0.20\%$). Steady-state p50: `synchronized` = $4966.78\text{ ms}$ vs. `reentrant-lock` = $4981.95\text{ ms}$ ($\Delta = 0.31\%$).
+* **Analysis & Verification:** Steady-state throughput: `synchronized` = $1.967\text{ req/s}$ vs. `reentrant-lock` = $1.956\text{ req/s}$ ($\Delta = 0.56\%$). Steady-state p50: `synchronized` = $4966.72\text{ ms}$ vs. `reentrant-lock` = $4981.76\text{ ms}$ ($\Delta = 0.31\%$).
 * **Boundaries & Limitations:** Governed by Amdahl's Law (1967) and queueing theory. When the critical section duration ($500\text{ ms}$) dominates the request lifecycle, the bottleneck is mutual exclusion, not carrier thread availability.
 * **Thesis Destination:** Chapter 5 (Section 5.3), Chapter 6 (Section 6.1.2), Chapter 8 (Discussion).
 * **Admission Decision:** **Admit as Primary Central Contribution.**
@@ -281,7 +281,7 @@ All 125 physical executions (+1 schema template) in the repository are strictly 
 * **Raw Evidence Artifacts:**
   * Recalculations: `docs/evidence-freeze/metric-recalculations.csv#L10-L16`
   * Recalculation Audit: `docs/evidence-freeze/metric-recalculation-audit.md#L110-L165`
-* **Analysis & Verification:** Calculated unrounded metrics. Resolved previous reporting error: throughput delta on run `142445` is **0.765%** (not $<0.2\%$), while p50 latency delta is **0.184%**.
+* **Analysis & Verification:** Calculated unrounded metrics. Resolved previous reporting error: throughput delta on run `142445` is **0.2478%** using observed elapsed time (**0.7645%** with the nominal 55-second denominator), while the p50 latency delta is **0.1820%**.
 * **Boundaries & Limitations:** Requires mandatory side-by-side reporting in Chapter 5. Hold window is qualified as a derived metric, not an unconditional steady-state proof.
 * **Thesis Destination:** Chapter 3 (Section 3.8), Chapter 5 (Section 5.1).
 * **Admission Decision:** **Admit as Methodological Mandate.**
