@@ -4,7 +4,7 @@
 \section{Explicit Answers to the Research Questions}
 \label{sec:rq-closure}
 
-Synthesizing the empirical observations across all 125 physical trials and theoretical derivations, this section formally closes the canonical research questions. Table~\ref{tab:rq-closure} details the Research Question Closure Ledger.
+Synthesizing the empirical observations across all 125 physical trials and analytical derivations, this section formally closes the two research questions. Table~\ref{tab:rq-closure} details the Research Question Closure Ledger.
 
 \begin{table}[H]
   \centering
@@ -15,7 +15,7 @@ Synthesizing the empirical observations across all 125 physical trials and theor
     \toprule
     \textbf{RQ} & \textbf{Evidence-Backed Answer} & \textbf{Strength \& Uncertainty} & \textbf{Limit or Condition} & \textbf{Link} \\
     \midrule
-    RQ1 & In Java 21, \texttt{synchronized} blocks enclosing blocking I/O pin virtual threads to carriers (108 JFR events), starving the scheduler under single-carrier constraint. Replacing \texttt{synchronized} with \texttt{ReentrantLock} completely eliminates pinning (0 JFR events), but yielded similar hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$, $0.56\%$ delta) because Amdahl's Law enforces a service ceiling ($\mu = 1/D = 2.0\text{ req/s}$). The sample standard deviation across three trial medians per condition was 19.8 times as large with \texttt{ReentrantLock} ($\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$). Java~24 (JEP~491) unpins monitors (0 events) while throughput remains bounded. & High internal validity; verified across 12 primary trials and JDK 24 boundary trials. Dispersion based on $N=3$ descriptive process repetitions. & Bounded to single-carrier scheduler isolation; does not evaluate open-loop Poisson traffic. & C1 \\
+    RQ1 & In Java 21, \texttt{synchronized} blocks enclosing blocking I/O pin virtual threads to carriers (108 JFR events), starving the scheduler under single-carrier constraint. Replacing \texttt{synchronized} with \texttt{ReentrantLock} eliminates qualifying pinning events (0 JFR events $\ge 20\text{ ms}$), but yielded similar hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$, $0.56\%$ delta) because Amdahl's Law enforces a service ceiling ($\mu = 1/D = 2.0\text{ req/s}$). The sample standard deviation across three trial medians per condition was 19.8 times as large with \texttt{ReentrantLock} ($\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$). Java~24 (JEP~491) unpins monitors (0 events $\ge 20\text{ ms}$) while throughput remains bounded. & High internal validity; verified across 12 primary trials and JDK 24 boundary trials. Dispersion based on $N=3$ descriptive process repetitions. & Bounded to single-carrier scheduler isolation; does not evaluate open-loop Poisson traffic. & C1 \\
     \addlinespace
     RQ2 & Four primary architectural risks must be assessed before enabling Virtual Threads:
     (1) \textbf{Foreign JNI Syscalls:} Blocking POSIX \texttt{nanosleep()} holds carriers captive during the native call (approximately $1\%$ CPU) with zero JFR pinning alerts.

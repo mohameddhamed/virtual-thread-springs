@@ -46,11 +46,10 @@ The default carrier scheduler for virtual threads is an instance of \path{java.u
 In Java 21, the cooperative unmounting mechanism is subject to a critical runtime limitation known as \textbf{carrier pinning}. When a virtual thread is pinned, it cannot unmount from its carrier thread upon encountering a blocking operation. Consequently, the underlying OS carrier thread remains blocked, unavailable to schedule any other virtual thread.
 
 \subsection{HotSpot C++ Continuation Freeze Mechanics}
-In the OpenJDK HotSpot C++ source code (\path{src/hotspot/share/runtime/continuationFreeze.cpp})~\cite{HotSpotSource}, continuation suspension is implemented by the \texttt{freeze()} function. When a virtual thread attempts to yield, the runtime walks the call stack from the current frame to the continuation delimiter.
+In the OpenJDK HotSpot C++ source code (\path{src/hotspot/share/runtime/continuationFreeze.cpp})~\cite{HotSpotSource}, continuation suspension executes through the internal freeze path. When a virtual thread attempts to yield, the runtime walks the call stack from the current frame to the continuation delimiter and checks whether intrinsic monitors are held:
 
-During stack-walking, HotSpot evaluates whether the thread holds any intrinsic object monitors:
 \begin{verbatim}
-// HotSpot C++ continuationFreeze.cpp snippet
+// Simplified schematic HotSpot C++ check (continuationFreeze.cpp)
 if (thread->held_monitor_count() > 0) {
     return freeze_pinned_monitor;
 }
@@ -134,7 +133,7 @@ Under Virtual Threads, where an application can instantiate $100\,000$ concurren
 \begin{equation}
   M_{\text{context}} = 100\,000 \times S_{\text{entry}}
 \end{equation}
-If $S_{\text{entry}} = 50\text{ KB}$, memory consumption scales to $5\text{ GB}$, inducing garbage collection pressure and OutOfMemoryError exceptions. Furthermore, thread-local caching anti-patterns (such as pooling reusable buffers in \texttt{ThreadLocal}) fail catastrophically because virtual threads are ephemeral and never reused.
+If $S_{\text{entry}} = 50\text{ KB}$, memory consumption scales to $5\text{ GB}$, inducing garbage collection pressure and OutOfMemoryError exceptions. Furthermore, thread-local caching anti-patterns (such as pooling reusable buffers in \texttt{ThreadLocal}) lose pooling effectiveness because virtual threads are ephemeral and never reused.
 
 \section[Foreign Function Boundary: JNI and Native Execution]{Foreign Function Boundary:\\ JNI and Native Execution}
 \label{sec:jni-boundary}
@@ -150,7 +149,7 @@ When a virtual thread executes a JNI native method, HotSpot transitions the thre
   \item The carrier thread remains captured for the entire duration of the native blocking call, starving the virtual thread scheduler.
 \end{itemize}
 
-\subsection{The Observability Vacuum}
+\subsection{The Observability Gap}
 Because JNI carrier capture bypasses the HotSpot continuation freeze state machine, HotSpot's diagnostic instrumentation is never triggered. Specifically:
 \begin{itemize}
   \item HotSpot generates \textbf{zero} \texttt{jdk.VirtualThreadPinned} events.

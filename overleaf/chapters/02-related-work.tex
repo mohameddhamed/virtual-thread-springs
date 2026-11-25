@@ -8,7 +8,7 @@ To establish the academic and engineering context of this research, a systematic
 \begin{enumerate}
   \item \textbf{Queueing and Scheduling Foundations:} Classical single- and multi-server queueing networks, operational conservation laws, and the historical evolution of two-level ($M:N$) user-space thread scheduling.
   \item \textbf{Concurrency, Memory Models, and Synchronization:} Language-level intrinsic monitors, hardware lock designs, explicit lock synchronization, and the Java Memory Model (JMM).
-  \item \textbf{Empirical Benchmarking Methodology in Managed Runtimes:} Rigorous protocols for warm-up isolation, steady-state identification, non-independent error handling, and closed-loop workload modeling.
+  \item \textbf{Empirical Benchmarking Methodology in Managed Runtimes:} Structured protocols for warm-up isolation, steady-state identification, non-independent error handling, and closed-loop workload modeling.
   \item \textbf{Normative JDK Specifications and OpenJDK Architecture:} Platform specifications defining Virtual Threads, carrier thread multiplexing, continuation capture, and monitor unpinning proposals.
   \item \textbf{Empirical Evaluations of Modern Asynchronous and Virtual-Thread Frameworks:} Contemporary benchmark studies evaluating Project Loom, Spring Boot, Quarkus, and real-world enterprise adoption post-mortems.
 \end{enumerate}
@@ -45,9 +45,9 @@ Table~\ref{tab:comparative-delta} compares this dissertation with Likus \& Kruż
     \addlinespace
     Carrier Pinning Delta & Not measured & Not measured & Measured: 108 pinning events (\texttt{synchronized}) reduced to \textbf{0 events} (\texttt{ReentrantLock}) \\
     \addlinespace
-    Amdahl Invariant Proof & Not investigated & Not investigated & Formally demonstrated: eliminating pinning yielded similar hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$) \\
+    Amdahl Invariant Validation & Not investigated & Not investigated & Empirically observed: eliminating pinning yielded similar hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$) \\
     \addlinespace
-    Foreign Functions (JNI) & Not evaluated & Not evaluated & Proven: blocking POSIX \texttt{nanosleep()} silently captures carrier (1.04\% CPU, 0 JFR events) \\
+    Foreign Functions (JNI) & Not evaluated & Not evaluated & Observed: blocking POSIX \texttt{nanosleep()} captures carrier ($1.06\%$ Java~21 CPU; $\approx 1\%$ across 9 multi-JDK trials; 0 JFR events) \\
     \addlinespace
     Database Pool Model & Not evaluated & Aggregate pool throughput & Factorial ablation (Stratum 8): connection-held vs.\ unheld delay ($X_{\text{max}} = K / T_{\text{hold}}$) \\
     \addlinespace
@@ -69,7 +69,7 @@ Synthesizing this literature reveals a coherent theoretical and methodological f
 \begin{enumerate}
   \item \textbf{Conservation Laws Transcend Scheduling Models:} As established by Amdahl~\cite{Amdahl1967}, Little~\cite{Little1961,Little2011}, and Kleinrock~\cite{Kleinrock1975}, user-mode thread multiplexing cannot overcome queueing bottlenecks. When an application contains a serialized critical section or interacts with a bounded downstream database pool, thread unmounting merely transfers queue accumulation across architectural tiers.
   \item \textbf{Two-Level Scheduling and Boundary Hazards:} The historical threading debate (Ousterhout~\cite{Ousterhout1996} vs.\ Welsh et al.~\cite{Welsh2001} vs.\ von Behren et al.~\cite{VonBehren2003}) highlighted the cognitive clarity of imperative threading against event-loop scalability. Anderson et al.~\cite{Anderson1991} showed that $M:N$ threading requires kernel-user cooperative signaling. In Java 21 Virtual Threads (JEP 444~\cite{JEP444}), unmounting relies on runtime cooperation via continuations and AQS~\cite{Lea2000FJ}; however, foreign function invocations (JNI) bypass runtime cooperation, reproducing the exact carrier captivity problems identified in early operating systems research.
-  \item \textbf{Rigorous Managed-Runtime Benchmarking:} Methodologies by Georges et al.~\cite{Georges2007}, Kalibera \& Jones~\cite{Kalibera2013}, and Traini et al.~\cite{Traini2022} mandate that JVM performance evaluations must rigorously decouple transient warm-up phases from steady-state equilibrium, treat independent process executions as units of variance, and avoid unjustified inferential claims on small sample sizes.
+  \item \textbf{Managed-Runtime Benchmarking Standards:} Methodologies by Georges et al.~\cite{Georges2007}, Kalibera \& Jones~\cite{Kalibera2013}, and Traini et al.~\cite{Traini2022} establish that JVM performance evaluations must decouple transient warm-up phases from steady-state equilibrium, treat independent process executions as units of variance, and avoid unjustified inferential claims on small sample sizes.
   \item \textbf{Transitory Nature of Java 21 Synchronization Constraints:} While explicit locks (\texttt{ReentrantLock})~\cite{Goetz2006,Herlihy2008} resolve monitor pinning in Java 21, JEP 491~\cite{JEP491} demonstrates that monitor pinning is a temporary runtime limitation destined for removal in JDK 24. Migration guidance must therefore separate transient JDK runtime behavior from permanent architectural bottlenecks.
 \end{enumerate}
 

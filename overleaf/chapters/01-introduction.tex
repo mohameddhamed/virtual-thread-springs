@@ -6,9 +6,9 @@
 
 A Spring Boot MVC service can switch to virtual threads with one configuration property. A request that must enter a serialized critical section still waits for the preceding request to leave it. On Java 21, blocking inside a \texttt{synchronized} section can also prevent the carrier from running other virtual threads. This dissertation examines these two limits separately and asks where the bottleneck moves when the carrier becomes available.\footnote{Codex (GPT-6.2 Sol) assisted with reordering and condensing the introduction.}
 
-For more than two decades, enterprise Java backend architectures have overwhelmingly relied upon the synchronous, \emph{thread-per-request} paradigm. Standardized by the Java Servlet API and realized in production web servers such as Apache Tomcat~\cite{TomcatReference} and Spring Framework Model-View-Controller (MVC) containers~\cite{SpringReference}, this architecture assigns each incoming HTTP connection to a dedicated worker thread. This paradigm provides immense developer ergonomics: sequential imperative code execution, natural diagnostic stack traces, implicit request-scoped context propagation via \texttt{ThreadLocal}, and seamless integration with synchronous blocking persistence APIs such as JDBC and HikariCP~\cite{HikariCPReference}.
+For more than two decades, enterprise Java backend architectures have overwhelmingly relied upon the synchronous, \emph{thread-per-request} paradigm. Standardized by the Java Servlet API and realized in production web servers such as Apache Tomcat~\cite{TomcatReference} and Spring Framework Model-View-Controller (MVC) containers~\cite{SpringReference}, this architecture assigns each incoming HTTP connection to a dedicated worker thread. This paradigm provides a simpler programming model: sequential imperative code execution, natural diagnostic stack traces, implicit request-scoped context propagation via \texttt{ThreadLocal}, and seamless integration with synchronous blocking persistence APIs such as JDBC and HikariCP~\cite{HikariCPReference}.
 
-However, this architecture historically rested upon an inflexible foundation: a strict $1:1$ mapping between Java threads (\texttt{java.lang.Thread}) and operating system (OS) kernel platform threads (such as POSIX \texttt{pthread}s). Because platform threads allocate heavyweight virtual memory stacks (defaulting to $1\,024\text{ KB}$ per thread in HotSpot via \texttt{-Xss1m}) and incur preemptive kernel context-switching latency, enterprise containers strictly bound concurrency using fixed thread pools (e.g., Tomcat's default \texttt{maxThreads = 200}). Under high concurrency or during downstream I/O latency spikes, worker thread pools exhaust rapidly, inducing connection backlog queueing, exponential latency escalation, and catastrophic server timeouts.
+However, this architecture historically rested upon an inflexible foundation: a strict $1:1$ mapping between Java threads (\texttt{java.lang.Thread}) and operating system (OS) kernel platform threads (such as POSIX \texttt{pthread}s). Because platform threads allocate heavyweight virtual memory stacks (defaulting to $1\,024\text{ KB}$ per thread in HotSpot via \texttt{-Xss1m}) and incur preemptive kernel context-switching latency, enterprise containers strictly bound concurrency using fixed thread pools (e.g., Tomcat's default \texttt{maxThreads = 200}). Under high concurrency or during downstream I/O latency spikes, worker thread pools exhaust rapidly, inducing connection backlog queueing, latency escalation, and server timeouts under saturation.
 
 To circumvent platform thread exhaustion, reactive, event-driven architectures (such as Spring WebFlux, Project Reactor, and Netty) emerged during the 2010s. By multiplexing concurrent connections across a tiny pool of non-blocking event-loop threads matching CPU core counts, reactive systems eliminated thread pool exhaustion. Yet this efficiency imposed severe cognitive and operational costs: the abandonment of imperative control flow in favor of monadic functional pipelines (\texttt{Mono}, \texttt{Flux}), fragmented stack traces that obscure production debugging, and fundamental architectural friction when interfacing with blocking relational database drivers (JDBC).
 
@@ -42,7 +42,7 @@ This master's dissertation is submitted in partial fulfillment of the requiremen
 \section{Research Goals, Questions, and Hypotheses}
 \label{sec:research-questions}
 
-To establish a rigorous, empirical systems investigation into these phenomena, this dissertation addresses two canonical Research Questions:
+To establish an empirical systems investigation into these phenomena, this dissertation addresses two research questions:
 
 \bigskip
 
@@ -62,7 +62,7 @@ To establish a rigorous, empirical systems investigation into these phenomena, t
 
 \bigskip
 
-To ensure answerability and rigorous empirical evaluation, Table~\ref{tab:research-questions} operationalizes each research question into concrete treatments, hypotheses, and required evidentiary criteria.
+To ensure answerability and structured empirical evaluation, Table~\ref{tab:research-questions} operationalizes each research question into concrete treatments, hypotheses, and required evidentiary criteria.
 
 \begin{table}[H]
   \centering
@@ -73,7 +73,7 @@ To ensure answerability and rigorous empirical evaluation, Table~\ref{tab:resear
     \toprule
     \textbf{ID} & \textbf{Operational Focus} & \textbf{Treatment \& Variables} & \textbf{Intended Evidentiary Criteria} \\
     \midrule
-    RQ1 & Carrier pinning vs.\ domain serialization ceiling & Factorial matrix: Tomcat platform vs.\ virtual threads; \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock; Java~21 LTS vs.\ Java~24 (JEP~491). & JFR \texttt{jdk.VirtualThreadPinned} events (108 to 0); steady-state throughput ($1.956$ vs.\ $1.967\text{ req/s}$); Amdahl ceiling proof ($\mu \approx 2.0\text{ req/s}$); AQS barging dispersion. \\
+    RQ1 & Carrier pinning vs.\ domain serialization ceiling & Factorial matrix: Tomcat platform vs.\ virtual threads; \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock; Java~21 LTS vs.\ Java~24 (JEP~491). & JFR \texttt{jdk.VirtualThreadPinned} events (108 to 0); steady-state throughput ($1.956$ vs.\ $1.967\text{ req/s}$); Amdahl ceiling validation ($\mu \approx 2.0\text{ req/s}$); AQS barging dispersion. \\
     \addlinespace
     RQ2 & Architectural risks: JNI, pools, context, diagnostics & POSIX JNI C downcalls; HikariCP connection holding (Stratum~8 two-treatment design: pool size 1 vs.\ 10); \texttt{ThreadLocal} lifecycle; JFR threshold limits. & Process CPU (approximately $1\%$) in Darwin/Mach wait state with 0 JFR pinning events; connection queue growth (49 queued threads); analytical memory footprint scaling; diagnostic blind spot analysis. \\
     \bottomrule
@@ -101,7 +101,7 @@ To prevent conflating distinct performance failure modes, Table~\ref{tab:symptom
     \addlinespace
     Connection pool starvation without pinning & Virtual threads eliminate pool sizing limits & \textbf{Downstream Bottleneck Shift:} Clean unmounting (0 JFR events), but throughput capped by pool ($X_{\text{max}} = K / T_{\text{hold}}$). & HikariCP telemetry ($1.0/1$ active, 49 queued VUs) and scaling ($3.27$ to $32.60\text{ req/s}$) with 0 pinning. \\
     \addlinespace
-    Tail latency dispersion in refactored locks & \texttt{ReentrantLock} is slower than intrinsic monitor & \textbf{AQS NonfairSync Barging:} Default non-fair lock permits arriving threads to bypass queue, inflating variance. & Latency standard deviation spread ($\sigma = 16.53\text{ ms}$ for \texttt{ReentrantLock} vs.\ $0.70\text{ ms}$ for \texttt{synchronized}). \\
+    Tail latency dispersion in refactored locks & \texttt{ReentrantLock} is slower than intrinsic monitor & \textbf{AQS NonfairSync Barging:} Default non-fair lock permits arriving threads to bypass queue, inflating variance. & Latency standard deviation spread ($\sigma = 16.34\text{ ms}$ for \texttt{ReentrantLock} vs.\ $0.82\text{ ms}$ for \texttt{synchronized}). \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -109,7 +109,7 @@ To prevent conflating distinct performance failure modes, Table~\ref{tab:symptom
 \section{Scope, Assumptions, Constraints, and Exclusions}
 \label{sec:scope-constraints}
 
-To maintain rigorous experimental control and internal validity, the scope and boundaries of this study are defined as follows:
+To maintain experimental control and internal validity, the scope and boundaries of this study are defined as follows:
 
 \begin{itemize}
   \item \textbf{Software Stack:} The primary research artifact is an instrumented enterprise benchmark application implemented on \textbf{Spring Boot 3.5.12}, executed on embedded \textbf{Apache Tomcat 10.1.52}, and compiled with \textbf{Java 21 LTS} (Azul Zulu 21.0.8, OpenJDK HotSpot 64-bit Server VM). Comparative boundary replications utilize OpenJDK 24.0.2 (build 24.0.2+12).

@@ -68,7 +68,7 @@ Table~\ref{tab:primary-sync-matrix} reports the exact trial-level and aggregate 
     \texttt{142534} (T1) & \texttt{reentrant-lock} & $1.966$ & $1.967$ & $4\,962.92$ & $4\,974.96$ & \textbf{0} \\
     \texttt{142638} (T2) & \texttt{reentrant-lock} & $1.957$ & $1.933$ & $4\,992.11$ & $5\,003.07$ & \textbf{0} \\
     \texttt{142742} (T3) & \texttt{reentrant-lock} & $1.953$ & $1.967$ & $4\,990.23$ & $5\,015.33$ & \textbf{0} \\
-    \textbf{\texttt{reentrant-lock} Mean} & --- & $\mathbf{1.958}$ & $\mathbf{1.956}$ & $\mathbf{4\,981.75}$ & $\mathbf{4\,997.78}$ & $\mathbf{0.0}$ \\
+    \textbf{\texttt{reentrant-lock} Mean} & --- & $\mathbf{1.958}$ & $\mathbf{1.956}$ & $\mathbf{4\,981.76}$ & $\mathbf{4\,997.78}$ & $\mathbf{0.0}$ \\
     \midrule
     \texttt{143422} (T1) & \texttt{platform-sync} & $1.976$ & $1.967$ & $4\,933.78$ & $8\,972.52$ & \textbf{0} (N/A) \\
     \texttt{143526} (T2) & \texttt{platform-sync} & $1.976$ & $1.967$ & $4\,922.60$ & $8\,975.80$ & \textbf{0} (N/A) \\
@@ -120,7 +120,7 @@ Table~\ref{tab:aqs-dispersion} details the trial-level dispersion metrics calcul
   \end{tabularx}
 \end{table}
 
-Under single-carrier scheduling, \texttt{synchronized} exhibited an exceptionally narrow median latency range of $\Delta = 1.49\text{ ms}$ ($\sigma = 0.82\text{ ms}$), whereas \texttt{reentrant-lock} exhibited $\Delta = 29.19\text{ ms}$ ($\sigma = 16.34\text{ ms}$). This constitutes a \textbf{19.8-fold standard deviation ratio} ($\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$; trial-level sample variance ratio $\approx 393$). This between-trial median dispersion across 3 process repetitions reflects descriptive variation consistent with non-fair locking mechanics in uncrowded single-carrier scheduling (noting that HotSpot intrinsic monitors also do not guarantee strict FIFO ordering).
+Under single-carrier scheduling, \texttt{synchronized} exhibited a narrow median latency range of $\Delta = 1.49\text{ ms}$ ($\sigma = 0.82\text{ ms}$), whereas \texttt{reentrant-lock} exhibited $\Delta = 29.19\text{ ms}$ ($\sigma = 16.34\text{ ms}$). This constitutes a \textbf{19.8-fold standard deviation ratio} ($\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$; trial-level sample variance ratio $\approx 393$). This between-trial median dispersion across 3 process repetitions reflects descriptive variation consistent with non-fair locking mechanics in uncrowded single-carrier scheduling (noting that HotSpot intrinsic monitors also do not guarantee strict FIFO ordering).
 
 \subsection{Java 24 Runtime Evolution: JEP 491 Unpinning (Stratum 2)}
 Table~\ref{tab:jdk-evolution} compares the runtime performance of Java 21 LTS against OpenJDK 24.0.2 (implementing JEP 491) under identical mutual exclusion workloads.
@@ -205,12 +205,12 @@ Table~\ref{tab:diagnostic-controls} reports baseline metrics for Stratum~4 diagn
     \toprule
     \textbf{Endpoint} & \textbf{Thread Mode} & \textbf{Total Reqs} & \shortstack{\textbf{Steady}\\\textbf{[$\text{req/s}$]}} & \shortstack{\textbf{$p50$}\\\textbf{[$\text{ms}$]}} & \shortstack{\textbf{$p95$}\\\textbf{[$\text{ms}$]}} & \textbf{Pins} \\
     \midrule
-    \texttt{/products} & Virtual & $12\,502$ & $96.98$ & $2.33$ & $6.57$ & $0$ \\
-    \texttt{/products} & Platform & $12\,420$ & $96.29$ & $2.61$ & $5.88$ & $0$ \\
+    \texttt{/products} & Virtual & $12\,502$ & $96.99$ & $2.33$ & $6.57$ & $0$ \\
+    \texttt{/products} & Platform & $12\,420$ & $96.24$ & $2.61$ & $5.88$ & $0$ \\
     \texttt{/cpu} & Virtual & $11\,671$ & $90.54$ & $9.03$ & $13.21$ & $0$ \\
-    \texttt{/cpu} & Platform & $11\,188$ & $86.61$ & $13.79$ & $20.24$ & $0$ \\
-    \texttt{/orders} (A) & Virtual & $3\,144$ & $24.11$ & $311.35$ & $318.56$ & $0$ \\
-    \texttt{/orders} (A) & Platform & $3\,172$ & $24.44$ & $307.11$ & $311.56$ & $0$ \\
+    \texttt{/cpu} & Platform & $11\,188$ & $86.69$ & $13.79$ & $20.23$ & $0$ \\
+    \texttt{/orders} (A) & Virtual & $3\,144$ & $24.22$ & $311.38$ & $318.50$ & $0$ \\
+    \texttt{/orders} (A) & Platform & $3\,172$ & $24.51$ & $307.15$ & $311.67$ & $0$ \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -237,7 +237,7 @@ Table~\ref{tab:negative-findings} records investigated mechanisms where expected
     \addlinespace
     Java 24 JEP 491 Unpinning & JDK 24 unpinning increases throughput & Throughput identical at $1.97\text{ req/s}$; serialization persisted. \\
     \addlinespace
-    Foreign JNI Pinning Alerts & JNI blocking emits JFR pinning events & Exactly 0 pinning events emitted across 27 trials; complete diagnostic omission. \\
+    Foreign JNI Pinning Alerts & JNI blocking emits JFR pinning events & Exactly 0 qualifying pinning events emitted across 27 trials (diagnostic omission). \\
     \addlinespace
     JNI Carrier CPU Consumption & Carrier blocked in native code burns 100\% CPU & Process CPU remained at approximately $1\%$; thread suspended in Darwin/Mach wait state. \\
     \addlinespace

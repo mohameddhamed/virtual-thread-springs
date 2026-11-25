@@ -20,7 +20,7 @@ Table~\ref{tab:reproduction} presents the complete Reproduction and Independent-
   \endhead
   \bottomrule
   \endfoot
-  Frozen Revision & Git commit hashes \texttt{1ccb617b6beecb25}\discretionary{}{}{}\texttt{0e534d758d4f0eb1ea67e2d2} and \texttt{5f9936c}; frozen directory \path{docs/evidence-freeze/}. & Commit hashes recorded in 113 JSON execution manifests. \\
+  Frozen Revision & Git commit hashes \texttt{1ccb617b6beecb25}\discretionary{}{}{}\texttt{0e534d758d4f0eb1ea67e2d2} and \texttt{5f9936c} (plus \texttt{a9bd454} and \texttt{a3e70fd} in later campaigns); frozen directory \path{docs/evidence-freeze/}. & Commit hashes recorded across 120 JSON execution manifests (121 manifest files including template). \\
   \addlinespace
   Environment & Hardware: Apple M1 (8 cores: 4P+4E), 8~GB RAM. OS: macOS Darwin 25.2.0 (arm64). Runtime: OpenJDK 21.0.8, OpenJDK 24.0.2, Maven 3.9, k6 v1.7.1, Spring Boot 3.5.12. & See \path{run-family-matrix.csv} for campaign versions. The November held-pool runs used JDK 21.0.12.1, k6 2.3.0 and Darwin 27. \\
   \addlinespace
@@ -84,7 +84,7 @@ Chapter~\ref{ch:related-work} discusses the closest studies and the research gap
   \addlinespace
   Concurrency Models & Herlihy \& Shavit (2008)~\cite{Herlihy2008} & Mathematical foundations of mutual exclusion and queue locks. & Focuses on multi-core hardware; does not model carrier pools. \\
   \addlinespace
-  Concurrency Models & Goetz et al. (2006)~\cite{Goetz2006} & Canonical reference on \texttt{java.\allowbreak util.\allowbreak concurrent} and explicit locking. & Written for 1:1 platform threads; predates Loom unmounting. \\
+  Concurrency Models & Goetz et al. (2006)~\cite{Goetz2006} & Standard reference on \texttt{java.\allowbreak util.\allowbreak concurrent} and explicit locking. & Written for 1:1 platform threads; predates Loom unmounting. \\
   \addlinespace
   Concurrency Models & Lea (2000)~\cite{Lea2000,Lea2000FJ} & Engineered AQS and work-stealing ForkJoinPool powering Loom scheduler. & Runtime foundation; does not evaluate full Spring MVC request lifecycles. \\
   \addlinespace
@@ -92,7 +92,7 @@ Chapter~\ref{ch:related-work} discusses the closest studies and the research gap
   \addlinespace
   Concurrency Models & Mellor-Crummey \& Scott (1991)~\cite{MellorCrummey1991} & Introduced MCS FIFO queue locks, foundation of HotSpot AQS. & Hardware algorithms; predates Java virtual thread parking. \\
   \addlinespace
-  Concurrency Models & Bacon et al. (2001)~\cite{Bacon2001} & Optimized Java monitor acquisition via mark-word CAS fast paths (thin locks). & JVM monitor design; does not address carrier pinning in monitors. \\
+  Concurrency Models & Bacon et al. (1998)~\cite{Bacon2001} & Optimized Java monitor acquisition via mark-word CAS fast paths (thin locks). & JVM monitor design; does not address carrier pinning in monitors. \\
   \midrule
   Benchmarking Method & Georges et al. (2007)~\cite{Georges2007} & Rigorous principles for warm-up, steady-state, and multi-process variance. & Evaluates JIT/GC steady-state; does not evaluate virtual thread harnesses. \\
   \addlinespace
