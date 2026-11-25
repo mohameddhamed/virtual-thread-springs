@@ -100,6 +100,54 @@ class ApplicationBehaviorTests {
         }
     }
 
+    @Test
+    void allPaymentLockModesEnforceExpectedConcurrencyContract() throws Exception {
+        List<String> serializedModes = List.of(
+                "synchronized",
+                "reentrant-lock",
+                "fair-reentrant-lock",
+                "semaphore",
+                "fair-semaphore");
+
+        for (String mode : serializedModes) {
+            long elapsedMillis = runConcurrentPayments(new PaymentService(mode), mode, 2);
+            assertThat(elapsedMillis)
+                    .as("Serialized lock mode %s should enforce mutual exclusion across 2x500ms calls", mode)
+                    .isGreaterThanOrEqualTo(850L);
+        }
+
+        long diagnosticElapsedMillis = runConcurrentPayments(new PaymentService("none"), "none", 2);
+        assertThat(diagnosticElapsedMillis)
+                .as("Diagnostic no-lock mode should execute concurrently without mutual exclusion")
+                .isLessThan(850L);
+    }
+
+    private long runConcurrentPayments(PaymentService service, String mode, int requestCount) throws Exception {
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        try (var executor = Executors.newFixedThreadPool(requestCount)) {
+            List<? extends java.util.concurrent.Future<String>> futures = java.util.stream.IntStream.range(0, requestCount)
+                    .mapToObj(index -> executor.submit(() -> {
+                        ready.countDown();
+                        assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                        return service.processPayment(mode + "-" + index);
+                    }))
+                    .toList();
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            long startNanos = System.nanoTime();
+            start.countDown();
+            List<String> responses = futures.stream().map(this::getResult).toList();
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+
+            List<String> expected = java.util.stream.IntStream.range(0, requestCount)
+                    .mapToObj(index -> "Payment processed for order: " + mode + "-" + index)
+                    .toList();
+            assertThat(responses).containsExactlyInAnyOrderElementsOf(expected);
+            return elapsedMillis;
+        }
+    }
+
     private String getResult(java.util.concurrent.Future<String> result) {
         try {
             return result.get(10, TimeUnit.SECONDS);

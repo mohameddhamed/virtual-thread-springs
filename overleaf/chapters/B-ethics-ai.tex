@@ -44,14 +44,14 @@ In accordance with Annex~3 of Dean's Directive 1/2026, Table~\ref{tab:ai-usage-b
     \addlinespace
     Scaffolding Recalculation \& Verification Scripts & Scaffolding preliminary Python templates for parsing raw k6 JSON lines and JFR events; audited, refined, and verified against physical data using cryptographic SHA-256 checks. & Anthropic Claude (Claude 3.5 Sonnet) \& GitHub Copilot & Python verification scripts (\path{scripts/normalize_evidence.py}, \path{recalculate_metrics.py}, \path{validate_normalized_evidence.py}). \\
     \addlinespace
-    Integration Test Boilerplate Scaffolding & Autocompleted boilerplate JUnit 5 integration test fixtures; manually adapted with strict assertions for mutual exclusion, \texttt{ThreadLocal} cleanup, and JNI bindings. & GitHub Copilot & Chapter~\ref{ch:artifact} and test directory \path{src/test/java/}. \\
+    Integration Test Boilerplate Scaffolding & Autocompleted boilerplate JUnit 5 integration test fixtures; manually adapted with strict assertions for mutual exclusion across all locking strategies, \texttt{ThreadLocal} cleanup, and JNI bindings. & GitHub Copilot & Chapter~\ref{ch:artifact} and test directory \path{src/test/java/}. \\
     \addlinespace
-    Pre-Submission Editorial and Formatting Audit & Automated static editorial audit for layout, cross-document reference consistency, and overfull boxes; all findings independently audited, verified against raw artifacts, and remediated by the author. & Independent Reasoning Model / Editorial Audit & Pre-submission audit across all chapters and appendices. \\
+    Pre-Submission Editorial and Formatting Audit & Automated static editorial audit for layout, cross-document reference consistency, overfull boxes, and final test/corpus alignment; all findings audited, verified against raw artifacts, and remediated by the author. & Independent Reasoning Model / Google Gemini (Antigravity) & Pre-submission audit across all chapters, appendices, test suite, and Annex~3 declarations. \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-Codex (GPT-6.2 Sol) assisted with editorial revision of the introduction, related work, results opening, and ending of the discussion and conclusion. It moved the existing literature table to Appendix~\ref{app:reproducibility}, aligned decision-matrix terminology across the manuscript, and rebuilt and inspected the PDF. The editor used existing findings and source material for these changes. The locations, source checks and numerical corrections are recorded for the author's review and separate declaration.
+Codex (GPT-6.2 Sol) assisted with editorial revision of the introduction, related work, results opening, and ending of the discussion and conclusion; it moved the existing literature table to Appendix~\ref{app:reproducibility}, aligned decision-matrix terminology across the manuscript, and rebuilt and inspected the PDF. Subsequently, Google Gemini (Antigravity) performed the adversarial pre-submission verification against Checkpoint 2--4 audit criteria, standardized cross-file counts (543 artifacts, 9 Java tests), harmonized RQ2 and Appendix~\ref{app:own-results-tdk} phrasing, removed residual wrapper references in \path{scripts/recalculate_metrics.py}, and synchronized the standalone AI declaration files for final author review and signing. Both tools operated strictly on existing findings and verified source artifacts.
 
 \subsection{Strict Exclusions and Independent Authorship Guarantees}
 \begin{enumerate}

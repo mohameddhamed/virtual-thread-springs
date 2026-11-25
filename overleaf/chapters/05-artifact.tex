@@ -160,16 +160,16 @@ Benchmark execution was fully automated by \texttt{run-benchmark.sh}:
 \section{Verification Suite and Artifact Provenance Tooling}
 \label{sec:verification-tooling}
 
-The testbed is hardened with an automated JUnit 5 test suite executing 8 unit and integration tests across 3 classes with 100\% passing assertions (\texttt{./mvnw test} or \texttt{mvn test}):
+The testbed is hardened with an automated JUnit 5 test suite executing 9 unit and integration tests across 3 classes with 100\% passing assertions (\texttt{./mvnw test} or \texttt{mvn test}):
 \begin{itemize}
-  \item \texttt{ApplicationBehaviorTests}: Verifies Spring application context, payment mutual exclusion across locking strategies, thread-local request headers, and order database workflows (4 tests).
+  \item \texttt{ApplicationBehaviorTests}: Verifies Spring context, payment mutual exclusion across all six lock modes (\texttt{synchronized}, \texttt{ReentrantLock}, fair/semaphore, \texttt{none}), \texttt{ThreadLocal} headers, and orders (5 tests).
   \item \texttt{NativeBlockingTests}: Validates JNI shared library loading, native downcalls, POSIX syscall behavior, and duration measurement (3 tests).
   \item \texttt{VirtualThreadsDemoApplicationTests}: Validates full Spring Boot MVC context bootstrap and virtual thread executor wiring (1 test).
 \end{itemize}
 
-Furthermore, three standalone Python tools ensure complete reproducibility:
+Furthermore, four standalone Python tools ensure complete reproducibility:
 \begin{itemize}
-  \item \texttt{scripts/generate\_artifact\_inventory.py}: Audits all 504 disk files in \texttt{results/}, generating the master ledger \texttt{docs/evidence-freeze/artifact-inventory.csv}.
+  \item \texttt{scripts/generate\_artifact\_inventory.py}: Audits all 543 disk files in \texttt{results/}, generating the master ledger \texttt{docs/\allowbreak evidence-freeze/\allowbreak artifact-inventory.csv}.
   \item \texttt{scripts/generate\_run\_family\_matrix.py}: Parses manifests to classify all 126 records into the 8 strata.
   \item \texttt{scripts/recalculate\_metrics.py}: Streams through 150,000 raw k6 JSON lines to compute whole-run vs.\ steady-state hold-window metrics.
   \item \texttt{scripts/validate\_normalized\_evidence.py}: Verifies the consolidated JSON evidence schema against cryptographic SHA-256 digests.

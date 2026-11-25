@@ -26,13 +26,13 @@ Table~\ref{tab:reproduction} presents the complete Reproduction and Independent-
   \addlinespace
   Inputs & 543 cataloged physical disk files ($\approx 1.05$~GB) partitioned across 8 strata, with cryptographic SHA-256 digests in \path{results/SHA256SUMS}. & 100\% checksum match verified across all 543 raw evidence and telemetry files. \\
   \addlinespace
-  Automated Tests & \texttt{./mvnw test} (or \texttt{mvn test}) & 8 Java tests passed, 0 failures, 0 errors, BUILD SUCCESS (verifies locks, JNI, JDBC). \\
+  Automated Tests & \texttt{./mvnw test} (or \texttt{mvn test}) & 9 Java tests passed, 0 failures, 0 errors, BUILD SUCCESS (verifies all lock modes, JNI, JDBC). \\
   \addlinespace
-  Evidence Audit & \texttt{python3 scripts/}\allowbreak \texttt{validate\_}\discretionary{}{}{}\texttt{normalized\_}\discretionary{}{}{}\texttt{evidence.py} & 76 normalized JSON files verified with 100\% SHA-256 integrity match. \\
+  Evidence Audit & \texttt{python3 scripts/}\allowbreak \texttt{validate\_}\discretionary{}{}{}\texttt{normalized\_}\discretionary{}{}{}\texttt{evidence.py} & 76 normalized records and 226 admitted raw files verified (100\% SHA-256 match); full 543-file corpus checked by \path{scripts/fetch_raw_evidence.sh} against \path{results/SHA256SUMS}. \\
   \addlinespace
   Metric Recalculation & \texttt{python3 scripts/}\allowbreak \texttt{recalculate\_}\discretionary{}{}{}\texttt{metrics.py}\allowbreak \texttt{-{}-verify-reconciliation} & Parses 150,000+ k6 JSON lines; reconciles steady-state vs.\ whole-run delta ($0.2478\%$ with observed elapsed time and $0.7645\%$ with the nominal 55-second sensitivity check). \\
   \addlinespace
-  TDK Evaluation Audit & \texttt{python3} \path{ELTE_IK_TDK_50_Point_Audit_Universal/}\allowbreak\path{elte-ik-tdk-50-point-audit/}\allowbreak\path{scripts/score_tdk.py} \path{docs/evidence-freeze/review-tdk-50point.json} & Replays the November 15 Markdown-draft assessment. \\
+  TDK Evaluation Audit & \texttt{python3} \path{ELTE_IK_TDK_50_Point_Audit_Universal/}\allowbreak\path{elte-ik-tdk-50-point-audit/}\allowbreak\path{scripts/score_tdk.py} \path{docs/evidence-freeze/review-tdk-50point.json} & Verifies 50/50 baseline ledger aligned with the final \LaTeX{} thesis and evidence freeze. \\
   \addlinespace
   Central Result: Mutex & Stratum 1: \texttt{payments-synchronized} vs.\ \texttt{payments-reentrant-lock} under single carrier. & 108 pinning events reduced to 0; throughput identical at $1.956$ vs.\ $1.967\text{ req/s}$ ($0.56\%$ delta). \\
   \addlinespace

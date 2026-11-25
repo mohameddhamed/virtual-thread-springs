@@ -1,7 +1,7 @@
 # Metric Recalculation Audit & Window Sensitivity Report
 
 **Document Status:** Empirical Evidence Freeze (Stage 1.1 - Workstream 3)  
-**Generated:** 2026-11-24 13:57:00  
+**Generated:** 2026-11-25 15:37:34  
 **Scope:** 76 Canonical Trials in `normalized-evidence.json` + Reconciliation Audit Pilot (`run-10vus-20261008-142445.json`)  
 **Executable Generator:** `scripts/recalculate_metrics.py`  
 **Target CSV Artifact:** `docs/evidence-freeze/metric-recalculations.csv`  
@@ -218,6 +218,6 @@ The author must update Section 3.8 and Chapter 4 of the thesis to reflect these 
 - Master evidence source: `src/main/resources/static/data/normalized-evidence.json` (76 canonical trial records).
 - Raw result directory: `results/` (100% SHA-256 matched).
 - Generated tabular evidence: `docs/evidence-freeze/metric-recalculations.csv` (77 rows: 76 canonical + 1 reconciliation pilot).
-- Re-execution command: `rtk python3 scripts/recalculate_metrics.py`.
+- Re-execution command: `python3 scripts/recalculate_metrics.py`.
 
 *(End of Report)*

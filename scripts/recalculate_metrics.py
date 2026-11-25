@@ -571,7 +571,7 @@ def write_markdown_audit(
     lines.append("- Master evidence source: `src/main/resources/static/data/normalized-evidence.json` (76 canonical trial records).")
     lines.append("- Raw result directory: `results/` (100% SHA-256 matched).")
     lines.append("- Generated tabular evidence: `docs/evidence-freeze/metric-recalculations.csv` (77 rows: 76 canonical + 1 reconciliation pilot).")
-    lines.append("- Re-execution command: `rtk python3 scripts/recalculate_metrics.py`.")
+    lines.append("- Re-execution command: `python3 scripts/recalculate_metrics.py`.")
     lines.append("")
     lines.append("*(End of Report)*")
 

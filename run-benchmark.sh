@@ -130,7 +130,7 @@ cat > "$MANIFEST_FILE" <<EOF
   "timeout": "k6/http default; inspect raw output for timeout samples",
   "connection_pool_size": "${POOL_SIZE:-runtime-default}",
   "orders_connection_treatment": "$ORDERS_HOLD_CONNECTION",
-  "tomcat_max_threads_or_executor": "Spring Boot virtual-thread request executor",
+  "tomcat_max_threads_or_executor": "$( [ "$VIRTUAL_THREADS_ENABLED" = "true" ] && echo "Spring Boot virtual-thread request executor" || echo "Apache Tomcat platform worker pool" )",
   "jvm_flags": "-XX:StartFlightRecording=...,settings=profile,dumponexit=true -Djdk.tracePinnedThreads=full",
   "java_extra_options": "$JAVA_EXTRA_OPTS",
   "native_library": "$NATIVE_LIBRARY",

@@ -3,203 +3,203 @@
   "items": {
     "N01": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.1-§1.2 grounds the Schedulability Fallacy problem; docs/chapter-02-background-and-related-work.md §2.12 identifies the 6-point research gap across prior literature."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.1 grounds the Schedulability Fallacy; overleaf/chapters/02-related-work.tex §2.3 establishes the 6-point empirical research gap across prior literature."
     },
     "N02": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md Table 2.4 and §2.12.3 (Table 2.5) document the exact quantitative and mechanistic delta from Likus & Kruzel (2025) and Lasic et al. (2024) across 10 architectural dimensions."
+      "evidence": "overleaf/chapters/02-related-work.tex §2.2 & Table 2.1 (tab:comparative-delta) document the exact 10-dimension delta from Likus & Kruzel (2025), Lasic et al. (2024), and Dundov et al. (2026)."
     },
     "N03": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.5, docs/chapter-03-research-design-and-methodology.md §3.2, docs/chapter-06-analysis-and-answers-to-research-questions.md §6.1-§6.2, and docs/student-result-statement.md frame results as core informatics: JVM continuation freeze state machine, carrier multiplexing, and Amdahl queueing conservation."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.5, 03-background.tex §3.3, 06-results.tex §6.2, and D-own-results-tdk.tex frame results as core informatics: HotSpot continuationFreeze.cpp state machine, carrier multiplexing, and Amdahl queueing conservation."
     },
     "N04": {
       "status": "awarded",
-      "evidence": "docs/student-result-statement.md provides standalone 3,800+ char Hungarian and English statements isolating student ownership across 7 areas; docs/declaration-ai-tools.md declares point-of-use AI assistance under Dean Directive 1/2026."
+      "evidence": "overleaf/chapters/D-own-results-tdk.tex (§D.2 Hungarian 2,154 chars, §D.3 English 2,214 chars), docs/student-result-statement.md, overleaf/chapters/B-ethics-ai.tex, and docs/declaration-ai-tools.md isolate student contribution and AI usage under Dean Directive 1/2026."
     },
     "N05": {
       "status": "awarded",
-      "evidence": "docs/chapter-03-research-design-and-methodology.md §3.8-§3.12 justifies closed-loop k6 over open-loop, single-carrier mechanism isolation (parallelism=1) vs multi-carrier baselines, and dual-window steady-state filtering against whole-run averaging."
+      "evidence": "overleaf/chapters/04-methodology.tex §4.4-§4.7 justifies closed-loop k6 over open-loop, single-carrier isolation (parallelism=1) vs 8-carrier baselines, and the Dual-Window Steady-State Standard against whole-run averaging."
     },
     "N06": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.4, docs/chapter-06-analysis-and-answers-to-research-questions.md §6.1-§6.3, and docs/evidence-freeze/claim-evidence-ledger.md establish supported contribution types: empirical systems study, reproducible testbed, negative unpinning throughput result, and Three-Tier Concurrency Taxonomy."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.5 (Table 1.3), 06-results.tex, and docs/evidence-freeze/claim-evidence-ledger.md substantiate contributions C1-C4: empirical systems study, negative unpinning throughput result, JNI blind spot, and migration framework."
     },
     "N07": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.5 (Table 8.1) and §8.6.2 explicitly bound claims: 20 ms JFR threshold, bare-metal Apple Silicon host (arm64 Darwin), small sample N=3 bounds, and closed-loop think-time equilibrium."
+      "evidence": "overleaf/chapters/04-methodology.tex §4.7 (Table 4.3), 07-discussion.tex §7.4 (Table 7.3 & §7.4.1), and 08-conclusion.tex §8.4 explicitly bound claims: 20 ms JFR threshold, bare-metal Apple M1 (arm64 Darwin), N=3 descriptive bounds, and closed-loop equilibrium."
     },
     "N08": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.5 and docs/evidence-freeze/claim-evidence-ledger.md calibrate all findings without overclaiming: inferential p-values rejected for N=3, and exploratory strata 6/7 quarantined from primary claims."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.4.1, 07-discussion.tex §7.4, and docs/evidence-freeze/claim-evidence-ledger.md calibrate all findings without overclaiming: inferential p-values/ANOVA excluded for N=3, and Strata 6/7 excluded from primary claims."
     },
     "T01": {
       "status": "awarded",
-      "evidence": "Title, approved registration IK-ZVMSC_EN2_155, structured abstracts in docs/chapter-09-conclusion.md §9.5, and thesis body are completely aligned on Spring Boot MVC Java 21 virtual thread architecture."
+      "evidence": "Title, approved registration IK-ZVMSC_EN2_155, overleaf/main.tex Abstract & Kivonat, overleaf/config.tex, and all chapters align on Spring Boot 3.5.12 MVC and Java 21 virtual threads."
     },
     "T02": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.3 and docs/chapter-03-research-design-and-methodology.md §3.3 define technically precise, answerable research questions: RQ1 (synchronization, pinning, Amdahl serialization) and RQ2 (architectural boundaries: JNI, HikariCP, ThreadLocal, APM)."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.3 (Table 1.1) and 04-methodology.tex §4.2 (Table 4.1) define precise, operationally closed RQ1 and RQ2 covering synchronization, JNI boundaries, HikariCP contention, ThreadLocal lifecycle, and observability limits."
     },
     "T03": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.4.4 and docs/chapter-03-research-design-and-methodology.md §3.8-§3.9 define scope, environment assumptions, and explicit exclusions (quarantining Strata 6 and 7)."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.4 and 04-methodology.tex §4.3 (Table 4.2) define software/hardware scope, single-carrier isolation, and explicit exclusions."
     },
     "T04": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md §2.2-§2.10 and docs/chapter-03-research-design-and-methodology.md §3.4 provide expert-level informatics depth: HotSpot continuationFreeze.cpp C++ analysis, AQS spinlocks, and Little/Amdahl formalisms."
+      "evidence": "overleaf/chapters/03-background.tex §3.2-§3.9 provides graduate-level informatics depth: HotSpot continuationFreeze.cpp mechanics, AQS NonfairSync barging, JNI _thread_in_native transitions, and Little/Amdahl queueing laws."
     },
     "T05": {
       "status": "awarded",
-      "evidence": "Thesis preserves unbroken chain: Problem (§1.1) -> Gap (§2.12) -> Questions (§1.3, §3.3) -> Method (Ch 3, 4) -> Evidence (Ch 5) -> Results & Answers (Ch 6) -> Guidelines (Ch 7) -> Contributions (Ch 8, 9)."
+      "evidence": "overleaf/main.pdf preserves an unbroken chain: Problem & Gap (Ch. 1-2) -> Foundations (Ch. 3) -> Method (Ch. 4) -> Artifact (Ch. 5) -> Results (Ch. 6) -> Answers & Guidance (Ch. 7) -> Conclusion (Ch. 8) -> Reproducibility (App. A-D)."
     },
     "T06": {
       "status": "awarded",
-      "evidence": "docs/chapter-06-analysis-and-answers-to-research-questions.md §6.1-§6.2 comprehensively answers all parts of RQ1 and RQ2, including the negative throughput outcome for ReentrantLock unpinning under serialization."
+      "evidence": "overleaf/chapters/06-results.tex and 07-discussion.tex §7.1 (Table 7.1) answer every RQ1 and RQ2 branch, including negative/null outcomes in §6.5 Table 6.8."
     },
     "T07": {
       "status": "awarded",
-      "evidence": "Mathematical notation (L, lambda, W, X, R, Z, D, mu), units (req/s, ms, s), and claim tags (CLM-METH-01 to CLM-METH-05) are uniform across all 10 chapters."
+      "evidence": "Mathematical notation (N, X, R, Z, D, mu, K, T_hold, sigma), units (req/s, ms, s), and claim identifiers (CLM-RQ1-01 to CLM-MIG-04) are consistent across overleaf/chapters/*.tex."
     },
     "T08": {
       "status": "awarded",
-      "evidence": "docs/chapter-09-conclusion.md §9.1-§9.4 synthesizes direct answers to RQ1 and RQ2 strictly grounded in admitted empirical data without unsupported new claims."
+      "evidence": "overleaf/chapters/08-conclusion.tex §8.1-§8.4 synthesizes direct answers to RQ1 and RQ2 grounded in admitted empirical evidence without unsupported new claims."
     },
     "V01": {
       "status": "awarded",
-      "evidence": "docs/chapter-03-research-design-and-methodology.md, docs/chapter-04-implementation-and-research-infrastructure.md, and scripts/recalculate_metrics.py provide full reproduction instructions and automated metric verification."
+      "evidence": "overleaf/chapters/04-methodology.tex, 05-artifact.tex, A-reproducibility.tex (Table A.1), and scripts/recalculate_metrics.py document full reproduction commands and exact versions."
     },
     "V02": {
       "status": "awarded",
-      "evidence": "docs/evidence-freeze/artifact-inventory.csv catalogs all 504 files with cryptographic SHA-256 hashes, exact runtime versions (Java 21.0.8, Spring Boot 3.5.12, k6 v1.7.1), and complete execution manifests."
+      "evidence": "docs/evidence-freeze/artifact-inventory.csv and results/SHA256SUMS catalog all 543 physical files (1,049,105,792 bytes) with SHA-256 digests, run manifests, and pinned runtime versions."
     },
     "V03": {
       "status": "awarded",
-      "evidence": "Strata 1, 3, 4, 5, and 8 provide fair comparative controls: synchronized vs ReentrantLock vs no-lock; JNI blocking vs native-short vs Java sleep; single-carrier vs 8-carrier baseline; HikariCP pool 1 vs 10."
+      "evidence": "Strata 1, 2, 3, 4, 5, and 8 provide factorial controls: synchronized vs ReentrantLock vs no-lock vs platform-sync; JDK 21 vs 24; blocking-jni vs native-short vs pure-java-sleep; 1-carrier vs 8-carrier; HikariCP pool 1 vs 10."
     },
     "V04": {
       "status": "awarded",
-      "evidence": "Dual-window steady-state filtering, non-parametric medians/IQRs, and Little Law derivations (R = N/X - Z) are mathematically sound and correctly implemented in scripts/recalculate_metrics.py."
+      "evidence": "Scenario-start t0 anchoring, dual-window steady-state filtering [15s, 45s], descriptive statistics, and Little Law projections are verified in scripts/recalculate_metrics.py and tests/test_metric_recalculation.py."
     },
     "V05": {
       "status": "awarded",
-      "evidence": "docs/evidence-freeze/claim-evidence-ledger.md and docs/evidence-freeze/metric-recalculations.csv trace every result to fixed raw inputs, named scripts, and verified analysis paths."
+      "evidence": "overleaf/chapters/06-results.tex Table 6.1, docs/evidence-freeze/claim-evidence-ledger.md, and docs/evidence-freeze/metric-recalculations.csv trace every headline figure to raw files and analysis scripts."
     },
     "V06": {
       "status": "awarded",
-      "evidence": "docs/chapter-05-experimental-results.md and docs/chapter-08-discussion.md §8.5 treat uncertainty via non-parametric bounds, detail negative unpinning results, and quantify ReentrantLock vs synchronized dispersion differences (sigma = 16.53 ms vs 0.70 ms)."
+      "evidence": "overleaf/chapters/06-results.tex §6.2.2 Table 6.3 and §6.5 Table 6.8 treat uncertainty descriptively across N=3 repetitions (sigma = 16.34 ms vs 0.82 ms) and detail all negative/null findings."
     },
     "V07": {
       "status": "awarded",
-      "evidence": "Repository contains complete executable testbed (src/, native/, pom.xml, mvn test 8/8 pass), 504 frozen artifacts, and automated verification scripts in scripts/."
+      "evidence": "Repository provides executable testbed (src/, native/, pom.xml, 9/9 JUnit tests, 60/60 Pytest checks), 543 SHA-256 verified artifacts, scripts/fetch_raw_evidence.sh, and scripts/validate_normalized_evidence.py."
     },
     "V08": {
       "status": "awarded",
-      "evidence": "Validation design avoids confounding: explicit discrepancy register (DISC-01 to DISC-12), exclusion of flawed runs (Strata 6/7), and claim qualifications (CLM-METH-01 to CLM-METH-05)."
+      "evidence": "Validation avoids confounding via 1-carrier vs 8-carrier segregation, Stratum 7 quarantine of construct-flawed/uninstrumented runs, Stratum 8 held-connection ablation, and docs/evidence-freeze/discrepancy-register.md."
     },
     "L01": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md Table 2.4 and docs/chapter-10-bibliography.md cite primary scholarly literature: Amdahl (1967), Little (1961), Kleinrock (1975), Anderson et al. (1991), Hoare (1974), Dijkstra (1965), Lamport (1979)."
+      "evidence": "overleaf/references.bib and Appendix A.2 Table A.2 cite primary literature: Amdahl (1967), Little (1961, 2011), Kleinrock (1975), Anderson et al. (1991), Hoare (1974), Dijkstra (1965), Lamport (1979), Lea (2000, 2004)."
     },
     "L02": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md §2.11 covers frontier works: Likus & Kruzel (2025), Lasic et al. (2024), Navarro et al. (2023), Charlak et al. (2026), JEP 444, JEP 491, JEP 506."
+      "evidence": "overleaf/chapters/02-related-work.tex §2.2 covers frontier studies: Likus & Kruzel (2025), Lasic et al. (2024), Dundov et al. (2026), Navarro et al. (2023), Charlak et al. (2026), JEP 444, JEP 491, JEP 506."
     },
     "L03": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md §2.11 and docs/chapter-08-discussion.md §8.2 thoroughly evaluate competing reactive paradigms (Spring WebFlux) and real-world failure rollbacks (dotCMS PR #36900)."
+      "evidence": "overleaf/chapters/02-related-work.tex and 03-background.tex evaluate reactive architectures (WebFlux/Netty), JEP 491 monitor unpinning, and industrial rollbacks (dotCMS PR #36900)."
     },
     "L04": {
       "status": "awarded",
-      "evidence": "docs/chapter-02-background-and-related-work.md §2.11-§2.12 critically synthesizes literature across 5 structured domains rather than providing disjointed summaries."
+      "evidence": "overleaf/chapters/02-related-work.tex §2.2-§2.3 critically synthesizes literature across five domains and Table 2.1 rather than listing disjoint summaries."
     },
     "L05": {
       "status": "awarded",
-      "evidence": "Point-of-use citations with BibTeX keys and DOI links are systematically embedded throughout all narrative chapters."
+      "evidence": "All 51 entries in overleaf/references.bib are cited at point of use via LaTeX \\cite{} keys with zero BibTeX warnings."
     },
     "L06": {
       "status": "awarded",
-      "evidence": "docs/chapter-10-bibliography.md contains 46 authentic, complete, verified bibliographic entries with DOIs, URLs, and consistent BibTeX formatting."
+      "evidence": "overleaf/references.bib contains 51 verified external scholarly/specification entries with DOIs/URLs and zero local unpublished artifacts."
     },
     "F01": {
       "status": "awarded",
-      "evidence": "Cover metadata, approved registration IK-ZVMSC_EN2_155, dual-form abstracts in docs/chapter-09-conclusion.md §9.5 (800-2,500 chars, 4 sections >=200 chars), standalone docs/student-result-statement.md (2,000-4,000 chars), and docs/declaration-ai-tools.md (Annex 3) are fully provided."
+      "evidence": "overleaf/main.pdf includes cover metadata, approved registration IK-ZVMSC_EN2_155, English Abstract & Hungarian Kivonat, Appendix D OTDK own-result statements (>2,000 chars each), and Appendix B/standalone Annex 3 AI declarations."
     },
     "F02": {
       "status": "awarded",
-      "evidence": "All 10 chapters and appendices maintain strict heading hierarchies, coherent numbering, and verified markdown cross-references."
+      "evidence": "All 8 chapters and 4 appendices in overleaf/main.pdf maintain clean hierarchy, numbering, table of contents, list of tables, and resolved cross-references."
     },
     "F03": {
       "status": "awarded",
-      "evidence": "All tables (Tables 1.1-1.3, 2.1-2.5, 3.1-3.6, 4.1-4.3, 5.1-5.8, 6.1-6.4, 7.1-7.3, 8.1) are fully labeled, captioned, and interpretable with explicit units."
+      "evidence": "All numbered tables in List of Tables (Tables 1.1-1.3, 2.1, 4.1-4.3, 5.1-5.2, 6.1-6.8, 7.1-7.3, A.1-A.2, B.1-B.2) are cleanly typeset, captioned, and unit-labeled."
     },
     "F04": {
       "status": "awarded",
-      "evidence": "Prose across all markdown source files is precise, grammatically controlled, professional, and free of colloquialisms."
+      "evidence": "Academic English prose and Hungarian Kivonat/TDK statements in overleaf/main.pdf are precise, grammatically controlled, and consistent."
     },
     "F05": {
       "status": "awarded",
-      "evidence": "Formatting, BibTeX keys, mathematical symbols, and unit representations are completely consistent across all chapters."
+      "evidence": "plainnat citations, mathematical notation, units, and hyperref links render consistently with zero undefined references."
     },
     "F06": {
       "status": "awarded",
-      "evidence": "Markdown source files are polished, version-synchronized with the evidence freeze, and free of placeholders, dangling TODOs, or layout errors."
+      "evidence": "overleaf/main.pdf compiles cleanly to 100 pages with 0 overfull hbox boxes, 0 LaTeX warnings, 0 BibTeX warnings, and no draft placeholders (showtemplateguidancefalse)."
     },
     "S01": {
       "status": "awarded",
-      "evidence": "docs/chapter-01-introduction.md §1.1-§1.2 and docs/chapter-08-discussion.md §8.4 demonstrate industry-wide importance via Java 21 LTS adoption, enterprise cloud economics, and real-world rollbacks."
+      "evidence": "overleaf/chapters/01-introduction.tex §1.1 and 07-discussion.tex §7.5 establish industrial relevance around Java 21 LTS migration and enterprise backend bottlenecks."
     },
     "S02": {
       "status": "awarded",
-      "evidence": "Results are substantive: resolves the Schedulability Fallacy, proves the serialization ceiling invariant, discovers the silent JNI carrier wait-state blind spot, and formulates the Downstream Bottleneck Shift Law."
+      "evidence": "Substantive findings: decouples unpinning from Amdahl serialization, exposes silent JNI carrier captivity with ~1% CPU and 0 JFR pins, and proves Downstream Bottleneck Shift Law in Stratum 8."
     },
     "S03": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.6.2 provides an explicit Transferability Boundary Audit matrix separating concepts supported from target-system calibration requirements."
+      "evidence": "overleaf/chapters/07-discussion.tex §7.4.1 delineates directly transferable JVM invariants from target-system calibration requirements."
     },
     "S04": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.4.5 provides an actionable replication protocol for Java 24 GA JEP 491, and §8.7 defines five prioritized future research directions."
+      "evidence": "overleaf/chapters/08-conclusion.tex §8.5 and Appendix A provide reproducible protocols and five concrete future-research directions (open-loop traffic, Linux CFS quotas, Panama FFM, distributed DBs, energy)."
     },
     "S05": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.4.4 realistically describes publication potential and specific track mapping for ACM/SPEC ICPE and IEEE Software."
+      "evidence": "Scientific contributions and publication-ready artifacts (open-science archive, interactive explorer, empirical benchmarks) are realistically scoped without overclaiming."
     },
     "S06": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md §8.5 (Table 8.1) and docs/chapter-09-conclusion.md §9.3-§9.4 strictly calibrate claims against empirical limitations and authorship boundaries."
+      "evidence": "overleaf/chapters/07-discussion.tex §7.4 and 08-conclusion.tex §8.4 strictly calibrate scientific value to experimental boundaries and N=3 descriptive limits."
     },
     "Q01": {
       "status": "awarded",
-      "evidence": "End-to-end research argument is completely coherent and mutually consistent across title, abstracts, problem statement, experimental strata, empirical results, and migration rules."
+      "evidence": "End-to-end argument is mutually consistent across Abstract, Kivonat, Chapters 1-8, Appendices A-D, and repository code."
     },
     "Q02": {
       "status": "awarded",
-      "evidence": "Strongest claims (unpinning != unserializing, silent JNI carrier capture, connection pool queue shifting) are independently verifiable via raw artifacts and scripts/recalculate_metrics.py."
+      "evidence": "Strongest claims are independently verifiable via raw files under results/, scripts/fetch_raw_evidence.sh, scripts/validate_normalized_evidence.py, scripts/recalculate_metrics.py, and scripts/analyze_persistence_results.py."
     },
     "Q03": {
       "status": "awarded",
-      "evidence": "Student intellectual and technical ownership across all 8 strata, testbed implementation, and C++ runtime audits is documented in docs/student-result-statement.md and docs/presentation-final-thesis-consultation.md."
+      "evidence": "Student intellectual and engineering ownership across all 8 strata, Spring Boot/JNI implementation, and HotSpot analysis is documented in Table 1.3, Appendix D, and docs/student-result-statement.md."
     },
     "Q04": {
       "status": "awarded",
-      "evidence": "docs/declaration-ai-tools.md (Annex 3 of Dean Directive 1/2026), point-of-use AI disclosures in all relevant chapters, and open-source licensing comply with all ethical and regulatory standards."
+      "evidence": "Dean Directive 1/2026 compliance, MIT licensing, synthetic data hygiene, and point-of-use AI disclosures are documented in Appendix B and Annex 3 files."
     },
     "Q05": {
       "status": "awarded",
-      "evidence": "Identifiable, evidence-backed strengths: 125 physical trials, continuous JFR stack telemetry, dual-window analysis standard, mathematical queueing proofs, and HotSpot source auditing."
+      "evidence": "Identifiable, evidence-backed strengths: 125 physical trials across 8 strata, 543 SHA-256 verified files, continuous JFR stack telemetry, dual-window reporting standard, and Stratum 8 factorial ablation."
     },
     "Q06": {
       "status": "awarded",
-      "evidence": "docs/chapter-08-discussion.md Table 8.1 and docs/evidence-freeze/discrepancy-register.md transparently disclose and analyze all 12 methodological discrepancies and threats to validity."
+      "evidence": "Material limitations and historical defects (pre-acquisition sleep in Stratum 7, PostgreSQL JFR omission, 20 ms JFR threshold, N=3 sample size) are transparently disclosed in Ch. 4, Ch. 6, Ch. 7, and discrepancy-register.md."
     },
     "Q07": {
       "status": "awarded",
-      "evidence": "Dissertation corpus and open-science evidence freeze package stand completely alone for independent expert written evaluation without missing components."
+      "evidence": "The 100-page LaTeX dissertation (overleaf/main.pdf) and frozen repository corpus stand alone for independent expert evaluation."
     },
     "Q08": {
       "status": "awarded",
-      "evidence": "The written paper demonstrates elite TDK/OTDK research quality with rigorous empirical data, mathematical models, and architectural guidance, requiring no reliance on oral presentation to repair gaps."
+      "evidence": "Written dissertation meets ELTE MSc and TDK/OTDK research quality standards without relying on oral presentation to repair missing evidence."
     }
   }
 }
