@@ -23,27 +23,27 @@ The canonical text in [`abstract.txt`](file:///Users/mohamedhamed/Documents/virt
 ### 1.1 Canonical English Abstract (`abstract.txt`)
 
 * **Counting Convention:** Unicode code points; internal whitespace included; LF newlines; outer whitespace excluded.
-* **Total Characters:** **2,200** (Compliant: satisfies national 38th OTDK 800–2,500 limit with a safe 300-character safety margin below the ceiling).
-* **Characters (without whitespace):** 1,920
-* **UTF-16 Code Units:** 2,200
+* **Total Characters:** **2,201** (Compliant: satisfies national 38th OTDK 800–2,500 limit with a safe 300-character safety margin below the ceiling).
+* **Characters (without whitespace):** 1,921
+* **UTF-16 Code Units:** 2,201
 * **Unicode Normalization:** NFC valid (`unicode_nfc: true`)
 * **Logical Paragraphs:** **4** (Four mandatory scientific components)
 * **Per-Component Paragraph Lengths:**
   1. *Research Justification (Motivation):* **566 characters** (Required: $\ge 200$) — Pass
-  2. *Methods:* **568 characters** (Required: $\ge 200$) — Pass
-  3. *Student's Own Results:* **565 characters** (Required: $\ge 200$) — Pass
-  4. *Main Conclusions:* **495 characters** (Required: $\ge 200$) — Pass
+  2. *Methods:* **569 characters** (Required: $\ge 200$) — Pass
+  3. *Student's Own Results:* **563 characters** (Required: $\ge 200$) — Pass
+  4. *Main Conclusions:* **497 characters** (Required: $\ge 200$) — Pass
 * **Validation Outcome:** **Passed (`passed: true`, 0 errors, 0 warnings)**
 
 ```json
 {
   "profile": "otdk38",
   "convention": "Unicode code points; internal whitespace included; LF newlines; outer whitespace excluded",
-  "characters": 2200,
-  "characters_without_whitespace": 1920,
-  "utf16_units": 2200,
+  "characters": 2201,
+  "characters_without_whitespace": 1921,
+  "utf16_units": 2201,
   "paragraphs": 4,
-  "paragraph_characters": [566, 568, 565, 495],
+  "paragraph_characters": [566, 569, 563, 497],
   "unicode_nfc": true,
   "errors": [],
   "passed": true
@@ -54,16 +54,16 @@ The canonical text in [`abstract.txt`](file:///Users/mohamedhamed/Documents/virt
 
 ### 1.2 Companion Hungarian Abstract (`kivonat.txt`)
 
-* **Total Characters:** **2,292** (Compliant: satisfies 800–2,500 range)
-* **Characters (without whitespace):** 2,016
-* **UTF-16 Code Units:** 2,292
+* **Total Characters:** **2,296** (Compliant: satisfies 800–2,500 range)
+* **Characters (without whitespace):** 2,020
+* **UTF-16 Code Units:** 2,296
 * **Unicode Normalization:** NFC valid (`unicode_nfc: true`)
 * **Logical Paragraphs:** **4**
 * **Per-Component Paragraph Lengths:**
   1. *Kutatási indoklás:* **577 characters** ($\ge 200$) — Pass
-  2. *Módszertan:* **571 characters** ($\ge 200$) — Pass
-  3. *A hallgató saját eredményei:* **611 characters** ($\ge 200$) — Pass
-  4. *Főbb következtetések:* **527 characters** ($\ge 200$) — Pass
+  2. *Módszertan:* **572 characters** ($\ge 200$) — Pass
+  3. *A hallgató saját eredményei:* **609 characters** ($\ge 200$) — Pass
+  4. *Főbb következtetések:* **532 characters** ($\ge 200$) — Pass
 * **Validation Outcome:** **Passed (`passed: true`, 0 errors)**
 
 ---
@@ -98,7 +98,7 @@ The five keywords were audited for non-overlap with the title to comply with nat
 
 All claims in Paragraph 3 (*Student's Own Results*) are grounded in cryptographically verified physical benchmark executions (`docs/evidence-freeze/`):
 - **Carrier Unpinning vs. Amdahl's Law:** Replacing `synchronized` with `ReentrantLock` eliminated all qualifying JFR pinning events (108 to 0) while maintaining identical throughput ($1.956$ vs. $1.967\text{ req/s}$), demonstrating that unpinning does not bypass the single-server critical section serialization ceiling ($\mu \approx 2.0\text{ req/s}$).
-- **POSIX JNI Silent Starvation:** Blocking `nanosleep()` captured the carrier thread in a Darwin/Mach wait state with low process CPU ($1.04\% \pm 0.12\%$) and exactly zero `jdk.VirtualThreadPinned` events.
+- **POSIX JNI Silent Starvation:** Blocking `nanosleep()` captured the carrier thread in a Darwin/Mach wait state with low process CPU (approximately $1\%$, measured $1.06\%$) and exactly zero `jdk.VirtualThreadPinned` events.
 - **Factorial Persistence Ablation:** Virtual threads unmount cleanly across database operations, but throughput is strictly governed by HikariCP pool size ($X = K / T_{\text{hold}}$), shifting queues downstream.
 
 ---
