@@ -26,6 +26,32 @@ Synthesizing the empirical observations across all 125 physical trials and analy
   \end{tabularx}
 \end{table}
 
+Table~\ref{tab:symptom-disambiguation} synthesizes the empirical symptom-to-mechanism diagnostics derived from Chapters~\ref{ch:results} and~\ref{ch:methodology}, separating true architectural bottlenecks from common misattributions.
+
+\begin{table}[htbp]
+  \centering
+  \small
+  \caption{Symptom-to-Mechanism Disambiguation Matrix.}
+  \label{tab:symptom-disambiguation}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.19\textwidth}@{}}
+    \toprule
+    \textbf{Observed Symptom} & \textbf{Naive Hypothesis} & \textbf{True Underlying Mechanism} & \textbf{Evidentiary Requirement} \\
+    \midrule
+    Throughput plateau at $\approx 2\text{ req/s}$ & Virtual threads fail to unmount due to monitor pinning & \textbf{Domain Serialization:} Critical section ($500\text{ ms}$) caps service rate to $\mu = 1/D = 2.0\text{ req/s}$ via Amdahl's Law. & Similar hold throughput ($1.956$ vs.\ $1.967\text{ req/s}$) when pinning drops to 0 via \texttt{ReentrantLock}. \\
+    \addlinespace
+    Median latency inflation ($R \approx 5.0\text{ s}$) & Scheduler inefficiency or context-switching storm & \textbf{Closed-Loop Saturation:} 10 Virtual Users (VUs) with $Z = 100\text{ ms}$ think time: Little's Law gives $R = N/X - Z \approx 4.985\text{ s}$. & Analytical convergence between Little's Law and k6 steady-state response distribution. \\
+    \addlinespace
+    Throughput collapse with zero JFR pinning events & Virtual threads unmounting cleanly; network I/O fault & \textbf{Silent JNI Carrier Captivity:} POSIX \texttt{nanosleep()} holds carrier in \texttt{\_thread\_in\_native}; HotSpot yield bypassed. & k6 throughput drops to $1.97\text{ req/s}$ while JFR pinning count is 0. \\
+    \addlinespace
+    Carrier starvation with process CPU $\approx 1\%$ & Carrier threads in 100\% busy-spin loop & \textbf{Kernel Wait Suspension:} Native POSIX sleep places thread in Darwin/Mach wait state without burning CPU. & Process telemetry showing steady-state CPU of approximately $1\%$. \\
+    \addlinespace
+    Connection pool starvation without pinning & Virtual threads eliminate pool sizing limits & \textbf{Downstream Bottleneck Shift:} Clean unmounting (0 JFR events), but throughput capped by pool ($X_{\text{max}} = K / T_{\text{hold}}$). & HikariCP telemetry ($1.0/1$ active, 49 queued VUs) and scaling ($3.27$ to $32.60\text{ req/s}$) with 0 pins. \\
+    \addlinespace
+    Tail latency dispersion in refactored locks & \texttt{ReentrantLock} is slower than intrinsic monitor & \textbf{AQS NonfairSync Barging:} Default non-fair lock permits arriving threads to bypass queue, inflating variance. & Between-trial SD ($\sigma = 16.34\text{ ms}$ for \texttt{ReentrantLock} vs.\ $0.82\text{ ms}$ for \texttt{synchronized}). \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 \section[The Three-Tier Concurrency Taxonomy]{Theoretical Foundations:\\ The Three-Tier Concurrency Taxonomy}
 \label{sec:three-tier-taxonomy}
 

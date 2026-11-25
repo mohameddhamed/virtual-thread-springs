@@ -37,12 +37,12 @@ Replacing a bounded request-thread pool changes where requests wait. Four limits
 \section{Programme and Specialisation Fit}
 \label{sec:programme-fit}
 
-This master's dissertation is submitted in partial fulfillment of the requirements for the degree of \emph{Master of Science in Computer Science} within the \emph{Software Architecture Specialisation} at the Faculty of Informatics, Eötvös Loránd University (ELTE), Budapest~\cite{elteikMscRules}. The cover lists Tamás Kozsik as supervisor and Gregory Reynolds Morse as external adviser~\cite{morseMscGuidance}. The work connects the MSc and final-examination subjects to the study: scalable enterprise applications through request dispatch and connection-pool capacity, advanced Java programming through virtual-thread scheduling and locking~\cite{JEP444,JEP491}, and project management through reproducible benchmarking, evidence management and academic governance~\cite{elteikAiPolicy}.
+This dissertation is submitted for the Master of Science in Computer Science (\emph{Software Architecture Specialisation}) at the Faculty of Informatics, Eötvös Loránd University (ELTE), Budapest~\cite{elteikMscRules,morseMscGuidance}. The investigation integrates all three registered final-examination domains into a single architectural case study: scalable enterprise applications through request dispatch and downstream connection-pool capacity, advanced Java programming through virtual-thread scheduling and lock semantics~\cite{JEP444,JEP491}, and software project management through reproducible experiment orchestration, evidence auditing, and governance compliance~\cite{elteikAiPolicy}.
 
 \section{Research Goals, Questions, and Hypotheses}
 \label{sec:research-questions}
 
-To establish an empirical systems investigation into these phenomena, this dissertation addresses two research questions:
+To structure an empirical systems investigation into these phenomena, this dissertation addresses two research questions:
 
 \bigskip
 
@@ -62,7 +62,7 @@ To establish an empirical systems investigation into these phenomena, this disse
 
 \bigskip
 
-To ensure answerability and structured empirical evaluation, Table~\ref{tab:research-questions} operationalizes each research question into concrete treatments, hypotheses, and required evidentiary criteria.
+To ensure answerability and structured empirical evaluation, Table~\ref{tab:research-questions} operationalizes each research question into treatments, variables, and evidentiary criteria (diagnostic disambiguation of observed symptoms is synthesized after results in Chapter~\ref{ch:discussion}, Table~\ref{tab:symptom-disambiguation}).
 
 \begin{table}[H]
   \centering
@@ -73,35 +73,9 @@ To ensure answerability and structured empirical evaluation, Table~\ref{tab:rese
     \toprule
     \textbf{ID} & \textbf{Operational Focus} & \textbf{Treatment \& Variables} & \textbf{Intended Evidentiary Criteria} \\
     \midrule
-    RQ1 & Carrier pinning vs.\ domain serialization ceiling & Factorial matrix: Tomcat platform vs.\ virtual threads; \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock; Java~21 LTS vs.\ Java~24 (JEP~491). & JFR \texttt{jdk.VirtualThreadPinned} events (108 to 0); steady-state throughput ($1.956$ vs.\ $1.967\text{ req/s}$); Amdahl ceiling validation ($\mu \approx 2.0\text{ req/s}$); AQS barging dispersion. \\
+    RQ1 & Carrier pinning vs.\ domain serialization ceiling & Factorial matrix: Tomcat platform vs.\ virtual threads; \texttt{synchronized} vs.\ \texttt{ReentrantLock} vs.\ no-lock; Java~21 LTS vs.\ Java~24 (JEP~491). & JFR \texttt{jdk.VirtualThreadPinned} counts ($\ge 20\text{ ms}$); steady-state throughput relative to the single-server Amdahl bound ($\mu = 1/D$); and between-trial latency dispersion ($\sigma$) across process repetitions. \\
     \addlinespace
-    RQ2 & Architectural risks: JNI, pools, context, diagnostics & POSIX JNI C downcalls; HikariCP connection holding (Stratum~8 two-treatment design: pool size 1 vs.\ 10); \texttt{ThreadLocal} lifecycle; JFR threshold limits. & Process CPU (approximately $1\%$) in Darwin/Mach wait state with 0 JFR pinning events; connection queue growth (49 queued threads); analytical memory footprint scaling; diagnostic blind spot analysis. \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
-
-To prevent conflating distinct performance failure modes, Table~\ref{tab:symptom-disambiguation} presents a \emph{Symptom-to-Mechanism Disambiguation Matrix}. Every observed performance anomaly must satisfy its explicit evidentiary requirement before assigning architectural causality.
-
-\begin{table}[H]
-  \centering
-  \small
-  \caption{Symptom-to-Mechanism Disambiguation Matrix.}
-  \label{tab:symptom-disambiguation}
-  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.18\textwidth}Xp{0.18\textwidth}@{}}
-    \toprule
-    \textbf{Observed Symptom} & \textbf{Naive Hypothesis} & \textbf{True Underlying Mechanism} & \textbf{Evidentiary Requirement} \\
-    \midrule
-    Throughput plateau at $\approx 2\text{ req/s}$ & Virtual threads fail to unmount due to monitor pinning & \textbf{Domain Serialization:} Critical section ($500\text{ ms}$) caps service rate to $\mu = 1/D = 2.0\text{ req/s}$ via Amdahl's Law. & Throughput identical ($1.956$ vs.\ $1.967\text{ req/s}$) when pinning is eliminated via \texttt{ReentrantLock}. \\
-    \addlinespace
-    Median latency inflation ($R \approx 5.0\text{ s}$) & Scheduler inefficiency or context-switching storm & \textbf{Closed-Loop Saturation:} 10 Virtual Users (VUs) with $Z = 100\text{ ms}$ think time: Little's Law gives $R = N/X - Z \approx 4.985\text{ s}$. & Mathematical convergence between Little's Law formula and k6 steady-state response distribution. \\
-    \addlinespace
-    Throughput collapse with zero JFR pinning events & Virtual threads unmounting cleanly; network I/O fault & \textbf{Silent JNI Carrier Captivity:} POSIX \texttt{nanosleep()} holds carrier in \texttt{\_thread\_in\_native}; HotSpot yield bypassed. & k6 throughput drops to $1.97\text{ req/s}$ while JFR pinning event count is strictly 0. \\
-    \addlinespace
-    Carrier starvation with process CPU $\approx 1\%$ & Carrier threads in 100\% busy-spin loop & \textbf{Kernel Wait Suspension:} Native POSIX sleep places thread in Darwin/Mach wait state without burning CPU. & Process telemetry showing steady-state CPU of approximately $1\%$. \\
-    \addlinespace
-    Connection pool starvation without pinning & Virtual threads eliminate pool sizing limits & \textbf{Downstream Bottleneck Shift:} Clean unmounting (0 JFR events), but throughput capped by pool ($X_{\text{max}} = K / T_{\text{hold}}$). & HikariCP telemetry ($1.0/1$ active, 49 queued VUs) and scaling ($3.27$ to $32.60\text{ req/s}$) with 0 pinning. \\
-    \addlinespace
-    Tail latency dispersion in refactored locks & \texttt{ReentrantLock} is slower than intrinsic monitor & \textbf{AQS NonfairSync Barging:} Default non-fair lock permits arriving threads to bypass queue, inflating variance. & Latency standard deviation spread ($\sigma = 16.34\text{ ms}$ for \texttt{ReentrantLock} vs.\ $0.82\text{ ms}$ for \texttt{synchronized}). \\
+    RQ2 & Architectural risks: JNI, pools, context, diagnostics & POSIX JNI C downcalls; HikariCP connection holding (Stratum~8 two-treatment design: pool size 1 vs.\ 10); \texttt{ThreadLocal} lifecycle; JFR threshold limits. & Host process CPU utilization during native waits alongside JFR pinning counts; HikariCP active/pending connection queues under pool scaling; analytical \texttt{ThreadLocal} memory scaling; and JFR/MBean observability limits. \\
     \bottomrule
   \end{tabularx}
 \end{table}

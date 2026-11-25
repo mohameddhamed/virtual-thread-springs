@@ -21,23 +21,23 @@ Table~\ref{tab:result-provenance} links the findings to their experimental input
   \small
   \caption{Master result provenance ledger mapping claims to empirical artifacts.}
   \label{tab:result-provenance}
-  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.23\textwidth}p{0.30\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}p{0.22\textwidth}p{0.25\textwidth}p{0.24\textwidth}X@{}}
     \toprule
-    \textbf{Claim / Result} & \textbf{Method and Input} & \textbf{Raw Evidence and Metric} & \textbf{Corpus Location} \\
+    \textbf{Claim ID \& Topic} & \textbf{Method and Input} & \textbf{Primary Table / Signal} & \textbf{Corpus Location} \\
     \midrule
-    Carrier Pinning Invariant (\texttt{CLM-RQ1-01}) & Closed-loop 10 VUs, \texttt{synchronized}, Java 21 & JFR \texttt{jdk.\allowbreak VirtualThreadPinned} events $\ge 20\text{ ms}$; exactly 108 events & Stratum~1, 3 trials (\texttt{20261015-}\allowbreak\texttt{142222} to \texttt{142430}) \\
+    \texttt{CLM-RQ1-01}: Monitor Pinning & Closed-loop 10~VUs, \texttt{synchronized}, Java~21 & 108 JFR pins $\ge 20\text{ ms}$; Table~\ref{tab:primary-sync-matrix} & Stratum~1, 3 trials (\texttt{20261015-142222} to \texttt{142430}) \\
     \addlinespace
-    Mutex Unpinning (\texttt{CLM-RQ1-03}) & Closed-loop 10 VUs, \texttt{ReentrantLock}, Java 21 & JFR event stream; exactly 0 pinning events recorded & Stratum~1, 3 trials (\texttt{20261015-}\allowbreak\texttt{142534} to \texttt{142742}) \\
+    \texttt{CLM-RQ1-03}: Mutex Unpinning & Closed-loop 10~VUs, \texttt{ReentrantLock}, Java~21 & 0 qualifying JFR pins; Table~\ref{tab:primary-sync-matrix} & Stratum~1, 3 trials (\texttt{20261015-142534} to \texttt{142742}) \\
     \addlinespace
-    Amdahl Throughput Invariance (\texttt{CLM-RQ1-04}) & Factorial comparison: \texttt{synchronized} vs.\ \texttt{ReentrantLock} & Steady-state throughput: $1.967$ vs.\ $1.956\text{ req/s}$ ($<0.6\%$ delta) & Stratum~1, 6 trials; Table~\ref{tab:primary-sync-matrix} \\
+    \texttt{CLM-RQ1-04}: Amdahl Ceiling & \texttt{synchronized} vs.\ \texttt{ReentrantLock} & $1.967$ vs.\ $1.956\text{ req/s}$ ($0.56\%$ delta); Table~\ref{tab:primary-sync-matrix} & Stratum~1, 6 trials \\
     \addlinespace
-    AQS Barging Dispersion (\texttt{CLM-RQ1-05}) & $N=3$ process repetitions; trial-level variance & Median latency standard deviation: $\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$ ($19.8\times$ SD ratio) & Stratum~1 \& Stratum~5; Table~\ref{tab:aqs-dispersion} \\
+    \texttt{CLM-RQ1-05}: AQS Dispersion & $N=3$ process repetitions & $\sigma = 16.34$ vs.\ $0.82\text{ ms}$ ($19.8\times$ SD ratio); Table~\ref{tab:aqs-dispersion} & Strata~1 \&~5 \\
     \addlinespace
-    JEP 491 Monitor Unpinning (\texttt{CLM-RQ1-06}) & Java 24.0.2 vs.\ Java 21 LTS \texttt{synchronized} & JFR pinning events drop from 108 to 0; throughput caps at $1.967\text{ req/s}$ & Stratum~2, 6 trials; Table~\ref{tab:jdk-evolution} \\
+    \texttt{CLM-RQ1-06}: JEP~491 Evolution & Java~24.0.2 vs.\ Java~21 \texttt{synchronized} & 0 pins, $1.967\text{ req/s}$; Table~\ref{tab:jdk-evolution} & Stratum~2, 6 trials \\
     \addlinespace
-    JNI Carrier Captivity (\texttt{CLM-RQ2-01}, \texttt{CLM-RQ2-02}) & Native C POSIX \texttt{nanosleep(500ms)} downcall & Steady throughput $1.967\text{ req/s}$, 0 JFR pins, process CPU approximately $1\%$ & Stratum~3, 9 trials; Table~\ref{tab:jni-telemetry} \\
+    \texttt{CLM-RQ2-01/02}: JNI Captivity & Native POSIX \texttt{nanosleep(500ms)} & $1.97\text{ req/s}$, 0 pins, $1.06\%$ CPU; Table~\ref{tab:jni-telemetry} & Stratum~3, 9 trials (3 Java~21) \\
     \addlinespace
-    Persistence Bottleneck Shift (\texttt{CLM-RQ2-03}) & Two-Treatment ablation: HikariCP pool 1 vs.\ 10 & Pool 1: $3.27\text{ req/s}$, $15.0\text{ s}$ $p50$, 49 queued VUs; Pool 10: $32.60\text{ req/s}$, $1.43\text{ s}$ $p50$, 0 pins & Stratum~8, 6 trials; Table~\ref{tab:persistence-contention} \\
+    \texttt{CLM-RQ2-03}: Pool Contention & HikariCP pool 1 vs.\ 10 (held delay) & $3.27$ vs.\ $32.60\text{ req/s}$, 0 pins; Table~\ref{tab:persistence-contention} & Stratum~8, 6 trials \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -81,15 +81,14 @@ Table~\ref{tab:primary-sync-matrix} reports the exact trial-level and aggregate 
 \end{table}
 
 \subsection{Key RQ1 Empirical Invariants}
+Four empirical observations emerge from Table~\ref{tab:primary-sync-matrix}:
 \begin{enumerate}
-  \item \textbf{Monitor Pinning Invariant (\texttt{CLM-RQ1-01}):} In every synchronized trial, JFR recorded exactly \textbf{108} qualifying \texttt{jdk.VirtualThreadPinned} events, matching completed HTTP transactions 1:1.
-  \item \textbf{Suppression of Pinning via \texttt{ReentrantLock}}\\ (\texttt{CLM-RQ1-03}): Replacing \texttt{synchronized} with \texttt{ReentrantLock} reduced qualifying pinning events from 108 to strictly \textbf{0}.
-  \item \textbf{Throughput Invariance Across Mutex Implementations (\texttt{CLM-RQ1-04}):} Steady-state throughput remained identical at \textbf{$1.967\text{ req/s}$} for \texttt{synchronized} versus \textbf{$1.956\text{ req/s}$} for \texttt{reentrant-lock} (a minor delta of $0.011\text{ req/s}$ or $0.56\%$). Both match the single-server Amdahl ceiling ($\mu = 1/0.500\text{ s} = 2.0\text{ req/s}$).
-  \item \textbf{The Ramp-Up Distortion (\texttt{CLM-METH-02}):} In \texttt{platform-synchronized}, whole-run median latency was $3\,917.56\text{ ms}$, whereas steady-state hold median latency was $4\,931.24\text{ ms}$. Incorporating the uncrowded 15-second ramp-up artificially depressed median latency by \textbf{$1\,013.68\text{ ms}$ ($-20.56\%$ relative to the steady-state baseline; or conversely, steady-state represents a $+25.87\%$ increase over whole-run aggregation)}:
+  \item \textbf{Monitor Pinning vs.\ \texttt{ReentrantLock} Unpinning (\texttt{CLM-RQ1-01}, \texttt{CLM-RQ1-03}):} Under \texttt{synchronized}, JFR recorded 108 qualifying \texttt{jdk.VirtualThreadPinned} events per trial (matching completed HTTP requests 1:1), whereas \texttt{ReentrantLock} produced zero qualifying events ($\ge 20\text{ ms}$).
+  \item \textbf{Throughput Invariance Across Mutex Implementations (\texttt{CLM-RQ1-04}):} Eliminating pinning left steady-state throughput virtually unchanged ($1.967$ vs.\ $1.956\text{ req/s}$, $0.56\%$ delta), aligning with the Amdahl critical-section ceiling ($\mu = 1/0.500\text{ s} = 2.0\text{ req/s}$) while the uncontended \texttt{no-lock} control reached $16.500\text{ req/s}$ ($p50 = 506.61\text{ ms}$).
+  \item \textbf{The Ramp-Up Distortion (\texttt{CLM-METH-02}):} In \texttt{platform-synchronized}, whole-run aggregation yielded a median latency of $3\,917.56\text{ ms}$ compared to $4\,931.24\text{ ms}$ in the steady-state hold window, depressing apparent latency by $1\,013.68\text{ ms}$ ($-20.56\%$ relative to steady state; $+25.87\%$ relative to whole-run):
   \begin{equation}
     \frac{3\,917.56\text{ ms} - 4\,931.24\text{ ms}}{4\,931.24\text{ ms}} = -20.56\%.
   \end{equation}
-  \item \textbf{Diagnostic Upper Bound (\texttt{no-lock}):} Eliminating mutual exclusion increased throughput from $1.967\text{ req/s}$ to \textbf{$16.500\text{ req/s}$} and reduced median latency to \textbf{$506.61\text{ ms}$}.
 \end{enumerate}
 
 \subsection[Trial-Level Dispersion and the Dispersion of Trial Medians (CLM-RQ1-05)]{Trial-Level Dispersion and the Dispersion of Trial Medians (\texttt{CLM-RQ1-05})}

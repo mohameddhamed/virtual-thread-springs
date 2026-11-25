@@ -4,22 +4,16 @@
 \section{Answers and Achieved Goals}
 \label{sec:conclusion-answers}
 
-The single-carrier lock comparison addresses RQ1. The native, database-pool, context and observability findings address RQ2.\footnote{Codex (GPT-6.2 Sol) assisted with condensing repeated passages and consolidating the two future-work sections.}
+The single-carrier lock experiments close RQ1, while the native JNI, database-pool, context, and diagnostic investigations close RQ2 (see Table~\ref{tab:rq-closure} in Section~\ref{sec:rq-closure} for the full evidentiary ledger).\footnote{Codex (GPT-6.2 Sol) assisted with condensing repeated passages and consolidating the two future-work sections; Google Gemini tightened the closing synthesis.}
 \begin{itemize}
-  \item \textbf{Answer to RQ1 (Synchronization and Schedulability):} In Java 21 LTS, invoking blocking operations inside intrinsic monitors (\texttt{synchronized}) pins virtual threads to carrier threads (108 JFR events $\ge 20\text{ ms}$), starving single-carrier schedulers. Replacing \texttt{synchronized} with \texttt{ReentrantLock} eliminates qualifying carrier pinning events (0 JFR events $\ge 20\text{ ms}$), but yielded similar hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$, $0.56\%$ delta) because Amdahl's Law enforces an application serialization ceiling ($\mu = 1/D \approx 2.0\text{ req/s}$). Carrier unpinning restores carrier availability for independent tasks, but cannot unserialize an application critical section. The sample standard deviation across three trial medians per condition was 19.8 times as large with \texttt{ReentrantLock} ($\sigma = 16.34\text{ ms}$ vs.\ $0.82\text{ ms}$). Upgrading to Java~24 (JEP~491~\cite{JEP491}) eliminates monitor pinning at the runtime level (0 events $\ge 20\text{ ms}$) while throughput remains constrained to the Amdahl ceiling.
-  \item \textbf{Answer to RQ2 (Architectural Migration Risks):} Before enabling Virtual Threads, software engineering teams must audit four critical boundaries:
-    \begin{enumerate}
-      \item \emph{Foreign Function Interfaces (JNI):}\\ Blocking POSIX system calls (\texttt{nanosleep()}) capture OS carrier threads during the native call (approximately $1\%$ process CPU) with \textbf{zero JFR pinning events}, creating a severe diagnostic blind spot.
-      \item \emph{Relational Persistence Pools (HikariCP):} In the held-connection trials, JFR recorded zero qualifying pinning events, but throughput is strictly governed by Little's Law ($X_{\text{max}} = K / T_{\text{hold}}$). Pool size 1 capped throughput at $3.27\text{ req/s}$ ($3.26\text{ req/s}$ whole-run, $p50 \approx 15.0\text{ s}$) with 49 queued virtual threads, while pool size 10 scaled to $32.60\text{ req/s}$ ($30.87\text{ req/s}$ whole-run, $p50 \approx 1.43\text{ s}$), validating the Downstream Bottleneck Shift Law.
-      \item \emph{Context Propagation (\texttt{ThreadLocal}):} Retaining request context across millions of virtual threads introduces linear $O(N)$ heap scaling (analytical projection).
-      \item \emph{Observability Infrastructure:} JFR filters pinning events $<20\text{ ms}$, while legacy \texttt{ThreadMXBean} metrics omit virtual threads entirely.
-    \end{enumerate}
+  \item \textbf{Answer to RQ1 (Synchronization and Schedulability):} Under Java~21 LTS, blocking inside \texttt{synchronized} monitors pins virtual threads to carrier threads ($108$ JFR events $\ge 20\text{ ms}$ per trial), starving constrained schedulers. Refactoring to \texttt{ReentrantLock} eliminates qualifying pinning events ($0$ JFR events $\ge 20\text{ ms}$) and restores carrier availability for concurrent independent work, yet yields virtually identical hold-window throughput ($1.956$ vs.\ $1.967\text{ req/s}$, $0.56\%$ delta) because Amdahl's Law caps serialized critical sections ($\mu = 1/D \approx 2.0\text{ req/s}$), while increasing between-trial median dispersion ($19.8\times$ SD ratio: $\sigma = 16.34$ vs.\ $0.82\text{ ms}$). Java~24 (JEP~491~\cite{JEP491}) removes monitor pinning at the runtime level while preserving the same serialization ceiling.
+  \item \textbf{Answer to RQ2 (Architectural Migration Risks):} Safe migration requires auditing four boundaries: (1) direct JNI POSIX syscalls capture carrier threads in kernel waits ($\approx 1\%$ CPU) with zero JFR pinning alerts; (2) relational connection holding shifts queueing downstream into HikariCP ($X_{\text{max}} = K/T_{\text{hold}}$, scaling $3.27$ to $32.60\text{ req/s}$ across Pools~1 and~10 with zero qualifying pins); (3) uncleaned \texttt{ThreadLocal} allocations scale linearly ($O(N)$) with virtual thread count; and (4) default JFR ($20\text{ ms}$ threshold) and \texttt{ThreadMXBean} overlook sub-threshold pins and virtual threads.
 \end{itemize}
 
 \section{Contribution Summary}
 \label{sec:conclusion-contributions}
 
-Table~\ref{tab:contribution-ledger} maps the four contributions to their evidence and ownership. C1 concerns carrier availability and serialization. C2 concerns the JNI diagnostic blind spot. C3 provides dual-window reporting and the evidence archive. C4 translates the findings into the three-tier taxonomy, five migration rules, four refactoring patterns, and the migration decision matrix.
+Table~\ref{tab:contribution-ledger} summarizes ownership and verification for contributions C1--C4: decoupling carrier unmounting from domain serialization (C1), identifying the silent JNI observability gap (C2), instituting the dual-window evaluation standard across 543 SHA-256 verified artifacts (C3), and synthesizing the Three-Tier Taxonomy, five rules, four patterns, and decision matrix (C4).
 
 \section{Core Engineering Lessons and Paradigm Shift}
 \label{sec:conclusion-lessons}
@@ -29,26 +23,17 @@ Historically, bounded web-tier thread pools acted as crude admission limiters. R
 \section{Limitations and Boundary Conditions}
 \label{sec:conclusion-limitations}
 
-The findings of this dissertation are bounded by the following explicit conditions:
-\begin{enumerate}
-  \item \textbf{Single-Node Host Environment:} Primary benchmarks were executed on an 8-core Apple M1 host (macOS Darwin 25.2.0, arm64). Absolute throughput and scheduling latencies reflect this bare-metal platform.
-  \item \textbf{Scheduler Isolation Parameterization:} In-process scheduler constraints (\texttt{parallelism=1}) were applied to isolate mechanisms; multi-carrier scaling was evaluated separately in Stratum 5 (8 carriers).
-  \item \textbf{Closed-Loop Workload Regime:} Load generation utilized closed-loop k6 profiles ($N=10$ or $50$ VUs, $Z=100\text{ ms}$), enforcing stationary queueing equilibrium; open-loop burst traffic was not evaluated.
-  \item \textbf{Descriptive Sample Size Bounds:} Benchmark conditions were replicated across $N=3$ process repetitions, reported strictly as descriptive engineering bounds without inferential over-claiming.
-  \item \textbf{In-Process Database Scope:} Persistence testing evaluated single-node HikariCP pooling; multi-node distributed clustering and external connection proxies (e.g., PgBouncer) were not benchmarked.
-\end{enumerate}
+As detailed in Table~\ref{tab:master-validity}, all conclusions are bounded by five conditions: primary benchmarks ran on a single bare-metal 8-core Apple~M1 host (macOS arm64); mechanism-isolation trials constrained the scheduler to \texttt{parallelism=1} (complemented by 8-carrier Stratum~5 baselines); load generation used closed-loop k6 profiles ($N=10$ or $50$~VUs, $Z=100\text{ ms}$) rather than open-loop burst traffic; $N=3$ process repetitions provide descriptive bounds without inferential statistics; and persistence evaluation targeted single-node HikariCP pooling rather than distributed clusters or external connection proxies.
 
 \section{Future Research Directions}
 \label{sec:conclusion-future-work}
 
-The following studies extend the experimental scope and tooling:
+Six research directions extend the current experimental scope and tooling:
 \begin{enumerate}
-  \item \textbf{Direction 1: Open-Loop Arrival Workload Modeling.} Evaluating open-loop Poisson arrival traffic ($\lambda > \mu$) to model unbounded queue growth, connection backlog drops, and client timeout cascades under high virtual thread instantiation~\cite{Schroeder2006}.
-  \item \textbf{Direction 2: Linux CFS Bandwidth Throttling.} Investigating virtual thread carrier scheduling dynamics under Linux Completely Fair Scheduler (CFS) container quotas (\texttt{cpu.cfs\_quota\_us}) in Kubernetes multi-tenant pods.
-  \item \textbf{Direction 3: Project Panama Foreign Function \& Memory (FFM) API Mechanics.} Evaluating whether foreign downcalls executed via Project Panama (JEP 454~\cite{JEP454}) exhibit identical carrier captivity to JNI or permit cooperative runtime unmounting.
-  \item \textbf{Direction 4: Multi-Node Distributed Database Persistence.} Benchmarking virtual thread connection checkout behavior against distributed database clusters with network partition injection and connection pool multiplexers.
-  \item \textbf{Direction 5: Hardware Power Consumption and Energy Efficiency.} Measuring physical processor power draw (watts and joules per request) comparing platform threads, virtual threads, and reactive event loops under equivalent throughput regimes.
-  \item \textbf{JDK 25 in containers.} Evaluate monitor unpinning and Scoped Values (JEP~506~\cite{JEP506}) under enterprise container runtimes.
-  \item \textbf{Many-core scheduling.} Evaluate carrier contention and work stealing on larger NUMA systems without the single-carrier constraint.
-  \item \textbf{Automated migration triage.} Evaluate static checks and eBPF probes for identifying JNI carrier occupation and unsafe connection checkout patterns.
+  \item \textbf{Direction 1: Open-Loop Arrival Workload Modeling.} Evaluate open-loop Poisson arrival traffic ($\lambda > \mu$) to characterize unbounded queue growth, connection backlog drops, and client timeout cascades under high virtual thread instantiation~\cite{Schroeder2006}.
+  \item \textbf{Direction 2: Containerized Linux CFS \& JDK~25+ Runtimes.} Investigate carrier scheduling under Linux Completely Fair Scheduler (CFS) container quotas (\texttt{cpu.cfs\_quota\_us}), JEP~491 monitor unpinning, and Scoped Values (JEP~506~\cite{JEP506}) in Kubernetes pods.
+  \item \textbf{Direction 3: Project Panama Foreign Function \& Memory (FFM) API Mechanics.} Evaluate whether foreign downcalls executed via Project Panama (JEP~454~\cite{JEP454}) exhibit identical carrier captivity to JNI or permit runtime unmounting.
+  \item \textbf{Direction 4: Multi-Node Distributed Database Persistence.} Benchmark virtual thread connection checkout behavior against distributed database clusters with network partition injection and external connection multiplexers.
+  \item \textbf{Direction 5: Many-Core Scaling \& Energy Efficiency.} Measure carrier contention, work stealing on larger NUMA systems without single-carrier constraints, and processor energy efficiency (joules per request) across platform, virtual, and reactive stacks.
+  \item \textbf{Direction 6: Automated Migration Triage.} Develop static analyzers and eBPF probes capable of detecting JNI carrier occupation and unsafe connection-checkout patterns in production Spring systems.
 \end{enumerate}

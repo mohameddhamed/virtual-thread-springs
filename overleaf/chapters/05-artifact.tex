@@ -47,11 +47,7 @@ To eliminate version ambiguity, all runtime dependencies are statically pinned i
 \section{Tomcat Request Dispatch and Virtual Thread Wiring}
 \label{sec:tomcat-dispatch}
 
-In Spring Boot 3, activating Virtual Threads requires only declaring:
-\begin{verbatim}
-spring.threads.virtual.enabled: true
-\end{verbatim}
-This property triggers \texttt{TomcatWebServerFactoryCustomizer} to configure Tomcat's protocol handler with \texttt{Executors.newVirtualThreadPerTaskExecutor()}. Table~\ref{tab:tomcat-dispatch} compares the architectural request lifecycle between Virtual Thread mode and the baseline Platform Thread mode.
+Enabling \path{spring.threads.virtual.enabled: true} (Section~\ref{sec:motivation-problem}) triggers \texttt{TomcatWeb\-Server\-Factory\-Customizer} to bind Tomcat's protocol handler to \texttt{Executors.\allowbreak new\-Virtual\-Thread\-Per\-Task\-Executor()}. Table~\ref{tab:tomcat-dispatch} compares the architectural request lifecycle between Virtual Thread mode and the baseline Platform Thread mode.
 
 \begin{table}[H]
   \centering
@@ -104,15 +100,8 @@ Java_com_thesis_virtualthreadsdemo_service_NativeBlockingService_nativeSleep(
 \end{verbatim}
 }
 
-\subsection{HotSpot Carrier Captivity and Diagnostic Omission}
-When \texttt{nativeSleep(500)} is invoked:
-\begin{enumerate}
-  \item HotSpot transitions the carrier thread state from\\ \texttt{\_thread\_in\_Java} to \texttt{\_thread\_in\_native}.
-  \item The POSIX \texttt{nanosleep()} system call places the physical OS platform thread into an interruptible Darwin/Mach wait state. The carrier thread yields its CPU core to the OS kernel scheduler.
-  \item Because execution occurs outside JVM bytecode interpretation, no bytecode safe-points are reached and \texttt{Continuation.yield()} is never called. The virtual thread remains rigidly bound to the carrier.
-  \item The JFR \texttt{jdk.VirtualThreadPinned} event triggers only when yield fails. Because yield is never attempted, JFR records strictly \textbf{0 pinning events} across all 27 native trials, creating a diagnostic blind spot.
-  \item Process telemetry sampled at 1.0-second intervals confirms that process CPU utilization remains at approximately $1\%$, disproving busy-wait myths.
-\end{enumerate}
+\subsection{Runtime Execution Path of \texttt{nativeSleep(500)}}
+When \texttt{nativeSleep(500)} executes (mechanics detailed in Section~\ref{sec:jni-boundary}), HotSpot transitions the carrier thread from \texttt{\_thread\_in\_Java} to \texttt{\_thread\_in\_native}, invokes POSIX \texttt{nanosleep()} on the OS carrier thread outside continuation yield checks, and triggers neither bytecode safe-points nor \texttt{Continuation.yield()}. Empirical pinning and CPU measurements across all 27 JNI-family trials are reported in Section~\ref{sec:results-rq2}.
 
 \section[Persistence Layer and HikariCP Connection Pooling]{Persistence Layer and HikariCP\\ Connection Pooling}
 \label{sec:persistence-implementation}
@@ -134,16 +123,12 @@ jdbcTemplate.execute((ConnectionCallback<...>) connection -> {
 }
 \end{itemize}
 
-Under Treatment B, connection checkout duration is strictly $T_{\text{hold}} = 0.300\text{ s}$. By Little's Law, a pool size of $K=1$ enforces a single-server bottleneck ($X_{\text{max}} = 1 / 0.300 \approx 3.33\text{ req/s}$), causing 49 virtual users to queue in HikariCP. Expanding pool size to $K=10$ scales throughput tenfold ($X_{\text{max}} \approx 33.3\text{ req/s}$) with 0 JFR pinning events, validating the Downstream Bottleneck Shift Law.
+Under Treatment~B, connection checkout duration is fixed at $T_{\text{hold}} = 0.300\text{ s}$ so that capacity follows Equation~\ref{eq:pool-capacity} ($X_{\text{max}} = K/T_{\text{hold}}$, giving theoretical ceilings of $3.33\text{ req/s}$ at $K=1$ and $33.3\text{ req/s}$ at $K=10$). Measured queue depths, throughput scaling, and JFR pinning counts are presented in Section~\ref{sec:results-rq2}.
 
 \section{Request Context and ThreadLocal Lifecycle}
 \label{sec:threadlocal-lifecycle}
 
-In \texttt{OrderService}, request-scoped context is stored in a static \texttt{ThreadLocal<String>} variable. In platform thread containers, memory overhead is bounded by pool size ($200 \times M_{\text{context}}$). Under Virtual Threads, where concurrency can reach $100\,000$ simultaneous threads, heap memory scales linearly as an analytical projection:
-\begin{equation}
-  \text{Memory}_{\text{virtual}} = N_{\text{concurrent}} \times M_{\text{context}}
-\end{equation}
-If $M_{\text{context}} = 50\text{ KB}$ (e.g., tokens, tracing spans), heap overhead reaches an analytical projection of $5.0\text{ GB}$. While \texttt{OrderService} enforces cleanup via \texttt{REQUEST\_CONTEXT.remove()} in a \texttt{finally} block, thread-local caching anti-patterns represent a major architectural vulnerability under virtual threads.
+In \texttt{OrderService}, request-scoped context is stored in a static \texttt{ThreadLocal<String>} field (\texttt{REQUEST\_CONTEXT}) and cleared deterministically via \path{REQUEST_CONTEXT.remove()} inside a \texttt{finally} block immediately after query completion. This enforces the bounded cleanup invariant required by the linear $O(N)$ virtual-thread context scaling analyzed in Section~\ref{sec:threadlocal-semantics} (Equations~3.2--3.3).
 
 \section{Benchmarking Harness and Telemetry Pipeline}
 \label{sec:benchmarking-harness}
