@@ -8,12 +8,12 @@ To evaluate the runtime interactions between Java 21 Virtual Threads, monitor pi
 
 The source tree is organized under root package \texttt{com.\allowbreak thesis.\allowbreak virtual\allowbreak threadsdemo}, adhering to a strict separation of concerns across four primary architectural layers: HTTP controllers, service implementations, persistence repositories, and native shared libraries. Table~\ref{tab:endpoint-catalog} details the empirical endpoint catalog and their corresponding experimental roles.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \small
   \caption{Empirical endpoint catalog and experimental roles.}
   \label{tab:endpoint-catalog}
-  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}cp{0.25\textwidth}Xc@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.20\textwidth}c>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}Xc@{}}
     \toprule
     \textbf{Endpoint} & \textbf{Method} & \textbf{Service Component} & \textbf{Primary Concurrency Mechanism} & \textbf{Target RQ} \\
     \midrule
@@ -49,11 +49,11 @@ To eliminate version ambiguity, all runtime dependencies are statically pinned i
 
 Enabling \path{spring.threads.virtual.enabled: true} (Section~\ref{sec:motivation-problem}) triggers \texttt{TomcatWeb\-Server\-Factory\-Customizer} to bind Tomcat's protocol handler to \texttt{Executors.\allowbreak new\-Virtual\-Thread\-Per\-Task\-Executor()}. Table~\ref{tab:tomcat-dispatch} compares the architectural request lifecycle between Virtual Thread mode and the baseline Platform Thread mode.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \caption{Tomcat request dispatch architecture: Virtual vs.\ Platform concurrency.}
   \label{tab:tomcat-dispatch}
-  \begin{tabularx}{\textwidth}{@{}p{0.24\textwidth}p{0.36\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.36\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{Architectural Phase} & \textbf{Virtual Threads (\texttt{enabled: true})} & \textbf{Platform Threads (\texttt{enabled: false})} \\
     \midrule

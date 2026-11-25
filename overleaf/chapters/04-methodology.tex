@@ -18,12 +18,13 @@ The empirical investigation is structured around a controlled, instrumented Spri
 
 To transition the two research questions (RQ1 and RQ2) into empirically verifiable hypotheses, each question is operationalized around explicit treatments, controlled baselines, dependent metrics, and decision rules. Table~\ref{tab:rq-method} details this operational mapping.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
-  \small
+  \footnotesize
+  \renewcommand{\arraystretch}{0.95}
   \caption{Research-question-to-method operationalisation matrix.}
   \label{tab:rq-method}
-  \begin{tabularx}{\textwidth}{@{}lp{0.22\textwidth}p{0.18\textwidth}p{0.18\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}l>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{RQ} & \textbf{Experimental Treatment} & \textbf{Controlled Baseline} & \textbf{Dependent Metrics} & \textbf{Operational Decision Rule} \\
     \midrule
@@ -56,11 +57,11 @@ The experimental testbed comprises open-source software libraries, standard comp
 \subsection{Repository Evidence Strata Census}
 To preserve provenance traceability and prevent conflating exploratory runs with primary benchmarks, the corpus of 125 physical trials (+1 schema template) is partitioned into eight non-overlapping strata, as detailed in Table~\ref{tab:strata-census}. Throughout this chapter and Chapters~\ref{ch:results}--\ref{ch:discussion}, parenthetical identifiers such as \texttt{CLM-RQ1-01} or \texttt{CLM-METH-02} trace directly to the repository's frozen claim-to-evidence ledger (\path{docs/evidence-freeze/claim-evidence-ledger.md}).
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \caption{Master repository execution census across eight evidence strata.}
   \label{tab:strata-census}
-  \begin{tabularx}{\textwidth}{@{}p{0.14\textwidth}p{0.26\textwidth}cp{0.16\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.26\textwidth}c>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{Stratum} & \textbf{Focus Description} & \textbf{Trials} & \textbf{Admitted Status} & \textbf{Epistemic Role} \\
     \midrule

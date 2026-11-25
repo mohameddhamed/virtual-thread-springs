@@ -4,29 +4,31 @@
 \section{Master Regulatory and Submission Verification}
 \label{sec:submission-checklist}
 
-In accordance with the MSc Thesis Regulations of the Faculty of Informatics, Eötvös Loránd University (ELTE), Dean's Directive No.~1/2026, and the official evaluation criteria, Table~\ref{tab:submission-checklist} records the factual verification status of all submission gates prior to supervisor sign-off and upload.
+In accordance with ELTE Faculty of Informatics MSc Thesis Regulations, Dean's Directive No.~1/2026, and official evaluation criteria, Table~\ref{tab:submission-checklist} summarizes submission gate status prior to supervisor sign-off and upload.
 
 \begin{table}[htbp]
   \centering
-  \small
-  \setlength{\tabcolsep}{4pt}
+  \footnotesize
+  \linespread{1.05}\selectfont
+  \renewcommand{\arraystretch}{1.05}
+  \setlength{\tabcolsep}{3.5pt}
   \caption{Regulatory, evidentiary, and submission status checklist.}
   \label{tab:submission-checklist}
-  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}X@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{Status} & \textbf{Gate} & \textbf{Verified Evidence or Outstanding Action} \\
     \midrule
-    Pending Sign-off & Administrative Consistency & Registration \path{IK-ZVMSC_EN2_155}, degree metadata (\texttt{DG1EWF}), supervisors (Dr.~habil.\ T.\ Kozsik, G.\ R.\ Morse), and Appendix~\ref{app:own-results-tdk} scope reconciliation await final consultation sign-off. \\
+    Pending Sign-off & Administrative Consistency & Registration \path{IK-ZVMSC_EN2_155}, code \texttt{DG1EWF}, supervisors (T.~Kozsik, G.~R.\ Morse), and Appendix~\ref{app:own-results-tdk} await final sign-off. \\
     Verified & Goal \& Question Closure & RQ1 and RQ2 close with empirical evidence, including negative/null outcomes (Tables~\ref{tab:rq-closure}, \ref{tab:negative-findings}). \\
-    Verified & Related Work Synthesis & Chapter~\ref{ch:related-work} synthesizes foundations, closest studies, and 10-point delta (Table~\ref{tab:comparative-delta}); all 51 references cited in body/Appendix~B. \\
-    Verified & Result Provenance & Central findings trace to fixed inputs, SHA-256 checksums, and manifest scripts (Tables~\ref{tab:result-provenance}, \ref{tab:reproduction}). \\
-    Verified & Contribution Boundaries & Independent student contributions documented consistently across Table~\ref{tab:contribution-ledger}, Appendix~\ref{app:own-results-tdk}, and repository ledgers. \\
-    Verified & Document Integrity & Final PDF and \LaTeX{} source derive from the same revision with resolved cross-references and citations. \\
-    Verified & Formatting Compliance & A4, 12~pt, 1.5 spacing (\texttt{\textbackslash setstretch\{1.427465\}}), 25~mm margins, continuous Arabic numbering, new-page chapters. \\
-    Verified & Final Exam Integration & \emph{Project Management}, \emph{Advanced Java programming}, and \emph{Scalable enterprise applications} integrated naturally (§\ref{sec:programme-fit}). \\
-    Pending Upload & Submission Package & Final PDF, topic form, code/evidence package, and updated Annex~3 AI declaration prepared for author review, signing, and portal upload. \\
-    Verified & Data \& Licence Hygiene & MIT licence (\texttt{LICENSE}); no personal data, corporate secrets, or production credentials (Table~\ref{tab:governance}). \\
-    Archived & Supervisory Evidence & Milestone records, pre-defense presentation slides, and revision logs archived in \path{docs/}. \\
+    Verified & Related Work Synthesis & Chapter~\ref{ch:related-work} synthesizes prior work and 10-point delta (Table~\ref{tab:comparative-delta}); all 51 references cited in body/Appendix~B. \\
+    Verified & Result Provenance & Findings trace to frozen inputs, SHA-256 checksums, and scripts (Tables~\ref{tab:result-provenance}, \ref{tab:reproduction}). \\
+    Verified & Contribution Boundaries & Independent contributions match across Table~\ref{tab:contribution-ledger}, Appendix~\ref{app:own-results-tdk}, and evidence ledgers. \\
+    Verified & Document Integrity & Final PDF and \LaTeX{} source derive from one revision with resolved cross-references and citations. \\
+    Verified & Formatting Compliance & A4, 12~pt, 1.5 spacing (\texttt{\textbackslash setstretch\{1.427465\}}), 25~mm margins, continuous Arabic numbering. \\
+    Verified & Final Exam Integration & \emph{Project Management}, \emph{Advanced Java}, and \emph{Scalable Enterprise Applications} integrated (§\ref{sec:programme-fit}). \\
+    Pending Upload & Submission Package & Final PDF, topic form, code/evidence archive, and updated Annex~3 AI declaration prepared for review, signing, and upload. \\
+    Verified & Data \& Licence Hygiene & MIT licence (\texttt{LICENSE}); zero personal data, secrets, or production credentials (Table~\ref{tab:governance}). \\
+    Archived & Supervisory Evidence & Milestone records, pre-defense slides, and revision logs archived under \path{docs/}. \\
     \bottomrule
   \end{tabularx}
 \end{table}

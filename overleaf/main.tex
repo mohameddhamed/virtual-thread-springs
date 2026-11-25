@@ -4,6 +4,9 @@
 % Local build: make  (or: latexmk -pdf main.tex)
 \input{config}
 \input{template-guidance}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 \begin{document}
 \documentlang{english}
@@ -52,6 +55,7 @@ Az eredményekre épül a \emph{Háromszintű Párhuzamossági Taxonómia}, öt 
 \hypersetup{pageanchor=true}
 \pagenumbering{arabic}
 \setcounter{page}{1}
+\setcounter{tocdepth}{1}
 \tableofcontents
 
 \include{chapters/01-introduction}
@@ -73,11 +77,10 @@ Az eredményekre épül a \emph{Háromszintű Párhuzamossági Taxonómia}, öt 
 \bibliographystyle{plainnat}
 \bibliography{references}
 
-% List of Figures is omitted as all visual taxonomies, benchmarks, and matrices are formatted as tables in the List of Tables per ELTE guidelines.
-% \cleardoublepage
-% \phantomsection
-% \addcontentsline{toc}{chapter}{List of Figures}
-% \listoffigures
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
 
 \cleardoublepage
 \phantomsection

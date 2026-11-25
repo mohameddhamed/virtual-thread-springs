@@ -6,12 +6,12 @@
 
 Synthesizing the empirical observations across all 125 physical trials and analytical derivations, this section formally closes the two research questions. Table~\ref{tab:rq-closure} details the Research Question Closure Ledger.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \footnotesize
   \caption{Research-question closure ledger.}
   \label{tab:rq-closure}
-  \begin{tabularx}{\textwidth}{@{}p{0.06\textwidth}Xp{0.22\textwidth}p{0.22\textwidth}p{0.08\textwidth}@{}}
+  \begin{tabularx}{\textwidth}{@{}p{0.06\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}p{0.08\textwidth}@{}}
     \toprule
     \textbf{RQ} & \textbf{Evidence-Backed Answer} & \textbf{Strength \& Uncertainty} & \textbf{Limit or Condition} & \textbf{Link} \\
     \midrule
@@ -188,11 +188,11 @@ public class RequestContextFilter implements Filter {
 \subsection{Migration Decision Matrix}
 Table~\ref{tab:migration-decision} summarizes the architectural triage rules for determining virtual thread eligibility.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \caption{Architectural migration triage and action matrix.}
   \label{tab:migration-decision}
-  \begin{tabularx}{\textwidth}{@{}p{0.22\textwidth}p{0.25\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{Workload / Boundary} & \textbf{Loom Compatibility} & \textbf{Mandatory Engineering Action} \\
     \midrule
@@ -214,11 +214,11 @@ Table~\ref{tab:migration-decision} summarizes the architectural triage rules for
 
 Table~\ref{tab:master-validity} provides a structured threats-to-validity evaluation, categorized across four classical empirical dimensions~\cite{Wohlin2012}.
 
-\begin{table}[H]
+\begin{table}[htbp]
   \centering
   \caption{Master threats to validity matrix.}
   \label{tab:master-validity}
-  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}p{0.25\textwidth}X@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.18\textwidth}>{\raggedright\arraybackslash}p{0.25\textwidth}>{\raggedright\arraybackslash}X@{}}
     \toprule
     \textbf{Dimension} & \textbf{Identified Threat} & \textbf{Methodological Mitigation and Scope} \\
     \midrule
