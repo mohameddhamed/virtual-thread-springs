@@ -22,7 +22,7 @@ Table~\ref{tab:governance} summarizes the research governance, data licensing, e
     \addlinespace
     Data and Artifact Licences & Open-source distribution under the MIT License. & \texttt{LICENSE} file in repository root; evaluated dependencies are Apache~2.0, MIT, or EPL-2.0. & Third-party components retain their own licences. \\
     \addlinespace
-    AI Assistance & Declared under Dean's Directive 1/2026 (Annex~3). & Table~\ref{tab:ai-usage-breakdown}; separate signed declaration to be confirmed for submission. & Zero AI-generated data; all empirical data originates from physical hardware executions. \\
+    AI Assistance & Declared under Dean's Directive 1/2026 (Annex~3). & Table~\ref{tab:ai-usage-breakdown}; signed PDF on file for prior revision (\path{Declaration_on_the_use_of_AI_tools_DG1EWF_signed.pdf}); updated Annex~3 draft awaiting review and re-signing. & Zero AI-generated data; all empirical data originates from physical hardware executions. \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -34,24 +34,33 @@ In accordance with Annex~3 of Dean's Directive 1/2026, Table~\ref{tab:ai-usage-b
 
 \begin{table}[htbp]
   \centering
+  \footnotesize
+  \linespread{1.02}\selectfont
+  \renewcommand{\arraystretch}{0.94}
   \caption[Detailed inventory of generative AI tool usage.]{Detailed inventory of generative AI tool usage (Dean's Directive 1/2026 Annex 3).}
   \label{tab:ai-usage-breakdown}
-  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}@{}}
+  \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.21\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}p{0.22\textwidth}@{}}
     \toprule
     \textbf{Purpose} & \textbf{Method and Critical Adaptation} & \textbf{AI Tool Used} & \textbf{Thesis Scope / Location} \\
     \midrule
-    Structural Drafting, Outlining, and Prose Polish & Generated preliminary outlines and structural drafts for standard framework descriptions; critically revised and rewritten by author to align with ELTE academic standards and queueing models. & Anthropic Claude (Claude 3.5 Sonnet) & Chapters~\ref{ch:introduction} (§\ref{sec:programme-fit}), \ref{ch:background} (§\ref{sec:jvm-concurrency-evolution}), \ref{ch:methodology} (§\ref{sec:research-mode}), \ref{ch:artifact} (§\ref{sec:system-architecture}), \ref{ch:discussion} (§\ref{sec:rq-closure}), and \ref{ch:conclusion}. \\
-    \addlinespace
-    Scaffolding Recalculation \& Verification Scripts & Scaffolding preliminary Python templates for parsing raw k6 JSON lines and JFR events; audited, refined, and verified against physical data using cryptographic SHA-256 checks. & Anthropic Claude (Claude 3.5 Sonnet) \& GitHub Copilot & Python verification scripts (\path{scripts/normalize_evidence.py}, \path{recalculate_metrics.py}, \path{validate_normalized_evidence.py}). \\
-    \addlinespace
-    Integration Test Boilerplate Scaffolding & Autocompleted boilerplate JUnit 5 integration test fixtures; manually adapted with strict assertions for mutual exclusion across all locking strategies, \texttt{ThreadLocal} cleanup, and JNI bindings. & GitHub Copilot & Chapter~\ref{ch:artifact} and test directory \path{src/test/java/}. \\
-    \addlinespace
-    Pre-Submission Editorial and Formatting Audit & Automated static editorial audit for layout, cross-document reference consistency, overfull boxes, and final test/corpus alignment; all findings audited, verified against raw artifacts, and remediated by the author. & Independent Reasoning Model / Google Gemini (Antigravity) & Pre-submission audit across all chapters, appendices, test suite, and Annex~3 declarations. \\
+    Structural Drafting & Preliminary outlines/prose drafts for standard framework descriptions; revised by author to match ELTE and queueing conventions. & Anthropic Claude (3.5 Sonnet) & Ch.~\ref{ch:introduction} (§\ref{sec:programme-fit}), \ref{ch:background} (§\ref{sec:jvm-concurrency-evolution}), \ref{ch:methodology}, \ref{ch:artifact}, \ref{ch:discussion}, \ref{ch:conclusion}. \\
+    \addlinespace[2pt]
+    Verification Script Scaffolding & Python parser templates for k6 JSON/JFR telemetry; audited and SHA-256 verified against physical outputs. & Claude~3.5 Sonnet \& GitHub Copilot & Scripts (\path{normalize_evidence.py}, \path{recalculate_metrics.py}, \path{validate_normalized_evidence.py}). \\
+    \addlinespace[2pt]
+    Integration Test Scaffolding & JUnit~5 boilerplate adapted with explicit assertions for lock mutual exclusion, \texttt{ThreadLocal} hygiene, and JNI calls. & GitHub Copilot & Chapter~\ref{ch:artifact} and \path{src/test/java/}. \\
+    \addlinespace[2pt]
+    Static Formatting Audit & Static review for layout, cross-references, and typography; findings checked against raw artifacts by author. & Independent Reasoning Model / Editorial Audit & Pre-submission check across chapters and appendices. \\
+    \addlinespace[2pt]
+    Evidence Reconciliation & Recomputed table cells from frozen runs, checked citations, refined matrix terminology, and rebuilt PDF. & OpenAI Codex / GPT-6.2 Sol & Abstract, Kivonat, Ch.~\ref{ch:introduction}--\ref{ch:conclusion}, App.~\ref{app:reproducibility}--\ref{app:own-results-tdk}, bibliography. \\
+    \addlinespace[2pt]
+    Pre-Submission Verification & Audited Checkpoint~2--4 gates, expanded parameterized JUnit locks (\texttt{9/9}), and aligned 543-file counts and App.~\ref{app:own-results-tdk}. & Google Gemini (Antigravity) & Ch.~\ref{ch:introduction}, \ref{ch:artifact}, App.~\ref{app:reproducibility}--\ref{app:own-results-tdk}, test suite, Annex~3. \\
+    \addlinespace[2pt]
+    Editorial, Structural \& Visual Polish & Archived Table~A.2 after integrating 12 citations into Ch.~\ref{ch:related-work}--\ref{ch:background}; relocated Table~\ref{tab:symptom-disambiguation}; added Figs.~\ref{fig:carrier-lifecycle}, \ref{fig:ch6-strata-panels}; tightened App.~\ref{app:submission}; calibrated rhetoric and audits. & Google Gemini (Antigravity) & Abstract, Kivonat, Ch.~\ref{ch:introduction}--\ref{ch:conclusion}, App.~\ref{app:reproducibility}--\ref{app:submission}, figure pipeline/tests, unsigned Annex~3. \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-Codex (GPT-6.2 Sol) assisted with editorial revision of the introduction, related work, results opening, and ending of the discussion and conclusion; it moved the existing literature table to Appendix~\ref{app:reproducibility}, aligned decision-matrix terminology across the manuscript, and rebuilt and inspected the PDF. Subsequently, Google Gemini (Antigravity) performed the adversarial pre-submission verification against Checkpoint 2--4 audit criteria, standardized cross-file counts (543 artifacts, 9 Java tests), harmonized RQ2 and Appendix~\ref{app:own-results-tdk} phrasing, removed residual wrapper references in \path{scripts/recalculate_metrics.py}, and synchronized the standalone AI declaration files for final author review and signing. Both tools operated strictly on existing findings and verified source artifacts.
+All tools listed in Table~\ref{tab:ai-usage-breakdown} operated strictly on student-executed empirical data and verified source artifacts; the previously signed declaration (\path{Declaration_on_the_use_of_AI_tools_DG1EWF_signed.pdf}) is preserved alongside the updated unsigned Annex~3 files for author review and re-signing.
 
 \subsection{Strict Exclusions and Independent Authorship Guarantees}
 \begin{enumerate}

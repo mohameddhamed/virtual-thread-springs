@@ -4,7 +4,7 @@
 \section{Research Design and Mode}
 \label{sec:research-mode}
 
-This dissertation adopts an \textbf{empirical systems engineering} paradigm~\cite{Wohlin2012,Runeson2009} to evaluate the architectural, performance, and runtime consequences of migrating a Spring Boot Model-View-Controller (MVC) system to Java~21 Virtual Threads (Project Loom). Rather than treating runtime migration as a trivial configuration toggle, this research models the transition as an architectural intervention within a multi-tier concurrency and queueing network.
+This dissertation adopts an \textbf{empirical systems engineering} paradigm~\cite{Wohlin2012,Runeson2009} to evaluate the architectural, performance, and runtime consequences of migrating a Spring Boot Model-View-Controller (MVC) system to Java~21 Virtual Threads (Project Loom). Rather than treating runtime migration as a trivial configuration toggle, this research models the transition as an architectural intervention within a multi-tier concurrency and queueing network.\footnote{Google Gemini assisted with consolidating pre-execution validity controls in Section~\ref{sec:validity-controls} and documenting Stratum~8 runtime tooling.}
 
 The empirical investigation is structured around a controlled, instrumented Spring Boot MVC benchmark application (\texttt{virtual-threads-demo}). In empirical software engineering, research designs must balance internal validity (the degree to which observed outcomes are directly attributable to experimental treatments) against external validity (the generalizability of conclusions to industrial systems):
 \begin{itemize}

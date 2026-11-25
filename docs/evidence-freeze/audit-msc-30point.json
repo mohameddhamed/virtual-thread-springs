@@ -1,0 +1,47 @@
+{
+  "reviewer": "Pre-Submission Independent MSc Audit (ELTE IK 30-Point Rubric)",
+  "thesis_revision": "overleaf/main.pdf (88 PDF pages; 60 body pages Ch. 1-8)",
+  "items": {
+    "I.1": "awarded",
+    "I.2": "awarded",
+    "I.3": "awarded",
+    "I.4": "awarded",
+    "II.1": "awarded",
+    "II.2": "awarded",
+    "II.3": "awarded",
+    "II.4": "awarded",
+    "II.5": "awarded",
+    "III.1": "awarded",
+    "III.2": "awarded",
+    "III.3": "awarded",
+    "III.4": "awarded",
+    "III.5": "awarded",
+    "III.6": "awarded",
+    "III.7": "awarded",
+    "III.8": "awarded",
+    "III.9": "awarded",
+    "IV.1": "awarded",
+    "IV.2": "awarded",
+    "IV.3": "awarded",
+    "IV.4": "awarded",
+    "IV.5": "awarded",
+    "IV.6": "awarded",
+    "IV.7": "awarded",
+    "IV.8": "awarded",
+    "IV.9": "awarded",
+    "V.1": "awarded",
+    "V.2": "awarded",
+    "VI.1": "pending_human_verification"
+  },
+  "criterion_ratings": {
+    "I": "excellent",
+    "II": "excellent",
+    "III": "excellent",
+    "IV": "excellent",
+    "V": "excellent",
+    "VI": "good"
+  },
+  "notes": {
+    "VI.1": "Repository documents topic approval (IK-ZVMSC_EN2_155), checkpoints, revision logs, and prior signed Annex 3 (2026.11.25), but final consultation sign-off (Appendix C) and author re-signing of the updated Annex 3 declaration await human verification."
+  }
+}

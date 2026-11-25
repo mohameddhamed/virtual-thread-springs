@@ -4,7 +4,7 @@
 \section{System Architecture and Application Anatomy}
 \label{sec:system-architecture}
 
-To evaluate the runtime interactions between Java 21 Virtual Threads, monitor pinning, mutual exclusion serialization, relational persistence, and foreign function boundaries, an instrumented benchmark application (\texttt{virtual-threads-demo}) was engineered. The system models an enterprise Model-View-Controller (MVC) microservice architecture implemented in Java~21 LTS utilizing the Spring Boot 3.5.12 framework~\cite{SpringReference}, deployed on embedded Apache Tomcat 10.1.52~\cite{TomcatReference}, and compiled via Apache Maven 3.9.
+To evaluate the runtime interactions between Java 21 Virtual Threads, monitor pinning, mutual exclusion serialization, relational persistence, and foreign function boundaries, an instrumented benchmark application (\texttt{virtual-threads-demo}) was engineered. The system models an enterprise Model-View-Controller (MVC) microservice architecture implemented in Java~21 LTS utilizing the Spring Boot 3.5.12 framework~\cite{SpringReference}, deployed on embedded Apache Tomcat 10.1.52~\cite{TomcatReference}, and compiled via Apache Maven 3.9.\footnote{Google Gemini assisted with removing redundant configuration blocks and keeping quantitative benchmark outcomes scoped to Chapter~\ref{ch:results}.}
 
 The source tree is organized under root package \texttt{com.\allowbreak thesis.\allowbreak virtual\allowbreak threadsdemo}, adhering to a strict separation of concerns across four primary architectural layers: HTTP controllers, service implementations, persistence repositories, and native shared libraries. Table~\ref{tab:endpoint-catalog} details the empirical endpoint catalog and their corresponding experimental roles.
 
